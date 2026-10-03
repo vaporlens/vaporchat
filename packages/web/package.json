@@ -1,0 +1,17 @@
+{
+  "name": "vaporchat-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "steam-user": "^5.3.0",
+    "vaporchat": "*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "playwright": "^1.63.0",
+    "typescript": "^7.0.2"
+  }
+}

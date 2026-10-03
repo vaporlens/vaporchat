@@ -1,0 +1,176 @@
+:root {
+  color-scheme: dark;
+  --bg: #171a21;
+  --panel: #1f2430;
+  --line: #2c3342;
+  --text: #e6e9ef;
+  --muted: #8b93a7;
+  --accent: #4cb2ff;
+  --ok: #5ed37a;
+  --danger: #ff5c5c;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+section:empty {
+  display: none;
+}
+
+section,
+details {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  min-height: 52px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--line);
+  flex: none;
+  object-fit: cover;
+  outline: 2px solid transparent;
+  transition: outline-color 0.1s;
+}
+
+.avatar.speaking {
+  outline-color: var(--ok);
+}
+
+.offline {
+  opacity: 0.45;
+}
+
+button {
+  font: inherit;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-height: 44px;
+  background: var(--line);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #06121e;
+}
+
+button.ok {
+  background: var(--ok);
+  color: #06200d;
+}
+
+button.danger {
+  background: var(--danger);
+  color: #2a0505;
+}
+
+button.on {
+  outline: 2px solid var(--danger);
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.controls button {
+  flex: 1;
+}
+
+form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
+
+#log {
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 50vh;
+  overflow: auto;
+}

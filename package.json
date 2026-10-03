@@ -1,0 +1,17 @@
+{
+  "name": "vaporchat-monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot packages/web/server.ts",
+    "start": "bun packages/web/server.ts",
+    "check": "biome check && npm run --workspaces --if-present check",
+    "test": "npm run --workspaces --if-present test"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.env
+.env.local
+
+# refresh tokens and other runtime state
+data/
