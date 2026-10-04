@@ -1,5 +1,6 @@
 import type { ChatGroup } from '../protocol.ts';
 import type { SteamCM } from './cm.ts';
+import { avatarUrl, hex } from './friends.ts';
 
 /** Steam notifications after which the group list is worth fetching again. */
 export const GROUP_CHANGE_NOTIFICATIONS = [
@@ -21,6 +22,7 @@ interface ChatRoomState {
 interface ChatGroupSummary {
   chat_group_id: string;
   chat_group_name?: string;
+  chat_group_avatar_sha?: Uint8Array;
   chat_rooms?: ChatRoomState[];
 }
 
@@ -51,9 +53,14 @@ export async function getGroups(cm: SteamCM): Promise<ChatGroup[]> {
       (s) => s.header_state?.chat_group_id === summary.chat_group_id,
     );
     const rooms = state?.chat_rooms ?? summary.chat_rooms ?? [];
+    // groups without a picture have no avatar, unlike users there is no default one
+    const avatarSha = summary.chat_group_avatar_sha;
     return {
       groupId: summary.chat_group_id,
       name: summary.chat_group_name ?? '',
+      avatarUrl: avatarSha?.some((byte) => byte !== 0)
+        ? avatarUrl(hex(avatarSha))
+        : null,
       rooms: rooms.map((room) => ({
         chatId: room.chat_id,
         // steam leaves the default room unnamed and shows it as General

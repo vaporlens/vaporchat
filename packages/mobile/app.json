@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "com.yamalight.vaporchat",
       "appleTeamId": "EA3F6PEEAV",
@@ -35,6 +35,7 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "backgroundColor": "#171d25"
   }
 }

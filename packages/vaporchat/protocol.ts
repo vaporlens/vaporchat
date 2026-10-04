@@ -149,5 +149,6 @@ export interface ChatRoom {
 export interface ChatGroup {
   groupId: string;
   name: string;
+  avatarUrl: string | null;
   rooms: ChatRoom[];
 }

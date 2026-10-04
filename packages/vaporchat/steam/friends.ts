@@ -35,12 +35,12 @@ interface Persona {
   state: number;
 }
 
-function hex(bytes: Uint8Array) {
+export function hex(bytes: Uint8Array) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // the avatar host Steam's Web API uses today, steam-user's older akamai path serves the same files
-function avatarUrl(hash: string) {
+export function avatarUrl(hash: string) {
   const shown = /^0+$/.test(hash) ? DEFAULT_AVATAR_HASH : hash;
   return `https://avatars.steamstatic.com/${shown}_full.jpg`;
 }

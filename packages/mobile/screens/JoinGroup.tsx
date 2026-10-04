@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Button, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
-import { useColors } from '../colors';
+import { Field } from '../components/Field';
+import { GradientButton } from '../components/GradientButton';
+import { colors } from '../theme';
 
 /** Joins a Steam group chat from an `https://s.team/chat/…` invite link. */
 export function JoinGroup({
@@ -13,11 +15,11 @@ export function JoinGroup({
   onJoined: () => void;
   onError: (err: Error) => void;
 }) {
-  const colors = useColors();
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function join() {
+    if (link.trim() === '') return;
     setBusy(true);
     try {
       await voice.connection.joinGroupByInviteLink(link.trim());
@@ -31,24 +33,27 @@ export function JoinGroup({
   }
 
   return (
-    <View style={styles.row}>
-      <TextInput
-        style={[
-          styles.input,
-          { color: colors.text, borderColor: colors.border },
-        ]}
+    <View style={styles.card}>
+      <Text style={styles.title}>Join a group chat</Text>
+      <Text style={styles.hint}>
+        Paste the invite link someone shared from Steam chat.
+      </Text>
+      <Field
+        icon="link"
         value={link}
         onChangeText={setLink}
-        placeholder="Invite link (https://s.team/chat/…)"
-        placeholderTextColor={colors.muted}
+        placeholder="https://s.team/chat/…"
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
+        returnKeyType="join"
+        autoFocus
         onSubmitEditing={join}
       />
-      <Button
-        title={busy ? 'Joining…' : 'Join'}
-        disabled={busy || link.trim() === ''}
+      <GradientButton
+        title="Join group"
+        busy={busy}
+        disabled={link.trim() === ''}
         onPress={join}
       />
     </View>
@@ -56,12 +61,16 @@ export function JoinGroup({
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+  card: {
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  input: { flex: 1, borderWidth: 1, borderRadius: 8, padding: 10 },
+  title: { color: colors.bright, fontSize: 16, fontWeight: '700' },
+  hint: { color: colors.muted, fontSize: 13 },
 });

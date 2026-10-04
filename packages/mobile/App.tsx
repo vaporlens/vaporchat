@@ -3,18 +3,20 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
-  Button,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { retryDelay } from 'vaporchat/client/retryPolicy';
 import { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SteamGuardHandler } from 'vaporchat/steam/credentialLogin';
 import type { SteamCredentials } from 'vaporchat/steam/logOn';
-import { useColors } from './colors';
+import { GradientButton } from './components/GradientButton';
+import { Logo } from './components/Logo';
 import { Home } from './screens/Home';
 import { SignIn } from './screens/SignIn';
+import { colors, gradients } from './theme';
 import { tokenStore } from './tokenStore';
 
 type State =
@@ -29,7 +31,6 @@ function message(err: unknown) {
 }
 
 export default function App() {
-  const colors = useColors();
   const [state, setState] = useState<State>({ kind: 'connecting' });
 
   function signedIn(voice: SteamVoice) {
@@ -116,11 +117,14 @@ export default function App() {
   }, [failures]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaProvider style={styles.container}>
       {state.kind === 'connecting' && (
         <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={{ color: colors.muted }}>Connecting to Steam…</Text>
+          <Logo />
+          <View style={styles.status}>
+            <ActivityIndicator color={colors.muted} />
+            <Text style={styles.statusText}>Connecting to Steam…</Text>
+          </View>
         </View>
       )}
       {state.kind === 'signedOut' && (
@@ -128,10 +132,13 @@ export default function App() {
       )}
       {state.kind === 'disconnected' && (
         <View style={styles.center}>
-          <Text style={{ color: colors.text }}>
-            Disconnected from Steam: {state.reason}. Reconnecting…
-          </Text>
-          <Button
+          <Logo />
+          <View style={styles.status}>
+            <ActivityIndicator color={colors.muted} />
+            <Text style={styles.statusText}>Reconnecting to Steam…</Text>
+          </View>
+          <Text style={styles.reason}>{state.reason}</Text>
+          <GradientButton
             title="Reconnect now"
             onPress={() => reconnect(state.failures)}
           />
@@ -140,18 +147,25 @@ export default function App() {
       {state.kind === 'signedIn' && (
         <Home voice={state.voice} onSignOut={() => signOut(state.voice)} />
       )}
-      <StatusBar style="auto" />
-    </View>
+      <StatusBar style="light" />
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    experimental_backgroundImage: gradients.screen,
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    padding: 24,
+    gap: 20,
+    padding: 32,
   },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusText: { color: colors.muted, fontSize: 15 },
+  reason: { color: colors.offline, fontSize: 13, textAlign: 'center' },
 });
