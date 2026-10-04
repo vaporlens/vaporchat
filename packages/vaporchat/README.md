@@ -16,6 +16,18 @@ browser / webview ──websocket (signaling)──► server ──CM (steam-us
         └────────────── WebRTC audio ───────────────────────────────────► Steam voice servers
 ```
 
+## Platforms
+
+The library talks to Steam directly, with no server in between (see `steam/cm.ts`). It runs in
+React Native, Node/Bun and browsers. **Browsers need a server for one thing:** Steam's API only allows CORS
+from steamcommunity.com, so a browser page can't fetch Steam's server list. Serve that list from
+your own backend (proxy `https://api.steampowered.com/ISteamDirectory/GetCMListForConnect/v1/?cellid=0`)
+and pass its URL as `serverListUrl`. Everything else, including login, goes over a WebSocket to Steam,
+which browsers allow.
+
+> In transition: the sections below still describe the old design, where a server held the Steam
+> session through steam-user. See `docs/handoff.md` for the state of the rewrite.
+
 ## Server
 
 ```ts

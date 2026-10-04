@@ -9,8 +9,10 @@
     "ignoreUnknown": false,
     "includes": [
       "packages/*/**/*.ts",
+      "packages/*/**/*.tsx",
       "packages/*/**/*.html",
-      "!**/node_modules"
+      "!**/node_modules",
+      "!**/*.generated.ts"
     ]
   },
   "formatter": {

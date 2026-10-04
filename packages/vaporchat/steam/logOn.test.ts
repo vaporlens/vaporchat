@@ -1,118 +1,111 @@
-import { EventEmitter } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import SteamUser from 'steam-user';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRefreshTokenWithCredentials } from './credentialLogin.ts';
-import { type LogOnClient, logOnSteam } from './logOn.ts';
-import { loadRefreshToken, saveRefreshToken } from './refreshToken.ts';
+import { EResult } from './eresult.ts';
+import { logOnSteam, type TokenStore } from './logOn.ts';
 
 vi.mock('./credentialLogin.ts', () => ({
   getRefreshTokenWithCredentials: vi.fn(),
 }));
 const credentialLogin = vi.mocked(getRefreshTokenWithCredentials);
 
-type LogOnDetails = Parameters<SteamUser['logOn']>[0];
+// scripted EResults for the next logons, and the tokens they were attempted with
+const steam = vi.hoisted(() => ({
+  results: [] as number[],
+  tokens: [] as string[],
+}));
+
+// a Steam connection that answers ClientLogon with the next scripted result
+vi.mock('./cm.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./cm.ts')>();
+  const { encodeProto } = await import('./protos.ts');
+  type Handler = (header: object, body: Uint8Array) => void;
+  class FakeCM {
+    #handlers = new Map<number | string, Handler>();
+    static async connect() {
+      return new FakeCM();
+    }
+    onMessage(key: number | string, handler: Handler) {
+      this.#handlers.set(key, handler);
+      return () => {};
+    }
+    on() {
+      return () => {};
+    }
+    send(_emsg: number, _type: string, body: { access_token: string }) {
+      steam.tokens.push(body.access_token);
+      const eresult = steam.results.shift() ?? 1;
+      queueMicrotask(() =>
+        this.#handlers.get(actual.EMsg.ClientLogOnResponse)?.(
+          {},
+          encodeProto('CMsgClientLogonResponse', { eresult }),
+        ),
+      );
+    }
+    startSession() {}
+    close() {}
+  }
+  return { ...actual, SteamCM: FakeCM };
+});
 
 const credentials = { accountName: 'Bot', password: 'hunter2' };
 
-// answers each logOn call with the next scripted steam reaction
-class FakeSteamClient extends EventEmitter {
-  logOns: LogOnDetails[] = [];
-  reactions: Array<(client: FakeSteamClient) => void>;
-  constructor(reactions: Array<(client: FakeSteamClient) => void>) {
-    super();
-    this.reactions = reactions;
-  }
-  logOn(details: LogOnDetails) {
-    this.logOns.push(details);
-    const react = this.reactions.shift();
-    if (!react) throw new Error('unexpected logOn');
-    setImmediate(() => react(this));
-  }
+/** A refresh token is a JWT, the label only tells tokens apart in assertions. */
+function token(label: string) {
+  const payload = btoa(JSON.stringify({ sub: '76561197960287930', label }));
+  return `header.${payload}.signature`;
 }
 
-const loggedOn = (client: FakeSteamClient) => client.emit('loggedOn');
-const fail = (eresult: number) => (client: FakeSteamClient) =>
-  client.emit(
-    'error',
-    Object.assign(new Error(`eresult ${eresult}`), { eresult }),
-  );
-
-function asClient(fake: FakeSteamClient) {
-  return fake as unknown as LogOnClient;
+function memoryStore(initial: string | null = null) {
+  const store = {
+    token: initial,
+    load: async () => store.token,
+    save: async (refreshToken: string) => {
+      store.token = refreshToken;
+    },
+    clear: async () => {
+      store.token = null;
+    },
+  };
+  return store satisfies TokenStore;
 }
 
 describe('logOnSteam', () => {
-  let dataDir: string;
-  beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), 'vaporchat-'));
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+  beforeEach(() => {
+    steam.results = [];
+    steam.tokens = [];
     credentialLogin.mockReset();
-  });
-  afterEach(async () => {
-    await rm(dataDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it('logs in with credentials once and reuses the saved token afterwards', async () => {
-    credentialLogin.mockResolvedValue('token-1');
-    const first = new FakeSteamClient([loggedOn]);
-    await logOnSteam(asClient(first), credentials, dataDir);
-    expect(first.logOns).toEqual([{ refreshToken: 'token-1' }]);
+    credentialLogin.mockResolvedValue(token('one'));
+    const store = memoryStore();
 
-    const second = new FakeSteamClient([loggedOn]);
-    await logOnSteam(asClient(second), credentials, dataDir);
-    expect(second.logOns).toEqual([{ refreshToken: 'token-1' }]);
+    await logOnSteam(store, { credentials });
+    await logOnSteam(store, { credentials });
+
+    expect(steam.tokens).toEqual([token('one'), token('one')]);
     expect(credentialLogin).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to credentials when steam rejects the stored token', async () => {
-    await saveRefreshToken(dataDir, credentials.accountName, 'stale');
-    credentialLogin.mockResolvedValue('fresh');
-    const client = new FakeSteamClient([
-      fail(SteamUser.EResult.AccessDenied),
-      loggedOn,
-    ]);
+    credentialLogin.mockResolvedValue(token('fresh'));
+    const store = memoryStore(token('stale'));
+    steam.results = [EResult.AccessDenied, EResult.OK];
 
-    await logOnSteam(asClient(client), credentials, dataDir);
+    await logOnSteam(store, { credentials });
 
-    expect(client.logOns).toEqual([
-      { refreshToken: 'stale' },
-      { refreshToken: 'fresh' },
-    ]);
-    expect(await loadRefreshToken(dataDir, credentials.accountName)).toBe(
-      'fresh',
-    );
+    expect(steam.tokens).toEqual([token('stale'), token('fresh')]);
+    expect(store.token).toBe(token('fresh'));
   });
 
   it('keeps the stored token on errors unrelated to the token', async () => {
-    await saveRefreshToken(dataDir, credentials.accountName, 'good');
-    const client = new FakeSteamClient([
-      fail(SteamUser.EResult.ServiceUnavailable),
-    ]);
+    const store = memoryStore(token('good'));
+    const SERVICE_UNAVAILABLE = 20;
+    steam.results = [SERVICE_UNAVAILABLE];
 
-    await expect(
-      logOnSteam(asClient(client), credentials, dataDir),
-    ).rejects.toThrow();
+    await expect(logOnSteam(store, { credentials })).rejects.toThrow();
 
     expect(credentialLogin).not.toHaveBeenCalled();
-    expect(await loadRefreshToken(dataDir, credentials.accountName)).toBe(
-      'good',
-    );
-  });
-
-  it('persists tokens renewed later in the session', async () => {
-    await saveRefreshToken(dataDir, credentials.accountName, 'old');
-    const client = new FakeSteamClient([loggedOn]);
-    await logOnSteam(asClient(client), credentials, dataDir);
-
-    client.emit('refreshToken', 'renewed');
-    await vi.waitFor(async () =>
-      expect(await loadRefreshToken(dataDir, credentials.accountName)).toBe(
-        'renewed',
-      ),
-    );
+    expect(store.token).toBe(token('good'));
   });
 });
