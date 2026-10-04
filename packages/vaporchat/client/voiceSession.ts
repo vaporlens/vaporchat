@@ -10,7 +10,8 @@ import {
   WATCHDOG_INTERVAL_MS,
 } from './retryPolicy.ts';
 import { mungeOpusFmtp, steamIdFromAccountId } from './sdp.ts';
-import { browserInfo, waitForIceConnected } from './webrtc.ts';
+import { watchSpeaking } from './speaking.ts';
+import { browserInfo, userAgent, waitForIceConnected } from './webrtc.ts';
 
 export type VoiceTarget =
   | { kind: 'group'; groupId: string; chatId: string }
@@ -27,6 +28,8 @@ export type VoiceSessionState =
 interface VoiceSessionEvents {
   state: VoiceSessionState;
   participants: Participant[];
+  /** steamids of everyone currently speaking, us included */
+  speaking: string[];
   ended: { reason: string };
   log: string;
 }
@@ -71,6 +74,11 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
   #onSessionConnected: ((info: WebRTCSessionConnected) => void) | null = null;
   #onPartnerAnswer: ((accepted: boolean) => void) | null = null;
   #participants: Participants;
+  /** remote track id → steamid of the participant it carries */
+  #trackOwners = new Map<string, string>();
+  #speaking: string[] = [];
+  #speakingTrackIds: ReadonlySet<string> = new Set();
+  #stopSpeaking: (() => void) | null = null;
   #micMuted = false;
   #outputMuted = false;
   #retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -103,6 +111,10 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
 
   get microphone() {
     return this.#microphone;
+  }
+
+  get speaking() {
+    return this.#speaking;
   }
 
   start() {
@@ -166,6 +178,7 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
     for (const track of this.#microphone?.getAudioTracks() ?? []) {
       track.enabled = !muted;
     }
+    this.#onSpeaking(this.#speakingTrackIds);
     this.#sendVoiceStatus();
   }
 
@@ -360,6 +373,9 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
       },
     });
     this.#remote = remote;
+    this.#stopSpeaking = watchSpeaking(pc, (trackIds) =>
+      this.#onSpeaking(trackIds),
+    );
     pc.addEventListener('track', (event) => this.#onTrack(event));
     pc.addEventListener('iceconnectionstatechange', () => {
       this.#log(`ICE ${pc.iceConnectionState}`);
@@ -430,7 +446,7 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
       ip_webrtc_client: webrtc.client_ip,
       port_webrtc_client: webrtc.client_port,
       ssrc_my_sending_stream: webrtc.ssrc,
-      user_agent: navigator.userAgent,
+      user_agent: userAgent(),
       has_audio_worklets_support: typeof AudioWorkletNode !== 'undefined',
       has_webrtc_data_channel: false,
       accepts_webrtc_video: false,
@@ -478,6 +494,7 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
     }
     const steamid = steamIdFromAccountId(accountId);
     const stream = event.streams[0] ?? new MediaStream([event.track]);
+    this.#trackOwners.set(event.track.id, steamid);
     this.#participants.setStream(steamid, stream);
     this.#emitParticipants();
 
@@ -493,6 +510,25 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
 
   #emitParticipants() {
     this.emit('participants', this.participants);
+  }
+
+  #onSpeaking(trackIds: ReadonlySet<string>) {
+    this.#speakingTrackIds = trackIds;
+    const micTrackId = this.#microphone?.getAudioTracks()[0]?.id;
+    this.#setSpeaking(
+      [...trackIds].flatMap((trackId) => {
+        if (trackId === micTrackId) {
+          return this.#micMuted ? [] : [this.#selfSteamId];
+        }
+        return this.#trackOwners.get(trackId) ?? [];
+      }),
+    );
+  }
+
+  #setSpeaking(steamids: string[]) {
+    if (steamids.length === 0 && this.#speaking.length === 0) return;
+    this.#speaking = steamids;
+    this.emit('speaking', steamids);
   }
 
   #sendVoiceStatus() {
@@ -516,6 +552,11 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
     this.#sender = null;
     this.#remote?.close();
     this.#remote = null;
+    this.#stopSpeaking?.();
+    this.#stopSpeaking = null;
+    this.#trackOwners.clear();
+    this.#speakingTrackIds = new Set();
+    this.#setSpeaking([]);
     this.#onSessionConnected = null;
     this.#onPartnerAnswer = null;
     this.#participants.clearAllStreams();

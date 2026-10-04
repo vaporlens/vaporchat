@@ -101,10 +101,7 @@ function renderSession() {
   const me = h(
     'div',
     { class: 'row' },
-    avatar(
-      voice.me.steamid,
-      playback.isSpeaking(voice.me.steamid) && !session.micMuted,
-    ),
+    avatar(voice.me.steamid, session.speaking.includes(voice.me.steamid)),
     h('div', { class: 'grow name' }, nameOf(voice.me.steamid)),
     h(
       'div',
@@ -122,7 +119,7 @@ function renderSession() {
     h(
       'div',
       { class: 'row' },
-      avatar(p.steamid, playback.isSpeaking(p.steamid)),
+      avatar(p.steamid, session.speaking.includes(p.steamid)),
       h('div', { class: 'grow name' }, nameOf(p.steamid)),
       h(
         'div',
@@ -297,8 +294,6 @@ async function getMicrophone() {
 async function startVoice(
   start: (microphone: MediaStream | null) => Promise<VoiceSession>,
 ) {
-  // runs in the click handler so mobile browsers allow audio playback
-  playback.unlock();
   await start(await getMicrophone());
 }
 
@@ -308,9 +303,9 @@ function stopTracks(stream: MediaStream | null) {
 
 // sessions also start without a click (taking over a simultaneous call), so wire them all here
 function wireSession(session: VoiceSession) {
-  playback.watchMicrophone(voice.me.steamid, session.microphone);
   session.on('log', log);
   session.on('state', renderSession);
+  session.on('speaking', renderSession);
   session.on('participants', (participants) => {
     playback.sync(participants, session.outputMuted);
     renderSession();
@@ -328,7 +323,6 @@ async function toggleMicrophone(session: VoiceSession) {
   const previous = session.microphone;
   await session.setMicrophone(previous ? null : await getMicrophone());
   stopTracks(previous);
-  playback.watchMicrophone(voice.me.steamid, session.microphone);
   renderSession();
 }
 
@@ -340,10 +334,7 @@ if (!key) {
 const voice = await SteamVoice.connect(
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?key=${encodeURIComponent(key)}`,
 );
-const playback = new Playback(
-  document.getElementById('audio') as HTMLElement,
-  renderSession,
-);
+const playback = new Playback(document.getElementById('audio') as HTMLElement);
 
 voice.on('session', (session) => {
   if (session) wireSession(session);

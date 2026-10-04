@@ -63,6 +63,7 @@ const mic = await navigator.mediaDevices.getUserMedia({
 voice.on('incomingCalls', (calls) => showRinging(calls)); // voice.acceptCall / voice.declineCall
 voice.on('session', (session) => {
   session?.on('participants', (people) => play(people)); // each has a MediaStream + mute status
+  session?.on('speaking', (steamids) => highlight(steamids)); // us included
   session?.on('state', (state) => render(state)); // connecting | ringing | connected | reconnecting | ended
 });
 
@@ -80,8 +81,10 @@ await session.leave(); // leaves the channel or ends the call
 - Simultaneous calls: calling a friend who is already calling you accepts their call. Their call
   arriving while you ring them replaces your call without hanging it up. A `session` event
   announces the replacement.
-- Play `participant.stream` through an `<audio>` element. `watchSpeaking()` gives speaking
-  indicators; Steam has no speaking signal of its own.
+- Play `participant.stream` through an `<audio>` element.
+- Steam has no speaking signal, so the session derives one from the audio levels WebRTC reports.
+- No DOM or Web Audio is used, so the browser half also runs in React Native with
+  `react-native-webrtc` (after its `registerGlobals()`).
 
 ## How it talks to Steam
 
@@ -123,6 +126,7 @@ headless Chromium running the demo app).
 | Incoming calls: accept, decline, caller cancels | live |
 | Mute/deafen sent to Steam, other users' mute status received | live |
 | Speaking indicators | live |
+| React Native (`react-native-webrtc`) | unverified |
 | Proxy leaves voice chats when the client disconnects | live |
 | `setMicrophone`: turn the mic off and back on mid-call | live |
 | `setMicrophone`: swap to another mic, add a mic to a listen-only chat | unverified |

@@ -1,6 +1,11 @@
+/** Empty in React Native, which has no user agent. */
+export function userAgent(): string {
+  return navigator.userAgent ?? '';
+}
+
 /** Browser name/version the way Steam's client reports them in InitiateWebRTCConnection. */
 export function browserInfo() {
-  const ua = navigator.userAgent;
+  const ua = userAgent();
   const patterns: [string, RegExp][] = [
     ['Firefox', /Firefox\/([\d.]+)/],
     ['Chrome', /Chrom(?:e|ium)\/([\d.]+)/],

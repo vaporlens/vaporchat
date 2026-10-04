@@ -1,41 +1,63 @@
-const POLL_INTERVAL_MS = 100;
-// RMS above which a stream counts as speech, and how long it stays "speaking" after going quiet
-const SPEAKING_THRESHOLD = 0.02;
+const POLL_INTERVAL_MS = 150;
+// audio level (0..1, as WebRTC reports it) above which a track counts as speech,
+// and how long it stays "speaking" after going quiet
+const SPEAKING_LEVEL = 0.03;
 const HOLD_MS = 300;
 
+interface AudioLevelStats {
+  type: string;
+  kind?: string;
+  trackIdentifier?: string;
+  audioLevel?: number;
+}
+
 /**
- * Calls `onChange` when the stream starts or stops carrying speech. Steam has no
- * speaking signal, the official client also measures levels locally.
+ * Calls `onChange` with the ids of the tracks (sent and received) that carry speech.
+ * Steam has no speaking signal, the official client also measures levels locally.
+ * Uses WebRTC stats so it works in browsers and react-native-webrtc alike.
  * Returns a function that stops watching.
  */
 export function watchSpeaking(
-  audioContext: AudioContext,
-  stream: MediaStream,
-  onChange: (speaking: boolean) => void,
+  pc: RTCPeerConnection,
+  onChange: (speakingTrackIds: ReadonlySet<string>) => void,
 ) {
-  const source = audioContext.createMediaStreamSource(stream);
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 512;
-  source.connect(analyser);
-  const samples = new Float32Array(analyser.fftSize);
-  let speaking = false;
-  let lastLoudAt = 0;
+  const lastLoudAt = new Map<string, number>();
+  let speaking = new Set<string>();
+  let polling = false;
+  let stopped = false;
 
-  const timer = setInterval(() => {
-    analyser.getFloatTimeDomainData(samples);
-    let sum = 0;
-    for (const sample of samples) sum += sample * sample;
+  const timer = setInterval(async () => {
+    if (polling) return;
+    polling = true;
+    const stats = await pc.getStats().catch(() => null);
+    polling = false;
+    if (!stats || stopped) return;
     const now = Date.now();
-    if (Math.sqrt(sum / samples.length) > SPEAKING_THRESHOLD) lastLoudAt = now;
-    const nowSpeaking = now - lastLoudAt < HOLD_MS;
-    if (nowSpeaking !== speaking) {
+    stats.forEach((report: AudioLevelStats) => {
+      const isAudio =
+        (report.type === 'inbound-rtp' || report.type === 'media-source') &&
+        report.kind === 'audio';
+      if (!isAudio || !report.trackIdentifier) return;
+      if ((report.audioLevel ?? 0) > SPEAKING_LEVEL) {
+        lastLoudAt.set(report.trackIdentifier, now);
+      }
+    });
+    const nowSpeaking = new Set(
+      [...lastLoudAt]
+        .filter(([, loudAt]) => now - loudAt < HOLD_MS)
+        .map(([trackId]) => trackId),
+    );
+    const changed =
+      nowSpeaking.size !== speaking.size ||
+      [...nowSpeaking].some((trackId) => !speaking.has(trackId));
+    if (changed) {
       speaking = nowSpeaking;
       onChange(speaking);
     }
   }, POLL_INTERVAL_MS);
 
   return () => {
+    stopped = true;
     clearInterval(timer);
-    source.disconnect();
   };
 }
