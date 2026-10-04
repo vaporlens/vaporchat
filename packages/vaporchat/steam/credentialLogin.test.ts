@@ -1,84 +1,122 @@
-import type { EventEmitter } from 'node:events';
-import { EAuthSessionGuardType } from 'steam-session';
+import { constants, generateKeyPairSync, privateDecrypt } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getRefreshTokenWithCredentials,
   type SteamGuardPrompt,
 } from './credentialLogin.ts';
+import { EResult, SteamError } from './eresult.ts';
 
-interface ScriptedLogin {
-  validActions: { type: EAuthSessionGuardType; detail?: string }[];
-  acceptedCode: string | null;
-}
+// EAuthSessionGuardType
+const NONE = 1;
+const EMAIL_CODE = 2;
+const DEVICE_CODE = 3;
+const DEVICE_CONFIRMATION = 4;
 
-const { sessions, script } = vi.hoisted(() => ({
-  sessions: [] as EventEmitter[],
-  script: { current: null as ScriptedLogin | null },
+// Steam's auth service as seen over a connection: checks the RSA-encrypted password,
+// guards the login with the scripted confirmations, hands out a token once satisfied
+const server = vi.hoisted(() => ({
+  password: 'hunter2',
+  confirmations: [] as {
+    confirmation_type: number;
+    associated_message?: string;
+  }[],
+  acceptedCode: null as string | null,
+  satisfied: false,
+  closed: false,
 }));
 
-// stands in for steam's auth servers: guards the login with the scripted actions
-vi.mock('steam-session', async (importOriginal) => {
-  const original = await importOriginal<typeof import('steam-session')>();
-  const { EventEmitter } = await import('node:events');
-  class FakeLoginSession extends EventEmitter {
-    refreshToken = 'refresh-token';
-    loginTimeout = 30_000;
-    constructor() {
-      super();
-      sessions.push(this);
-    }
-    async startWithCredentials() {
-      const login = script.current;
-      if (!login || login.validActions.length === 0) {
-        setImmediate(() => this.emit('authenticated'));
-        return { actionRequired: false };
-      }
-      return { actionRequired: true, validActions: login.validActions };
-    }
-    async submitSteamGuardCode(code: string) {
-      if (code !== script.current?.acceptedCode) {
-        throw Object.assign(new Error('bad code'), {
-          eresult: original.EResult.InvalidLoginAuthCode,
-        });
-      }
-      setImmediate(() => this.emit('authenticated'));
-    }
-    cancelLoginAttempt() {
-      return true;
-    }
-  }
-  return { ...original, LoginSession: FakeLoginSession };
+const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
 });
+
+function hexFromBase64Url(value: string) {
+  return Buffer.from(value, 'base64url').toString('hex');
+}
+
+vi.mock('./cm.ts', () => ({
+  SteamCM: class {
+    static async connect() {
+      return new this();
+    }
+    async call(method: string, body: Record<string, string>) {
+      switch (method) {
+        case 'Authentication.GetPasswordRSAPublicKey#1': {
+          const jwk = publicKey.export({ format: 'jwk' });
+          return {
+            publickey_mod: hexFromBase64Url(jwk.n ?? ''),
+            publickey_exp: hexFromBase64Url(jwk.e ?? ''),
+            timestamp: '1',
+          };
+        }
+        case 'Authentication.BeginAuthSessionViaCredentials#1': {
+          const password = privateDecrypt(
+            { key: privateKey, padding: constants.RSA_PKCS1_PADDING },
+            Buffer.from(body.encrypted_password, 'base64'),
+          ).toString();
+          if (password !== server.password) {
+            throw new SteamError('InvalidPassword', EResult.InvalidPassword);
+          }
+          server.satisfied = server.confirmations.some(
+            (c) => c.confirmation_type === NONE,
+          );
+          return {
+            client_id: '1',
+            request_id: new Uint8Array([1]),
+            interval: 0.01,
+            allowed_confirmations: server.confirmations,
+            steamid: '76561197960287930',
+          };
+        }
+        case 'Authentication.UpdateAuthSessionWithSteamGuardCode#1':
+          if (body.code !== server.acceptedCode) {
+            throw new SteamError('bad code', EResult.InvalidLoginAuthCode);
+          }
+          server.satisfied = true;
+          return {};
+        case 'Authentication.PollAuthSessionStatus#1':
+          return server.satisfied ? { refresh_token: 'refresh-token' } : {};
+      }
+      throw new Error(`unexpected ${method}`);
+    }
+    close() {
+      server.closed = true;
+    }
+  },
+}));
 
 describe('getRefreshTokenWithCredentials', () => {
   beforeEach(() => {
-    sessions.length = 0;
-    script.current = null;
+    server.confirmations = [{ confirmation_type: NONE }];
+    server.acceptedCode = null;
+    server.satisfied = false;
+    server.closed = false;
   });
 
-  it('returns the token when steam needs no guard', async () => {
-    await expect(getRefreshTokenWithCredentials('bot', 'pw')).resolves.toBe(
-      'refresh-token',
-    );
+  it('returns the token when steam needs no guard, and closes its connection', async () => {
+    await expect(
+      getRefreshTokenWithCredentials('bot', 'hunter2'),
+    ).resolves.toBe('refresh-token');
+    expect(server.closed).toBe(true);
+  });
+
+  it('says so when the password is wrong', async () => {
+    await expect(
+      getRefreshTokenWithCredentials('bot', 'wrong'),
+    ).rejects.toThrow('Wrong account name or password');
   });
 
   it('fails fast on guarded accounts when nobody can answer the guard', async () => {
-    script.current = {
-      validActions: [{ type: EAuthSessionGuardType.DeviceCode }],
-      acceptedCode: 'ABCDE',
-    };
-    await expect(getRefreshTokenWithCredentials('bot', 'pw')).rejects.toThrow(
-      /Steam Guard/,
-    );
+    server.confirmations = [{ confirmation_type: DEVICE_CODE }];
+    await expect(
+      getRefreshTokenWithCredentials('bot', 'hunter2'),
+    ).rejects.toThrow(/Steam Guard/);
   });
 
   it('asks again after a wrong email code', async () => {
-    script.current = {
-      validActions: [
-        { type: EAuthSessionGuardType.EmailCode, detail: 'example.com' },
-      ],
-      acceptedCode: 'GOOD1',
-    };
+    server.confirmations = [
+      { confirmation_type: EMAIL_CODE, associated_message: 'example.com' },
+    ];
+    server.acceptedCode = 'GOOD1';
     const prompts: SteamGuardPrompt[] = [];
     const codes = ['WRONG', 'GOOD1'];
     const steamGuard = async (prompt: SteamGuardPrompt) => {
@@ -87,7 +125,7 @@ describe('getRefreshTokenWithCredentials', () => {
     };
 
     await expect(
-      getRefreshTokenWithCredentials('bot', 'pw', steamGuard),
+      getRefreshTokenWithCredentials('bot', 'hunter2', steamGuard),
     ).resolves.toBe('refresh-token');
     expect(prompts).toEqual([
       expect.objectContaining({
@@ -100,23 +138,20 @@ describe('getRefreshTokenWithCredentials', () => {
   });
 
   it('finishes when the login is approved on the phone instead of typing the code', async () => {
-    script.current = {
-      validActions: [
-        { type: EAuthSessionGuardType.DeviceCode },
-        { type: EAuthSessionGuardType.DeviceConfirmation },
-      ],
-      acceptedCode: null,
-    };
+    server.confirmations = [
+      { confirmation_type: DEVICE_CODE },
+      { confirmation_type: DEVICE_CONFIRMATION },
+    ];
     let prompt: SteamGuardPrompt | null = null;
     const steamGuard = (p: SteamGuardPrompt) => {
       prompt = p;
       // the user approves in the app instead of typing
-      setImmediate(() => sessions[0].emit('authenticated'));
+      server.satisfied = true;
       return new Promise<string>(() => {});
     };
 
     await expect(
-      getRefreshTokenWithCredentials('bot', 'pw', steamGuard),
+      getRefreshTokenWithCredentials('bot', 'hunter2', steamGuard),
     ).resolves.toBe('refresh-token');
     expect(prompt).toMatchObject({
       codeType: 'authenticator',
@@ -125,16 +160,14 @@ describe('getRefreshTokenWithCredentials', () => {
   });
 
   it('aborts the login when the guard prompt is cancelled', async () => {
-    script.current = {
-      validActions: [{ type: EAuthSessionGuardType.DeviceConfirmation }],
-      acceptedCode: null,
-    };
+    server.confirmations = [{ confirmation_type: DEVICE_CONFIRMATION }];
     const steamGuard = async () => {
       throw new Error('user cancelled');
     };
 
     await expect(
-      getRefreshTokenWithCredentials('bot', 'pw', steamGuard),
+      getRefreshTokenWithCredentials('bot', 'hunter2', steamGuard),
     ).rejects.toThrow('user cancelled');
+    expect(server.closed).toBe(true);
   });
 });

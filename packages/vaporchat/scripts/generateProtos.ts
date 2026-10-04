@@ -5,6 +5,7 @@
 import { writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import protobuf from 'protobufjs';
+import { serviceTypeName } from '../steam/serviceTypes.ts';
 
 const SOURCES = [
   'steammessages_base',
@@ -20,6 +21,7 @@ const SERVICE_METHODS = [
   'Authentication.BeginAuthSessionViaCredentials',
   'Authentication.UpdateAuthSessionWithSteamGuardCode',
   'Authentication.PollAuthSessionStatus',
+  'Authentication.GenerateAccessTokenForApp',
   'ChatRoom.GetMyChatRoomGroups',
   'ChatRoom.SetSessionActiveChatRoomGroups',
   'ChatRoom.GetInviteLinkInfo',
@@ -95,10 +97,10 @@ function include(object: protobuf.ReflectionObject) {
 
 const names = [
   ...MESSAGES,
-  ...SERVICE_METHODS.flatMap((method) => {
-    const [service, name] = method.split('.');
-    return [`C${service}_${name}_Request`, `C${service}_${name}_Response`];
-  }),
+  ...SERVICE_METHODS.flatMap((method) => [
+    serviceTypeName(method, 'Request'),
+    serviceTypeName(method, 'Response'),
+  ]),
 ];
 for (const name of names) {
   const object = root.get(name);

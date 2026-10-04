@@ -8,7 +8,13 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.yamalight.vaporchat",
-      "supportsTablet": true
+      "appleTeamId": "EA3F6PEEAV",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
     },
     "android": {
       "package": "com.yamalight.vaporchat",
@@ -21,12 +27,14 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
+      "./plugins/withSceneLifecycle.ts",
       [
         "@config-plugins/react-native-webrtc",
         {
           "microphonePermission": "VaporChat uses the microphone for Steam voice chat."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

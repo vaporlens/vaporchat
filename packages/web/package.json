@@ -6,7 +6,6 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "steam-user": "^5.3.0",
     "vaporchat": "*"
   },
   "devDependencies": {

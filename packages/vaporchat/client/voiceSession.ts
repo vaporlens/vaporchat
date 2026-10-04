@@ -1,5 +1,6 @@
 import type { WebRTCSessionConnected } from '../protocol.ts';
-import { RpcError, type VoiceConnection } from './connection.ts';
+import { SteamError } from '../steam/eresult.ts';
+import type { VoiceConnection } from './connection.ts';
 import { Emitter } from './emitter.ts';
 import { type Participant, Participants } from './participants.ts';
 import { RemoteDescriptions } from './remoteDescriptions.ts';
@@ -269,7 +270,7 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
           this.#restart(0);
         }
       }),
-      c.on('close', () => this.#finish('lost connection to vaporchat server')),
+      c.on('close', () => this.#finish('lost connection to Steam')),
     );
   }
 
@@ -428,7 +429,7 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
           chat_id: target.chatId,
         })
         .catch((err: Error) => {
-          if (err instanceof RpcError && err.eresult !== ERESULT_FAIL) {
+          if (err instanceof SteamError && err.eresult !== ERESULT_FAIL) {
             throw new FatalVoiceError(`Could not join voice: ${err.message}`);
           }
           throw err;

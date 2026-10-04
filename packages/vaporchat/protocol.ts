@@ -1,4 +1,4 @@
-// Contract between the server (owns the Steam connection) and the browser (owns WebRTC media).
+// Shapes of the Steam voice messages the client sends and receives, and of the account data it shows.
 // Steam message fields keep their protobuf snake_case names, 64-bit ids are decimal strings.
 
 export interface WebRTCSessionConnected {
@@ -42,7 +42,7 @@ export interface VoiceChatEnded {
   one_on_one_steamid_higher?: string;
 }
 
-/** Steam service methods the browser may call through the server. */
+/** Steam service methods the voice client calls. */
 export interface SteamMethods {
   'WebRTCClient.InitiateWebRTCConnection#1': {
     request: { sdp: string; browser_name: string; browser_version: string };
@@ -100,12 +100,12 @@ export interface SteamMethods {
   };
 }
 
-/** One-way Steam notifications the browser may send through the server. */
+/** One-way Steam notifications the voice client sends. */
 export interface SteamClientNotifications {
   'VoiceChat.NotifyUserVoiceStatus#1': UserVoiceStatus;
 }
 
-/** Steam notifications the server forwards to the browser. */
+/** Steam notifications the voice client listens to. */
 export interface SteamServerNotifications {
   'WebRTCClientNotifications.NotifyWebRTCSessionConnected#1': WebRTCSessionConnected;
   'WebRTCClientNotifications.NotifyWebRTCUpdateRemoteDescription#1': WebRTCUpdateRemoteDescription;
@@ -151,54 +151,3 @@ export interface ChatGroup {
   name: string;
   rooms: ChatRoom[];
 }
-
-/** Account-level queries answered by the server from steam-user state. */
-export interface AppMethods {
-  getMe: { request: Record<string, never>; response: Friend };
-  getFriends: { request: Record<string, never>; response: Friend[] };
-  getGroups: { request: Record<string, never>; response: ChatGroup[] };
-  joinGroupByInviteLink: {
-    request: { inviteLink: string };
-    response: { groupId: string };
-  };
-}
-
-export interface AppNotifications {
-  groupsChanged: Record<string, never>;
-}
-
-export type Methods = SteamMethods & AppMethods;
-export type MethodName = keyof Methods;
-export type ServerNotifications = SteamServerNotifications & AppNotifications;
-export type ServerNotificationName = keyof ServerNotifications;
-export type ClientNotificationName = keyof SteamClientNotifications;
-
-/** browser → server */
-export type ClientMessage =
-  | {
-      [M in MethodName]: {
-        kind: 'call';
-        id: number;
-        method: M;
-        body: Methods[M]['request'];
-      };
-    }[MethodName]
-  | {
-      [N in ClientNotificationName]: {
-        kind: 'notify';
-        name: N;
-        body: SteamClientNotifications[N];
-      };
-    }[ClientNotificationName];
-
-/** server → browser */
-export type ServerMessage =
-  | { kind: 'result'; id: number; body: unknown }
-  | { kind: 'error'; id: number; message: string; eresult?: number }
-  | {
-      [N in ServerNotificationName]: {
-        kind: 'notification';
-        name: N;
-        body: ServerNotifications[N];
-      };
-    }[ServerNotificationName];

@@ -8,10 +8,12 @@ vi.mock('./credentialLogin.ts', () => ({
 }));
 const credentialLogin = vi.mocked(getRefreshTokenWithCredentials);
 
-// scripted EResults for the next logons, and the tokens they were attempted with
+// scripted EResults for the next logons, the tokens they were attempted with,
+// and the token steam hands out when asked to renew (null: not due yet)
 const steam = vi.hoisted(() => ({
   results: [] as number[],
   tokens: [] as string[],
+  renewed: null as string | null,
 }));
 
 // a Steam connection that answers ClientLogon with the next scripted result
@@ -40,6 +42,9 @@ vi.mock('./cm.ts', async (importOriginal) => {
           encodeProto('CMsgClientLogonResponse', { eresult }),
         ),
       );
+    }
+    async call() {
+      return steam.renewed ? { refresh_token: steam.renewed } : {};
     }
     startSession() {}
     close() {}
@@ -73,6 +78,7 @@ describe('logOnSteam', () => {
   beforeEach(() => {
     steam.results = [];
     steam.tokens = [];
+    steam.renewed = null;
     credentialLogin.mockReset();
   });
 
@@ -96,6 +102,15 @@ describe('logOnSteam', () => {
 
     expect(steam.tokens).toEqual([token('stale'), token('fresh')]);
     expect(store.token).toBe(token('fresh'));
+  });
+
+  it('saves the token steam renews after logging on with the stored one', async () => {
+    const store = memoryStore(token('old'));
+    steam.renewed = token('renewed');
+
+    await logOnSteam(store);
+
+    expect(store.token).toBe(token('renewed'));
   });
 
   it('keeps the stored token on errors unrelated to the token', async () => {

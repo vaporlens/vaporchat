@@ -1,21 +1,23 @@
 import { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
-import type { ChatGroup, Friend } from 'vaporchat/protocol';
+import type { ChatGroup } from 'vaporchat/protocol';
+import type { SteamGuardHandler } from 'vaporchat/steam/credentialLogin';
+import type { TokenStore } from 'vaporchat/steam/logOn';
 import { h, render } from './dom.ts';
 import { Playback } from './playback.ts';
 
-const KEY_STORAGE = 'vaporchat-key';
+/** localStorage key of the Steam refresh token, the live driver sets it too. */
+const TOKEN_STORAGE = 'vaporchat-refresh-token';
+// browsers can't fetch Steam's server list themselves, server.ts proxies it
+const SERVER_LIST_URL = '/cm-list';
 const MAX_LOG_LINES = 400;
 
-// the server prints a link with the key in the hash, remember it and keep it out of the address bar
-const hashKey = new URLSearchParams(location.hash.slice(1)).get('key');
-if (hashKey) {
-  localStorage.setItem(KEY_STORAGE, hashKey);
-  history.replaceState(null, '', location.pathname);
-}
-const key = localStorage.getItem(KEY_STORAGE);
+const tokenStore: TokenStore = {
+  load: async () => localStorage.getItem(TOKEN_STORAGE),
+  save: async (token) => localStorage.setItem(TOKEN_STORAGE, token),
+  clear: async () => localStorage.removeItem(TOKEN_STORAGE),
+};
 
-let friends = new Map<string, Friend>();
 let groups: ChatGroup[] = [];
 const logLines: string[] = [];
 
@@ -27,9 +29,7 @@ function log(line: string) {
 }
 
 function avatar(steamid: string, speaking = false) {
-  const url =
-    friends.get(steamid)?.avatarUrl ??
-    (steamid === voice.me.steamid ? voice.me.avatarUrl : null);
+  const url = voice.connection.user(steamid).avatarUrl;
   return h('img', {
     class: speaking ? 'avatar speaking' : 'avatar',
     src: url ?? 'data:,',
@@ -39,7 +39,7 @@ function avatar(steamid: string, speaking = false) {
 
 function nameOf(steamid: string) {
   if (steamid === voice.me.steamid) return `${voice.me.name} (you)`;
-  return friends.get(steamid)?.name ?? `User ${steamid.slice(-6)}`;
+  return voice.connection.user(steamid).name;
 }
 
 function sessionTitle(session: VoiceSession) {
@@ -60,6 +60,7 @@ function renderMe() {
       h('div', { class: 'name' }, voice.me.name),
       h('div', { class: 'sub' }, 'vaporchat'),
     ),
+    h('button', { onclick: () => void signOut() }, 'Sign out'),
   );
 }
 
@@ -235,7 +236,7 @@ function renderFriends() {
   render(
     'friends',
     h('h2', {}, 'Friends'),
-    ...[...friends.values()].map((friend) =>
+    ...voice.connection.friends.map((friend) =>
       h(
         'div',
         { class: friend.online ? 'row' : 'row offline' },
@@ -260,13 +261,13 @@ function renderFriends() {
 }
 
 async function refreshGroups() {
-  groups = await voice.connection.call('getGroups', {});
+  groups = await voice.connection.getGroups();
   renderGroups();
 }
 
 async function joinByInvite(inviteLink: string) {
   try {
-    await voice.connection.call('joinGroupByInviteLink', { inviteLink });
+    await voice.connection.joinGroupByInviteLink(inviteLink);
     await refreshGroups();
   } catch (err) {
     log(`Joining group failed: ${String(err)}`);
@@ -326,14 +327,93 @@ async function toggleMicrophone(session: VoiceSession) {
   renderSession();
 }
 
-if (!key) {
-  render('me', 'Open the link printed by the vaporchat server to sign in.');
-  throw new Error('No access key');
+// codes through prompt() are enough for a debug page
+const steamGuard: SteamGuardHandler = async (prompt) => {
+  const approve = 'approve the sign-in in the Steam Mobile app';
+  if (!prompt.codeType) {
+    render('me', `Please ${approve}…`);
+    return new Promise<string>(() => {});
+  }
+  const code = window.prompt(
+    [
+      prompt.lastCodeWrong && 'That code was wrong.',
+      `Steam Guard ${prompt.codeType} code${prompt.emailDomain ? ` (sent to ${prompt.emailDomain})` : ''}`,
+      prompt.canApproveOnDevice && `or ${approve} and cancel this`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+  if (code === null) throw new Error('Sign-in cancelled');
+  return code;
+};
+
+function signInForm(done: (voice: SteamVoice) => void, error?: string) {
+  const accountName = h('input', {
+    name: 'account',
+    placeholder: 'Account name',
+    autocomplete: 'username',
+    required: true,
+  }) as HTMLInputElement;
+  const password = h('input', {
+    name: 'password',
+    type: 'password',
+    placeholder: 'Password',
+    autocomplete: 'current-password',
+    required: true,
+  }) as HTMLInputElement;
+  render(
+    'me',
+    h(
+      'form',
+      {
+        onsubmit: (event: Event) => {
+          event.preventDefault();
+          render('me', 'Signing in…');
+          SteamVoice.logOn(tokenStore, {
+            serverListUrl: SERVER_LIST_URL,
+            credentials: {
+              accountName: accountName.value.trim(),
+              password: password.value,
+            },
+            steamGuard,
+          }).then(done, (err: Error) => signInForm(done, err.message));
+        },
+      },
+      accountName,
+      password,
+      h('button', { type: 'submit', class: 'primary' }, 'Sign in'),
+    ),
+    error && h('div', { class: 'sub' }, error),
+  );
 }
 
-const voice = await SteamVoice.connect(
-  `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?key=${encodeURIComponent(key)}`,
-);
+/** Logs on with the stored token, or asks for the account when there is none (or Steam rejected it). */
+async function signIn() {
+  if (await tokenStore.load()) {
+    render('me', 'Connecting to Steam…');
+    try {
+      return await SteamVoice.logOn(tokenStore, {
+        serverListUrl: SERVER_LIST_URL,
+      });
+    } catch (err) {
+      // a rejected token was cleared, anything else is worth a reload
+      if (await tokenStore.load()) {
+        render('me', `Could not connect to Steam: ${String(err)}`);
+        throw err;
+      }
+    }
+  }
+  return new Promise<SteamVoice>((resolve) => signInForm(resolve));
+}
+
+async function signOut() {
+  await voice.session?.leave();
+  await tokenStore.clear();
+  voice.connection.close();
+  location.reload();
+}
+
+const voice = await signIn();
 const playback = new Playback(document.getElementById('audio') as HTMLElement);
 
 voice.on('session', (session) => {
@@ -342,17 +422,16 @@ voice.on('session', (session) => {
 });
 voice.on('incomingCalls', renderIncoming);
 voice.connection.on('groupsChanged', () => void refreshGroups());
-voice.connection.on('close', () =>
-  render('me', 'Lost connection to the vaporchat server, reload to reconnect.'),
+voice.connection.on('friendsChanged', () => {
+  renderMe();
+  renderFriends();
+});
+voice.connection.on('close', ({ reason }) =>
+  render('me', `Lost connection to Steam (${reason}), reload to reconnect.`),
 );
 
-const [friendList, groupList] = await Promise.all([
-  voice.connection.call('getFriends', {}),
-  voice.connection.call('getGroups', {}),
-]);
-friends = new Map(friendList.map((friend) => [friend.steamid, friend]));
-groups = groupList;
+groups = await voice.connection.getGroups();
 renderMe();
 renderFriends();
 renderGroups();
-log(`Signed in as ${voice.me.name} (${voice.me.steamid})`);
+log(`Signed in as ${voice.me.steamid}`);

@@ -1,4 +1,4 @@
-import type { Friend } from '../protocol.ts';
+import type { LogOnOptions, TokenStore } from '../steam/logOn.ts';
 import { VoiceConnection } from './connection.ts';
 import { Emitter } from './emitter.ts';
 import { VoiceSession, type VoiceTarget } from './voiceSession.ts';
@@ -19,14 +19,12 @@ interface SteamVoiceEvents {
  */
 export class SteamVoice extends Emitter<SteamVoiceEvents> {
   readonly connection: VoiceConnection;
-  readonly me: Friend;
   session: VoiceSession | null = null;
   #incoming = new Map<string, IncomingCall>();
 
-  private constructor(connection: VoiceConnection, me: Friend) {
+  private constructor(connection: VoiceConnection) {
     super();
     this.connection = connection;
-    this.me = me;
     connection.on(
       'VoiceChatClient.NotifyOneOnOneChatRequested#1',
       (request) => {
@@ -48,11 +46,14 @@ export class SteamVoice extends Emitter<SteamVoiceEvents> {
     });
   }
 
-  static async connect(url: string) {
-    const connection = new VoiceConnection(url);
-    await connection.ready;
-    const me = await connection.call('getMe', {});
-    return new SteamVoice(connection, me);
+  /** Logs on to Steam with the stored refresh token, or `options.credentials` when there is none. */
+  static async logOn(store: TokenStore, options?: LogOnOptions) {
+    return new SteamVoice(await VoiceConnection.logOn(store, options));
+  }
+
+  /** The signed-in account. Its name and avatar arrive shortly after logon, see `friendsChanged`. */
+  get me() {
+    return this.connection.me;
   }
 
   get incomingCalls() {

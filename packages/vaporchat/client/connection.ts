@@ -1,111 +1,171 @@
 import type {
-  ClientMessage,
-  ClientNotificationName,
-  MethodName,
-  Methods,
-  ServerMessage,
-  ServerNotificationName,
-  ServerNotifications,
+  ChatGroup,
+  Friend,
   SteamClientNotifications,
+  SteamMethods,
+  SteamServerNotifications,
 } from '../protocol.ts';
+import { EMsg, type SteamCM } from '../steam/cm.ts';
+import { EResult, hasEResult } from '../steam/eresult.ts';
+import { FriendsList } from '../steam/friends.ts';
+import {
+  GROUP_CHANGE_NOTIFICATIONS,
+  getGroups,
+  joinGroupByInviteLink,
+} from '../steam/groups.ts';
+import {
+  type LogOnOptions,
+  logOnSteam,
+  type TokenStore,
+} from '../steam/logOn.ts';
+import { decodeProto } from '../steam/protos.ts';
 import { Emitter } from './emitter.ts';
 
-export class RpcError extends Error {
-  eresult?: number;
-  constructor(message: string, eresult?: number) {
-    super(message);
-    this.eresult = eresult;
+const CLIENT_NOTIFICATIONS: Record<keyof SteamClientNotifications, string> = {
+  'VoiceChat.NotifyUserVoiceStatus#1':
+    'CVoiceChat_UserVoiceStatus_Notification',
+};
+
+const SERVER_NOTIFICATIONS: Record<keyof SteamServerNotifications, string> = {
+  'WebRTCClientNotifications.NotifyWebRTCSessionConnected#1':
+    'CWebRTC_WebRTCSessionConnected_Notification',
+  'WebRTCClientNotifications.NotifyWebRTCUpdateRemoteDescription#1':
+    'CWebRTC_WebRTCUpdateRemoteDescription_Notification',
+  'VoiceChatClient.NotifyOneOnOneChatRequested#1':
+    'CVoiceChat_OneOnOneChatRequested_Notification',
+  'VoiceChatClient.NotifyOneOnOneChatResponse#1':
+    'CVoiceChat_OneOnOneChatRequestResponse_Notification',
+  'VoiceChatClient.NotifyUserJoinedVoiceChat#1':
+    'CVoiceChat_UserJoinedVoiceChat_Notification',
+  'VoiceChatClient.NotifyUserLeftVoiceChat#1':
+    'CVoiceChat_UserLeftVoiceChat_Notification',
+  'VoiceChatClient.NotifyUserVoiceStatus#1':
+    'CVoiceChat_UserVoiceStatus_Notification',
+  'VoiceChatClient.NotifyAllUsersVoiceStatus#1':
+    'CVoiceChat_AllMembersStatus_Notification',
+  'VoiceChatClient.NotifyVoiceChatEnded#1':
+    'CVoiceChat_VoiceChatEnded_Notification',
+  'ChatRoomClient.NotifyShouldRejoinChatRoomVoiceChat#1':
+    'CChatRoom_NotifyShouldRejoinChatRoomVoiceChat_Notification',
+};
+
+// EPersonaState.Online
+const ONLINE = 1;
+const FAIL = new Set<number>([EResult.Fail]);
+
+// steam answers these with Fail even though they took effect, the official client ignores it too
+function failIsExpected<M extends keyof SteamMethods>(
+  method: M,
+  body: SteamMethods[M]['request'],
+) {
+  if (method === 'WebRTCClient.AcknowledgeUpdatedRemoteDescription#1') {
+    return true;
   }
+  return (
+    method === 'VoiceChat.AnswerOneOnOneChat#1' &&
+    !(body as SteamMethods['VoiceChat.AnswerOneOnOneChat#1']['request'])
+      .accepted_request
+  );
 }
 
-interface PendingCall {
-  resolve: (body: unknown) => void;
-  reject: (err: Error) => void;
-}
+type ConnectionEvents = SteamServerNotifications & {
+  friendsChanged: Friend[];
+  groupsChanged: Record<string, never>;
+  close: { reason: string };
+};
 
-type NotificationEvents = {
-  [N in ServerNotificationName]: ServerNotifications[N];
-} & { close: { code: number; reason: string } };
+/** A logged-on Steam connection: voice signaling, friends and group chats. */
+export class VoiceConnection extends Emitter<ConnectionEvents> {
+  #cm: SteamCM;
+  #friends: FriendsList;
 
-/** Websocket link to the vaporchat server, which owns the Steam session. */
-export class VoiceConnection extends Emitter<NotificationEvents> {
-  #socket: WebSocket;
-  #nextId = 1;
-  #pending = new Map<number, PendingCall>();
-  readonly ready: Promise<void>;
-
-  constructor(url: string) {
+  private constructor(cm: SteamCM, friends: FriendsList) {
     super();
-    this.#socket = new WebSocket(url);
-    this.ready = new Promise((resolve, reject) => {
-      this.#socket.addEventListener('open', () => resolve(), { once: true });
-      this.#socket.addEventListener(
-        'error',
-        () => reject(new Error(`Could not connect to ${url}`)),
-        { once: true },
+    this.#cm = cm;
+    this.#friends = friends;
+    for (const [name, typeName] of Object.entries(SERVER_NOTIFICATIONS)) {
+      cm.onMessage(name, (_header, body) =>
+        this.emit(
+          name as keyof SteamServerNotifications,
+          decodeProto(typeName, body),
+        ),
       );
-    });
-    this.#socket.addEventListener('message', (event) => {
-      this.#handle(JSON.parse(String(event.data)) as ServerMessage);
-    });
-    this.#socket.addEventListener('close', (event) => {
-      for (const call of this.#pending.values()) {
-        call.reject(new Error('Connection to vaporchat server closed'));
-      }
-      this.#pending.clear();
-      this.emit('close', { code: event.code, reason: event.reason });
-    });
+    }
+    for (const name of GROUP_CHANGE_NOTIFICATIONS) {
+      cm.onMessage(name, () => this.emit('groupsChanged', {}));
+    }
+    friends.on('changed', () => this.emit('friendsChanged', friends.friends));
+    cm.on('close', (event) => this.emit('close', event));
   }
 
-  #handle(message: ServerMessage) {
-    if (message.kind === 'notification') {
-      this.emit(message.name, message.body as never);
-      return;
-    }
-    const call = this.#pending.get(message.id);
-    if (!call) return;
-    this.#pending.delete(message.id);
-    if (message.kind === 'result') {
-      call.resolve(message.body);
-    } else {
-      call.reject(new RpcError(message.message, message.eresult));
-    }
+  /**
+   * Logs on with the stored refresh token (or `options.credentials`) and goes online,
+   * like the official client does.
+   */
+  static async logOn(store: TokenStore, options: LogOnOptions = {}) {
+    const lists = new Map<SteamCM, FriendsList>();
+    const cm = await logOnSteam(store, {
+      ...options,
+      // a rejected stored token means a second connection, keep the list of each
+      beforeLogOn: (connecting) =>
+        lists.set(connecting, new FriendsList(connecting)),
+    });
+    const friends = lists.get(cm);
+    if (!friends) throw new Error('Steam connection has no friends list');
+    const connection = new VoiceConnection(cm, friends);
+    cm.send(EMsg.ClientChangeStatus, 'CMsgClientChangeStatus', {
+      persona_state: ONLINE,
+    });
+    friends.start(cm.steamid);
+    return connection;
   }
 
-  #send(message: ClientMessage) {
-    if (this.#socket.readyState !== WebSocket.OPEN) {
-      throw new Error('Not connected to vaporchat server');
-    }
-    this.#socket.send(JSON.stringify(message));
+  get me() {
+    return this.#friends.get(this.#cm.steamid);
   }
 
-  call<M extends MethodName>(
+  /** Any account by SteamID64. Unknown ones are looked up, `friendsChanged` follows. */
+  user(steamid: string) {
+    this.#friends.lookUp([steamid]);
+    return this.#friends.get(steamid);
+  }
+
+  /** Friends, online ones first. Updates come as `friendsChanged`. */
+  get friends() {
+    return this.#friends.friends;
+  }
+
+  async call<M extends keyof SteamMethods>(
     method: M,
-    body: Methods[M]['request'],
-  ): Promise<Methods[M]['response']> {
-    const id = this.#nextId++;
-    return new Promise((resolve, reject) => {
-      this.#pending.set(id, {
-        resolve: (result) => resolve(result as Methods[M]['response']),
-        reject,
-      });
-      try {
-        this.#send({ kind: 'call', id, method, body } as ClientMessage);
-      } catch (err) {
-        this.#pending.delete(id);
-        reject(err);
+    body: SteamMethods[M]['request'],
+  ): Promise<SteamMethods[M]['response']> {
+    try {
+      return await this.#cm.call(method, body);
+    } catch (err) {
+      if (hasEResult(err, FAIL) && failIsExpected(method, body)) {
+        return {} as SteamMethods[M]['response'];
       }
-    });
+      throw err;
+    }
   }
 
-  notify<N extends ClientNotificationName>(
+  notify<N extends keyof SteamClientNotifications>(
     name: N,
     body: SteamClientNotifications[N],
   ) {
-    this.#send({ kind: 'notify', name, body });
+    this.#cm.notify(name, CLIENT_NOTIFICATIONS[name], body);
+  }
+
+  /** Group chats with their rooms. Updates come as `groupsChanged`, fetch again then. */
+  getGroups(): Promise<ChatGroup[]> {
+    return getGroups(this.#cm);
+  }
+
+  joinGroupByInviteLink(inviteLink: string) {
+    return joinGroupByInviteLink(this.#cm, inviteLink);
   }
 
   close() {
-    this.#socket.close();
+    this.#cm.close();
   }
 }

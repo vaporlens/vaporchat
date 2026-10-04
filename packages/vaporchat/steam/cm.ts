@@ -2,6 +2,7 @@ import { gunzipSync } from 'fflate';
 import { Emitter } from '../client/emitter.ts';
 import { SteamError } from './eresult.ts';
 import { decodeProto, encodeProto } from './protos.ts';
+import { serviceTypeName } from './serviceTypes.ts';
 
 // Steam's message ids (EMsg) this client sends or handles
 export const EMsg = {
@@ -9,8 +10,12 @@ export const EMsg = {
   ServiceMethod: 146,
   ServiceMethodCallFromClient: 151,
   ClientHeartBeat: 703,
+  ClientChangeStatus: 716,
   ClientLogOnResponse: 751,
   ClientLoggedOff: 757,
+  ClientPersonaState: 766,
+  ClientFriendsList: 767,
+  ClientRequestFriendData: 815,
   ClientLogon: 5514,
   ServiceMethodCallFromClientNonAuthed: 9804,
   ClientHello: 9805,
@@ -150,8 +155,6 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
   /** Calls a service method (`Service.Method#1`), rejects with SteamError on a non-OK result. */
   async call<Res>(
     method: string,
-    requestType: string,
-    responseType: string,
     body: object,
     { authenticated = true } = {},
   ): Promise<Res> {
@@ -168,7 +171,7 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
         authenticated
           ? EMsg.ServiceMethodCallFromClient
           : EMsg.ServiceMethodCallFromClientNonAuthed,
-        encodeProto(requestType, body),
+        encodeProto(serviceTypeName(method, 'Request'), body),
         { target_job_name: method, jobid_source: jobId, realm: 1 },
       );
     } catch (err) {
@@ -176,7 +179,10 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
       this.#jobs.delete(jobId);
       throw err;
     }
-    return decodeProto<Res>(responseType, await response);
+    return decodeProto<Res>(
+      serviceTypeName(method, 'Response'),
+      await response,
+    );
   }
 
   /** One-way service notification (`Service.NotifyX#1`), Steam sends no reply. */

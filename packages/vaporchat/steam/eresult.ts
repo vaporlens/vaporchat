@@ -19,7 +19,7 @@ export class SteamError extends Error {
   }
 }
 
-/** Whether `err` carries one of the given EResults (ours, or steam-session's errors). */
+/** Whether `err` carries one of the given EResults. */
 export function hasEResult(
   err: unknown,
   eresults: ReadonlySet<number>,

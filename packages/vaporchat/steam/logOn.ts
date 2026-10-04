@@ -36,6 +36,8 @@ const MACHINE_NAME = 'vaporchat';
 const DEFAULT_HEARTBEAT_SECONDS = 9;
 // EOSType.Win11, the os steam-user reports for windows hosts
 const CLIENT_OS_TYPE = 20;
+// ETokenRenewalType.Allow: steam issues a new refresh token when the old one gets close to expiring
+const TOKEN_RENEWAL_ALLOW = 1;
 
 /** Refresh tokens are JWTs whose subject is the account's SteamID64. */
 export function steamIdFromRefreshToken(refreshToken: string) {
@@ -46,13 +48,22 @@ export function steamIdFromRefreshToken(refreshToken: string) {
   return sub;
 }
 
+export interface LogOnConnectOptions extends SteamConnectOptions {
+  /**
+   * Runs on every new connection before logging on. Steam sends things like the friends list
+   * together with the logon response, so their handlers have to be registered here.
+   */
+  beforeLogOn?: (cm: SteamCM) => void;
+}
+
 /** Connects to Steam and logs on with a refresh token issued for the steam client. */
 export async function logOnWithRefreshToken(
   refreshToken: string,
-  options: SteamConnectOptions = {},
+  { beforeLogOn, ...connectOptions }: LogOnConnectOptions = {},
 ) {
   const steamid = steamIdFromRefreshToken(refreshToken);
-  const cm = await SteamCM.connect(options);
+  const cm = await SteamCM.connect(connectOptions);
+  beforeLogOn?.(cm);
   const response = new Promise<{
     steamid?: string;
     sessionId?: number;
@@ -93,6 +104,9 @@ export async function logOnWithRefreshToken(
       // the "new" friends/group chat, which voice chat belongs to
       chat_mode: 2,
       access_token: refreshToken,
+      // steam replaces a session from the same address with the same id, so a second
+      // vaporchat (phone and web, say) would kick the first one
+      obfuscated_private_ip: { v4: Math.floor(Math.random() * 0xffffffff) },
     },
     { steamid },
   );
@@ -111,7 +125,29 @@ export async function logOnWithRefreshToken(
   return cm;
 }
 
-export interface LogOnOptions extends SteamConnectOptions {
+/** Swaps the stored token for a fresh one when Steam offers it, tokens last about 200 days. */
+async function renewRefreshToken(
+  cm: SteamCM,
+  refreshToken: string,
+  store: TokenStore,
+) {
+  try {
+    const renewed = await cm.call<{ refresh_token?: string }>(
+      'Authentication.GenerateAccessTokenForApp#1',
+      {
+        refresh_token: refreshToken,
+        steamid: cm.steamid,
+        renewal_type: TOKEN_RENEWAL_ALLOW,
+      },
+    );
+    if (renewed.refresh_token) await store.save(renewed.refresh_token);
+  } catch (err) {
+    // the old token still works, the next logon tries again
+    console.warn('Renewing the Steam refresh token failed:', err);
+  }
+}
+
+export interface LogOnOptions extends LogOnConnectOptions {
   /** used when there is no stored token or Steam rejected it */
   credentials?: SteamCredentials;
   /** answers Steam Guard challenges, without it guarded accounts can't log in with credentials */
@@ -120,7 +156,7 @@ export interface LogOnOptions extends SteamConnectOptions {
 
 /**
  * Logs on with the stored refresh token, and only falls back to credentials when there
- * is no token or Steam rejected it. Fresh tokens are saved to the store.
+ * is no token or Steam rejected it. Fresh and renewed tokens are saved to the store.
  */
 export async function logOnSteam(
   store: TokenStore,
@@ -129,7 +165,9 @@ export async function logOnSteam(
   const stored = await store.load();
   if (stored) {
     try {
-      return await logOnWithRefreshToken(stored, connectOptions);
+      const cm = await logOnWithRefreshToken(stored, connectOptions);
+      await renewRefreshToken(cm, stored, store);
+      return cm;
     } catch (err) {
       if (!hasEResult(err, REJECTED_TOKEN_ERESULTS)) throw err;
       await store.clear();
@@ -142,6 +180,7 @@ export async function logOnSteam(
     credentials.accountName,
     credentials.password,
     steamGuard,
+    { serverListUrl: connectOptions.serverListUrl },
   );
   await store.save(refreshToken);
   return logOnWithRefreshToken(refreshToken, connectOptions);

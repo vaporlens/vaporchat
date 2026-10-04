@@ -29,78 +29,45 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
 
 ## Done so far
 
-- Commits `0cf6b62`, `b01a37d`. Everything after is uncommitted; the user stages things themselves,
-  so check `git status`.
-- Library client half (`client/`) is platform neutral (speaking detection from WebRTC stats, no DOM).
-  Voice features are verified live: see the table in `packages/vaporchat/README.md`.
-- New Steam client (`packages/vaporchat/steam/`):
-  - `scripts/generateProtos.ts` → `steam/protos.generated.ts`: only the protobuf types we use (79,
-    48 KB). Add type names there and rerun `bun packages/vaporchat/scripts/generateProtos.ts`.
-  - `protos.ts`: encode/decode. Registers `long` explicitly, because bundlers hide protobufjs's dynamic
-    require and steamids would lose precision.
-  - `cm.ts` (`SteamCM`): server pick (`serverListUrl` override), ClientHello, framing, gzipped Multi
-    (fflate), service calls (authenticated and not), notifications, `onMessage` by EMsg or
-    notification name, heartbeat, close.
-  - `eresult.ts`: `EResult` constants, `SteamError`, `hasEResult`.
-  - `logOn.ts`: `TokenStore` interface, `steamIdFromRefreshToken`, `logOnWithRefreshToken`, and the
-    `logOnSteam` orchestrator (stored token first, credentials as fallback). `logOn.test.ts` covers
-    it against a fake Steam connection.
-- Verified live from Bun: logon with the stored refresh token works, and `ChatRoom.GetMyChatRoomGroups`
-  returns the test group. Verified from Chromium: WebSocket to a CM works, but the server-list fetch is
-  blocked by CORS.
-- `packages/mobile`: Expo SDK 57 scaffold with react-native-webrtc, a placeholder connect screen that
-  still expects the old server link, and bundle id `com.yamalight.vaporchat`. Never built on a device.
+- Steps 1–4 and 7 of the original plan are done; the server design is gone. Nothing is committed, check `git status`.
+- Library (`packages/vaporchat`): `client/connection.ts` (`VoiceConnection`) is a logged-on `SteamCM`
+  with typed voice `call`/`notify`, friends (`steam/friends.ts`), groups and invite links
+  (`steam/groups.ts`). `SteamVoice.logOn(tokenStore, { credentials, steamGuard, serverListUrl })`
+  replaces `connect(url)`. Credential login + Steam Guard run over the CM (`steam/credentialLogin.ts`,
+  RSA in `steam/rsa.ts`). Stored tokens get renewed after logon. Each logon sends a random logon id so
+  several sessions of one account coexist. steam-user is a dev dependency (protos only).
+- Verified live from Bun: credential login, logon, going online, 86 friends with names/avatars/state
+  within ~2 s, groups with voice rooms.
+- Web harness (`packages/web`): Bun serves the page plus `/cm-list`; the page signs in itself (token in
+  localStorage); `scripts/liveVoice.ts` seeds the token from `data/`, fetching one with `.env`
+  credentials when missing. Not run live yet.
+- Mobile (`packages/mobile`): sign-in with Steam Guard, keychain token store (`tokenStore.ts`), home
+  screen with voice rooms, friends and invite links, tap to join/call, incoming calls with
+  vibration, call bar (participants, speaking ring, mute, deafen, speaker/earpiece, leave), automatic
+  reconnect with backoff, background audio mode. Runs in the iOS 27 simulator, signed in as the bot.
+  No call placed from it yet.
+- Xcode 27 specifics: the app must adopt the UIScene lifecycle (`plugins/withSceneLifecycle.ts`
+  backports Expo SDK 58's template; delete it after upgrading). The simulator app is DeviceHub.
+  `modules/audio-route` is a local Expo module (iOS only) that switches earpiece/speaker.
 
-## Current breakage (expected mid-rewrite)
+## Running it
 
-- `npm run check` fails on one file: `packages/web/server.ts` still calls the old steam-user login.
-  The web harness can't run until step 4. Biome, the library type check and the tests (19) pass.
-- Still on the old design, but compiling: `server/*`, `steam/serviceCalls.ts`, `steam/refreshToken.ts`,
-  `packages/web/src/app.ts`, and the `voiceProxy` tests.
-- `steam/credentialLogin.ts` still uses steam-session, which is Node-only. `logOnSteam` imports it, so
-  until step 2 the library's login path isn't usable in React Native or browsers.
-- Token renewal is gone with steam-user; its old test was removed (see step 6).
+- `cd packages/mobile && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npx expo run:ios`
+  (add `--device` for the phone). Metro: `npx expo start --dev-client`.
+- Claude's sandbox can't write `~/.cocoapods` or drive the Simulator via AppleScript: run
+  `pod install` yourself after native changes; `expo run:ios` then fails at the very end (after
+  installing) on osascript, which is harmless. Open the app with
+  `xcrun simctl openurl <udid> "exp+vaporchat://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"`.
 
 ## Next steps
 
-1. **Steam-backed connection.** Replace `client/connection.ts`, the websocket to the old server, with a
-   class over `SteamCM` that keeps the same `call` / `notify` / `on` / `'close'` shape, so `VoiceSession`
-   and `SteamVoice` barely change. Reuse from `server/voiceProxy.ts`: the derived proto names, the
-   `failIsExpected` handling (Steam answers acks and declines with Fail) and the notification type
-   map. App methods:
-   - Friends: `ClientFriendsList` plus `ClientRequestFriendData` (flags 1|2|16) and `ClientPersonaState`.
-     Build the avatar URL from the `avatar_hash` hex the way steam-user does in `components/friends.js`.
-   - Groups: `GetMyChatRoomGroups` + `SetSessionActiveChatRoomGroups`. `members_in_voice` holds account
-     ids, not SteamID64s.
-   - Invite links: `GetInviteLinkInfo` + `JoinChatRoomGroup`.
-   - Go online after logon with `ClientChangeStatus` (`persona_state: 1`).
-   - Gotcha: the friends list arrives in the same Multi as the logon response, so register handlers
-     **before** sending ClientLogon. Add a hook to `logOnWithRefreshToken` or build the connection
-     around it.
-2. **Credential login + Steam Guard over CM.** Use the unauthenticated `Authentication.*` calls (types
-   already generated). The password is RSA-encrypted, PKCS#1 v1.5, with BigInt; it needs random bytes
-   from `crypto.getRandomValues`, which React Native lacks without expo-crypto or
-   react-native-get-random-values. Port the prompt logic and tests from the current `credentialLogin.ts`.
-3. **Delete the server design:**
-   - `server/` and its tests
-   - `steam/serviceCalls.ts`, `steam/refreshToken.ts`
-   - the wire message types in `protocol.ts`
-   - the steam-session dependency; move steam-user to devDependencies
-4. **Web debug harness.**
-   - The Bun server serves the page and a `/cm-list` proxy only.
-   - The page logs in itself, with the token in localStorage.
-   - The live driver injects the token from `data/`.
-5. **Mobile.**
-   - A `TokenStore` on expo-secure-store and a login screen.
-   - Build: `npm install`, then `cd packages/mobile && npx expo run:ios --device`.
-   - Then the first real call. Open risks: react-native-webrtc accepting Steam's rewritten SDP, and iOS
-     `getStats()` reporting `audioLevel` + `trackIdentifier`, which speaking detection needs.
-6. **Open questions to verify live:**
-   - Does Steam end a voice chat when the CM connection drops? The old proxy left chats explicitly on
-     disconnect.
-   - Refresh token renewal is not implemented yet. steam-user's `renewRefreshTokens` is the
-     reference; tokens last about 200 days.
-7. Rewrite `packages/vaporchat/README.md` once the old design is gone.
+1. First real calls on the phone (needs the user): group voice, calling the user, the user calling
+   the app. Open risks: react-native-webrtc accepting Steam's rewritten SDP; iOS `getStats()`
+   reporting `audioLevel` + `trackIdentifier` for the speaking ring; the speaker override surviving
+   WebRTC's audio session changes.
+2. Steam Guard live (the user's account has it).
+3. Does Steam end a voice chat when the CM connection drops? The old proxy left chats explicitly.
+4. Android: `audio-route` has no Android side yet.
 
 ## Live testing setup
 

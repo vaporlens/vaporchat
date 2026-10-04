@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { chromium, type Page } from 'playwright';
+import { getRefreshTokenWithCredentials } from 'vaporchat/steam/credentialLogin';
 
 // Drives the real app in headless chromium (phone sized) for a live voice test with a human on the other side.
 //   bun packages/web/scripts/liveVoice.ts call <friend name>
@@ -12,6 +13,8 @@ import { chromium, type Page } from 'playwright';
 // ACTIONS="15:Mute,25:Unmute,40:Leave" clicks session buttons N seconds after connecting.
 // SCREENSHOT_DIR saves a screenshot of the page after every action.
 // The fake microphone sends a beep tone. Prints media stats until DURATION_S runs out, then leaves.
+// Signs the page in with the refresh token in DATA_DIR (default data/), getting one with
+// STEAM_USER/STEAM_PASS first when there is none, and saves it back in case Steam renewed it.
 const [mode, ...rest] = process.argv.slice(2);
 const target = rest.join(' ');
 const base = process.env.VAPORCHAT_URL ?? 'http://localhost:3000';
@@ -27,6 +30,23 @@ const actions = (process.env.ACTIONS ?? '')
 const MODES = ['call', 'group', 'answer', 'decline', 'observe', 'callback'];
 if (!MODES.includes(mode) || (['call', 'group'].includes(mode) && !target)) {
   throw new Error(`usage: liveVoice.ts ${MODES.join('|')} [target]`);
+}
+
+// the page's localStorage key for the token, see src/app.ts
+const TOKEN_STORAGE = 'vaporchat-refresh-token';
+const accountName = process.env.STEAM_USER;
+const password = process.env.STEAM_PASS;
+if (!accountName || !password)
+  throw new Error('STEAM_USER and STEAM_PASS must be set');
+const tokenFile = Bun.file(
+  `${process.env.DATA_DIR ?? 'data'}/steam-refresh-token-${accountName.toLowerCase()}`,
+);
+let refreshToken = (await tokenFile.exists())
+  ? (await tokenFile.text()).trim()
+  : null;
+if (!refreshToken) {
+  refreshToken = await getRefreshTokenWithCredentials(accountName, password);
+  await Bun.write(tokenFile, refreshToken);
 }
 
 const browser = await chromium.launch({
@@ -54,8 +74,15 @@ await page.addInitScript(() => {
     }
   };
 });
+await page.addInitScript(
+  ([key, token]) => {
+    // only seed it, a token the page renewed since must not be overwritten on reload
+    if (!localStorage.getItem(key)) localStorage.setItem(key, token);
+  },
+  [TOKEN_STORAGE, refreshToken],
+);
 page.on('pageerror', (err) => console.error('page error:', err.message));
-await page.goto(`${base}/#key=${process.env.VAPORCHAT_KEY}`);
+await page.goto(base);
 await page.waitForSelector('#friends .row');
 
 let shots = 0;
@@ -202,4 +229,9 @@ if (await leave.isVisible()) {
 }
 await page.waitForTimeout(2000);
 await screenshot('end');
+const latestToken = await page.evaluate(
+  (key) => localStorage.getItem(key),
+  TOKEN_STORAGE,
+);
+if (latestToken) await Bun.write(tokenFile, latestToken);
 await browser.close();
