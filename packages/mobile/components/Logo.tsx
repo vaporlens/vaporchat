@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, gradients } from '../theme';
 
@@ -6,10 +6,10 @@ export function Logo() {
   return (
     <View style={styles.logo}>
       <View style={styles.tile}>
-        <Ionicons name="headset" size={40} color="#fff" />
+        <FontAwesome6 name="microscope" size={38} color="#fff" />
       </View>
-      <Text style={styles.name}>VaporChat</Text>
-      <Text style={styles.tagline}>Steam voice chat, in your pocket</Text>
+      <Text style={styles.name}>Vaporlens</Text>
+      <Text style={styles.tagline}>Steam, in your pocket</Text>
     </View>
   );
 }

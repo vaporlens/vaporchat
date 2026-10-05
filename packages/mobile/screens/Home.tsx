@@ -17,18 +17,23 @@ import type {
   ChatRoom,
   ChatTarget,
   Friend,
+  StoreItem,
 } from 'vaporchat/protocol';
 import { chatKey } from 'vaporchat/steam/messages';
 import { useUnread } from '../chats';
 import { Avatar } from '../components/Avatar';
 import { Field } from '../components/Field';
+import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
+import { openLink } from '../links';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
 import { Chat } from './Chat';
+import { FeedTabs } from './FeedTabs';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
+import { type Page, PageStack } from './PageStack';
 import { FriendRow, RoomRow, SectionHeader } from './Rows';
 
 type Row = { key: string; chat: ChatTarget } & (
@@ -84,7 +89,10 @@ function matches(query: string, ...names: string[]) {
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
 
-/** Who you are, your group chats and your friends. Tap one to chat, join a room's voice, call a friend. */
+/**
+ * Who you are and the tabs: Steam's deals, new releases, news and friends' activity, and chat
+ * with your group chats and friends. Tap one to chat, join a room's voice, call a friend.
+ */
 export function Home({
   voice,
   onSignOut,
@@ -102,6 +110,8 @@ export function Home({
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [chat, setChat] = useState<ChatTarget | null>(null);
+  const [tab, setTab] = useState<Tab>('deals');
+  const [pages, setPages] = useState<Page[]>([]);
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
   const unread = useUnread(voice, chat);
   // stable, the open chat reloads when it changes
@@ -176,6 +186,20 @@ export function Home({
     },
   ];
 
+  const push = useCallback(
+    (page: Page) => setPages((stack) => [...stack, page]),
+    [],
+  );
+  // bundles have no game page of their own
+  const openGame = useCallback(
+    ({ appid, ...item }: StoreItem) =>
+      appid === null
+        ? openLink(item.url)
+        : push({ kind: 'game', item: { ...item, appid } }),
+    [push],
+  );
+  const back = useCallback(() => setPages((stack) => stack.slice(0, -1)), []);
+
   function confirmSignOut() {
     Alert.alert('Sign out?', 'You will need your password to sign in again.', [
       { text: 'Cancel', style: 'cancel' },
@@ -195,8 +219,14 @@ export function Home({
           onError={showError}
         />
       )}
+      <PageStack
+        voice={voice}
+        pages={pages}
+        onBack={back}
+        onOpenGame={openGame}
+      />
       {/* hidden rather than unmounted, coming back keeps the scroll position and search */}
-      <View style={[styles.grow, chat && styles.hidden]}>
+      <View style={[styles.grow, (chat || pages.length > 0) && styles.hidden]}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <Avatar
             url={me.avatarUrl}
@@ -222,14 +252,20 @@ export function Home({
             <Ionicons name="log-out-outline" size={22} color={colors.muted} />
           </Pressable>
         </View>
+        <FeedTabs
+          voice={voice}
+          tab={tab}
+          onOpenGame={openGame}
+          onOpenPage={push}
+          onError={showError}
+        />
         <SectionList<Row, Section>
+          style={tab !== 'chat' && styles.hidden}
           sections={sections}
           keyExtractor={(row) => row.key}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          contentContainerStyle={{
-            paddingBottom: session ? 16 : insets.bottom + 16,
-          }}
+          contentContainerStyle={styles.listEnd}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -360,6 +396,11 @@ export function Home({
             )
           }
         />
+        <TabBar
+          tab={tab}
+          onChange={setTab}
+          bottomInset={session ? 0 : insets.bottom}
+        />
       </View>
       {session && (
         <CallDock
@@ -391,6 +432,7 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1 },
   hidden: { display: 'none' },
+  listEnd: { paddingBottom: 16 },
   myName: { color: colors.bright, fontSize: 18, fontWeight: '700' },
   myStatus: { color: colors.online, fontSize: 13, marginTop: 1 },
   headerButton: {

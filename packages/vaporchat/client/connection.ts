@@ -23,6 +23,7 @@ import {
   type LogOnOptions,
   logOnSteam,
   type TokenStore,
+  type WebSession,
   webSession,
 } from '../steam/logOn.ts';
 import {
@@ -32,6 +33,7 @@ import {
 } from '../steam/messages.ts';
 import { decodeProto } from '../steam/protos.ts';
 import { Emitter } from './emitter.ts';
+import { SteamFeeds } from './feeds.ts';
 
 const CLIENT_NOTIFICATIONS: Record<keyof SteamClientNotifications, string> = {
   'VoiceChat.NotifyUserVoiceStatus#1':
@@ -63,6 +65,8 @@ const SERVER_NOTIFICATIONS: Record<keyof SteamServerNotifications, string> = {
 
 // EPersonaState.Online
 const ONLINE = 1;
+// web access tokens last a day, a fresh one is made well before that
+const WEB_SESSION_MS = 60 * 60 * 1000;
 const FAIL = new Set<number>([EResult.Fail]);
 
 // steam answers these with Fail even though they took effect, the official client ignores it too
@@ -92,15 +96,19 @@ type ConnectionEvents = SteamServerNotifications & {
 export class VoiceConnection extends Emitter<ConnectionEvents> {
   #cm: SteamCM;
   #friends: FriendsList;
-  /** the refresh token, web sessions for image uploads are made from it */
+  /** the refresh token, web sessions for image uploads and news are made from it */
   #store: TokenStore;
   #emoticons: Promise<OwnedEmoticons> | null = null;
+  #web: { session: Promise<WebSession>; since: number } | null = null;
+  /** Steam's store and client feeds: deals, releases, game pages, news, friends' activity. */
+  readonly feeds: SteamFeeds;
 
   private constructor(cm: SteamCM, friends: FriendsList, store: TokenStore) {
     super();
     this.#cm = cm;
     this.#friends = friends;
     this.#store = store;
+    this.feeds = new SteamFeeds(cm, () => this.#webSession());
     for (const [name, typeName] of Object.entries(SERVER_NOTIFICATIONS)) {
       cm.onMessage(name, (_header, body) =>
         this.emit(
@@ -197,9 +205,23 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
    * steamcommunity.com, which browsers can't reach without a proxy (no CORS).
    */
   async sendImage(chat: ChatTarget, image: ChatImage) {
-    const refreshToken = await this.#store.load();
-    if (!refreshToken) throw new Error('Signed out');
-    await sendImage(await webSession(this.#cm, refreshToken), chat, image);
+    await sendImage(await this.#webSession(), chat, image);
+  }
+
+  /** A steamcommunity.com and store login, made once an hour rather than per request. */
+  #webSession() {
+    if (!this.#web || Date.now() - this.#web.since > WEB_SESSION_MS) {
+      const session = this.#store.load().then((refreshToken) => {
+        if (!refreshToken) throw new Error('Signed out');
+        return webSession(this.#cm, refreshToken);
+      });
+      // a failed one is made again next time
+      session.catch(() => {
+        if (this.#web?.session === session) this.#web = null;
+      });
+      this.#web = { session, since: Date.now() };
+    }
+    return this.#web.session;
   }
 
   /** The emoticons and stickers the account can send, recently used first. Fetched once. */

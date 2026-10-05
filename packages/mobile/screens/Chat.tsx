@@ -11,12 +11,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { ChatMessage, ChatTarget, StickerPart } from 'vaporchat/protocol';
 import { chatKey, mergeMessages } from 'vaporchat/steam/messages';
 import { pickImage } from '../chats';
 import { Avatar } from '../components/Avatar';
+import { DetailHeader } from '../components/DetailHeader';
 import { EmoticonPicker } from '../components/EmoticonPicker';
 import { ImageViewer } from '../components/ImageViewer';
 import { colors } from '../theme';
@@ -43,7 +43,6 @@ export function Chat({
   onBack: () => void;
   onError: (err: Error) => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -121,25 +120,12 @@ export function Chat({
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable
-          onPress={onBack}
-          accessibilityLabel="Back"
-          hitSlop={8}
-          style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-        >
-          <Ionicons name="chevron-back" size={26} color={colors.bright} />
-        </Pressable>
-        <Avatar url={avatarUrl} name={title} size={36} />
-        <View style={styles.grow}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        </View>
-      </View>
+      <DetailHeader
+        title={title}
+        subtitle={subtitle}
+        avatar={<Avatar url={avatarUrl} name={title} size={36} />}
+        onBack={onBack}
+      />
       <FlatList
         inverted
         data={newestFirst}
@@ -252,21 +238,7 @@ export function Chat({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-    backgroundColor: colors.bar,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-  },
-  back: { padding: 4 },
   pressed: { opacity: 0.6 },
-  grow: { flex: 1 },
-  title: { color: colors.bright, fontSize: 17, fontWeight: '700' },
-  subtitle: { color: colors.muted, fontSize: 13, marginTop: 1 },
   messages: { padding: 12, gap: 6, flexGrow: 1 },
   empty: { marginVertical: 24 },
   emptyText: { color: colors.muted, fontSize: 14, textAlign: 'center' },

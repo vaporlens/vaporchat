@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "VaporChat",
+    "name": "Vaporlens",
     "slug": "vaporchat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,7 +31,7 @@
       [
         "@config-plugins/react-native-webrtc",
         {
-          "microphonePermission": "VaporChat uses the microphone for Steam voice chat."
+          "microphonePermission": "Vaporlens uses the microphone for Steam voice chat."
         }
       ],
       "expo-secure-store",
@@ -39,7 +39,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "VaporChat sends the photos you pick into Steam chats."
+          "photosPermission": "Vaporlens sends the photos you pick into Steam chats."
         }
       ]
     ],

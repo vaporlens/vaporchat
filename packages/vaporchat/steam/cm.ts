@@ -96,6 +96,8 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
   #isClosed = false;
   /** set once logged on, sent with every authenticated message */
   steamid = '0';
+  /** where Steam located us at logon, the store's prices and availability follow it */
+  country = 'US';
   #sessionId = 0;
 
   private constructor(socket: WebSocket) {

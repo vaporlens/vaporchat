@@ -70,6 +70,7 @@ export async function logOnWithRefreshToken(
     sessionId?: number;
     eresult: number;
     heartbeatSeconds?: number;
+    country?: string;
   }>((resolve, reject) => {
     const offResponse = cm.onMessage(
       EMsg.ClientLogOnResponse,
@@ -79,12 +80,14 @@ export async function logOnWithRefreshToken(
         const logon = decodeProto<{
           eresult: number;
           heartbeat_seconds?: number;
+          ip_country_code?: string;
         }>('CMsgClientLogonResponse', body);
         resolve({
           steamid: header.steamid,
           sessionId: header.client_sessionid,
           eresult: logon.eresult,
           heartbeatSeconds: logon.heartbeat_seconds,
+          country: logon.ip_country_code,
         });
       },
     );
@@ -121,6 +124,7 @@ export async function logOnWithRefreshToken(
     logon.sessionId ?? 0,
     logon.heartbeatSeconds || DEFAULT_HEARTBEAT_SECONDS,
   );
+  if (logon.country) cm.country = logon.country;
   // steam signals a kicked or expired session this way before closing the socket
   cm.onMessage(EMsg.ClientLoggedOff, () => cm.close());
   return cm;

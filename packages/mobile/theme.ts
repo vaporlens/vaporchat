@@ -19,6 +19,9 @@ export const colors = {
   accept: '#3fb950',
   danger: '#e0473d',
   warning: '#e0b43d',
+  // steam's discount badge
+  discount: '#beee11',
+  discountBackground: '#4c6b22',
 };
 
 export const gradients = {

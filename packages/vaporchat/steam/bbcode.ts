@@ -18,7 +18,7 @@ export function stickerUrl(name: string) {
   return `${ECONOMY_URL}/sticker/${encodeURIComponent(name)}`;
 }
 
-function attributes(tag: string) {
+export function attributes(tag: string) {
   const found: Record<string, string> = {};
   for (const [, name, quoted, bare] of tag.matchAll(ATTRIBUTE)) {
     found[name] = quoted ?? bare;
@@ -26,7 +26,7 @@ function attributes(tag: string) {
   return found;
 }
 
-function size(value: string | undefined) {
+export function size(value: string | undefined) {
   const n = Number(value);
   return n > 0 ? n : null;
 }

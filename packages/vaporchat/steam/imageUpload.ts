@@ -2,10 +2,11 @@ import type { ChatTarget } from '../protocol.ts';
 import { EResult, SteamError } from './eresult.ts';
 import { hex } from './friends.ts';
 import type { WebSession } from './logOn.ts';
+import { COMMUNITY_URL, fetchWithCookie } from './web.ts';
 
 // Steam's chat uploads files through its community site, not the CM. The commit posts the
 // image into the chat; image BBCode sent as a message would be dropped.
-const CHAT_URL = 'https://steamcommunity.com/chat/';
+const CHAT_URL = `${COMMUNITY_URL}chat/`;
 
 export interface ChatImage {
   bytes: Uint8Array<ArrayBuffer>;
@@ -32,12 +33,10 @@ async function post<T>(path: string, cookie: string, fields: object) {
   for (const [name, value] of Object.entries(fields)) {
     form.append(name, String(value));
   }
-  const response = await fetch(CHAT_URL + path, {
+  const response = await fetchWithCookie(CHAT_URL + path, cookie, {
     method: 'POST',
-    headers: { cookie, referer: CHAT_URL },
+    headers: { referer: CHAT_URL },
     body: form,
-    // with credentials, React Native on iOS sends the cookies it stored instead of this header
-    credentials: 'omit',
   });
   const body = (await response.json()) as T & {
     success: number;

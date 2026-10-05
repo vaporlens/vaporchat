@@ -1,0 +1,59 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors } from '../theme';
+
+export type Tab = 'deals' | 'releases' | 'news' | 'activity' | 'chat';
+
+const TABS: {
+  tab: Tab;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { tab: 'deals', title: 'Deals', icon: 'pricetags' },
+  { tab: 'releases', title: 'New', icon: 'sparkles' },
+  { tab: 'news', title: 'News', icon: 'newspaper' },
+  { tab: 'activity', title: 'Activity', icon: 'people' },
+  { tab: 'chat', title: 'Chat', icon: 'chatbubbles' },
+];
+
+export function TabBar({
+  tab,
+  onChange,
+  bottomInset,
+}: {
+  tab: Tab;
+  onChange: (tab: Tab) => void;
+  bottomInset: number;
+}) {
+  return (
+    <View style={[styles.bar, { paddingBottom: bottomInset + 6 }]}>
+      {TABS.map((item) => {
+        const color = item.tab === tab ? colors.accent : colors.muted;
+        return (
+          <Pressable
+            key={item.tab}
+            onPress={() => onChange(item.tab)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: item.tab === tab }}
+            style={styles.tab}
+          >
+            <Ionicons name={item.icon} size={22} color={color} />
+            <Text style={[styles.title, { color }]}>{item.title}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  bar: {
+    flexDirection: 'row',
+    paddingTop: 6,
+    backgroundColor: colors.bar,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+  },
+  tab: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 2 },
+  title: { fontSize: 11, fontWeight: '600' },
+});

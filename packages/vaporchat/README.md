@@ -22,9 +22,10 @@ React Native, Node/Bun and browsers. **Browsers need a server for one thing:** S
 from steamcommunity.com, so a browser page can't fetch Steam's server list. Serve that list from
 your own backend (proxy `https://api.steampowered.com/ISteamDirectory/GetCMListForConnect/v1/?cellid=0`)
 and pass its URL as `serverListUrl`. Everything else, including login, goes over a WebSocket to Steam,
-which browsers allow. The one exception is `sendImage`: like Steam's own chat it uploads through
-`https://steamcommunity.com/chat/`, which has no CORS either, so browsers can't send images without
-a proxy for it too.
+which browsers allow. The exceptions are `sendImage`, which like Steam's own chat uploads through
+`https://steamcommunity.com/chat/`, and the store feeds (`getDeals`, `getNewReleases`, `getNews`),
+which read store.steampowered.com and api.steampowered.com. Those have no CORS either, so browsers
+need a proxy for them too.
 
 Password login and `sendImage` use `crypto.getRandomValues`. React Native has to polyfill it (the
 app uses `expo-crypto`); logging on with a stored refresh token doesn't need it.
@@ -62,11 +63,15 @@ const { emoticons, stickers } = await voice.connection.getEmoticons(); // what t
 await voice.connection.sendMessage(chat, stickers[0]); // a sticker is a message of its own
 await voice.connection.sendImage(chat, { bytes, type: 'image/jpeg', width, height }); // Steam posts it
 
-const session = await voice.joinGroupVoice(groupId, chatId, mic); // or voice.callFriend(steamid, mic)
-session.setMicMuted(true);
-session.setOutputMuted(true); // announces deafen, silencing playback is up to you
-await session.setMicrophone(otherMic); // null continues listen-only
-await session.leave(); // leaves the channel or ends the call
+// what Steam's store and client show
+const { feeds } = voice.connection;
+await feeds.getDeals(); // { events: sales running now, specials: top discounts }
+await feeds.getNewReleases(); // popular new releases, newest first
+await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
+await feeds.getSalePage(event.id); // a sale event's sections: texts and their games
+const news = await feeds.getNews(); // the News Hub's "Your News", newest first
+await feeds.getNews(news.next); // older ones, `next` is null at the end
+await feeds.getFriendsActivity(); // achievements, purchases, screenshots; pages like news
 ```
 
 - `logOn` saves fresh tokens to the `TokenStore` (keychain on phones, localStorage on web) and
@@ -78,6 +83,12 @@ await session.leave(); // leaves the channel or ends the call
 - `voice.connection.user(steamid)` returns anyone's name and avatar, looking up strangers (people
   in a group voice room) on first use. `joinGroupByInviteLink` joins `https://s.team/chat/…` links.
 - Each logon picks a random logon id, so the same account can be signed in from several devices.
+- Store descriptions and news posts come as `RichBlock`s to render (paragraphs, headings, lists,
+  pictures, videos, links), parsed from Steam's BBCode by `steam/richText.ts`.
+- The feeds use the endpoints Steam's own store, News Hub and client use, none of them documented.
+  Store prices follow the country Steam located the connection in at logon. Friends' activity
+  comes over the Steam connection (`UserNews.GetUserNews`, its protobuf is in
+  `scripts/userNews.proto`), news uses a web session like `sendImage`, deals and releases need no login.
 - Messages come as `parts` to render: text, emoticons, stickers and images with their URLs (other
   BBCode such as links and quotes reads as its text). Our own messages sent from other devices come
   as `message` too, with the same `id` as the one `sendMessage` returned: `mergeMessages` and
@@ -143,6 +154,12 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Text chat: friend and room messages, history, sending (brackets escaped), echo dedupe | live (Bun) |
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
+| Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |
+| Game pages; store descriptions and news posts as rich text | live (Bun) |
+| Sale event pages with their games, bundles included | live (Bun) |
+| iOS app: Deals, New, News, Activity tabs | iOS simulator (rendering only, links and paging not tried) |
+| iOS app: game and article screens, deals carousel | iOS simulator (rendering only) |
+| iOS app: sale screens, VaporLens analysis on game screens | iOS simulator (rendering only) |
 | iOS app: chat screen, unread badges, emoticons, animated stickers, image viewer, emoticon and sticker picker, sending photos | live (phone) |
 | Mute/deafen sent to Steam, other users' mute status received | live |
 | Speaking indicators | live |

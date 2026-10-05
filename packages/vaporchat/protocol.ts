@@ -196,3 +196,136 @@ export interface IncomingChatMessage {
   chat: ChatTarget;
   message: ChatMessage;
 }
+
+/** A game or bundle in the Steam store. Times are milliseconds since the epoch. */
+export interface StoreItem {
+  /** null for bundles */
+  appid: number | null;
+  name: string;
+  /** its store page */
+  url: string;
+  /** the 460x215 header picture */
+  imageUrl: string | null;
+  /** formatted in the store's currency (`$17.99`), null when free or not for sale */
+  price: string | null;
+  /** the price before its discount, null without one */
+  originalPrice: string | null;
+  discountPercent: number;
+  discountEndsAt: number | null;
+  releasedAt: number | null;
+  free: boolean;
+}
+
+/** A sale, update or announcement posted on Steam by a game or group. Times are milliseconds. */
+export interface SteamEvent {
+  id: string;
+  title: string;
+  /** the game it's about, null for group events */
+  appid: number | null;
+  /** that game's name, when known */
+  game: string | null;
+  /** 16:9 capsule */
+  imageUrl: string | null;
+  /** the start of its text, without formatting */
+  summary: string;
+  /** the whole post */
+  body: RichBlock[];
+  url: string;
+  startsAt: number;
+  endsAt: number | null;
+}
+
+/** A part of a sale event's page: a text, a list of games, or both. */
+export interface SaleSection {
+  title: string;
+  body: RichBlock[];
+  items: StoreItem[];
+}
+
+/** The sale events running now and the store's top discounts. */
+export interface Deals {
+  events: SteamEvent[];
+  specials: StoreItem[];
+}
+
+export type FriendActivityKind =
+  | 'friendAdded'
+  | 'achievement'
+  | 'purchase'
+  | 'wishlist'
+  | 'review'
+  | 'screenshot'
+  | 'video'
+  | 'workshop'
+  | 'favorited'
+  | 'firstPlay';
+
+export interface Achievement {
+  name: string;
+  description: string;
+  iconUrl: string | null;
+}
+
+/** Something a friend did, like in the activity feed of Steam's client. */
+export interface FriendActivity {
+  id: string;
+  kind: FriendActivityKind;
+  /** milliseconds since the epoch */
+  time: number;
+  /** SteamID64 of the friend */
+  actor: string;
+  /** SteamID64 of who they became friends with (`friendAdded`) */
+  target: string | null;
+  game: StoreItem | null;
+  /** the ones unlocked (`achievement`) */
+  achievements: Achievement[];
+  /** where to see it on Steam */
+  url: string;
+}
+
+/** Part of a feed, newest first. Older entries come with `before: next`, which is null at the end. */
+export interface FeedPage<T> {
+  items: T[];
+  next: number | null;
+}
+
+/** Formatted text of a store page or news post, from Steam's BBCode. */
+export interface RichSpan {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  /** hidden until tapped */
+  spoiler?: boolean;
+  link?: string;
+}
+
+export type RichBlock =
+  | { kind: 'heading'; level: 1 | 2 | 3; spans: RichSpan[] }
+  | { kind: 'paragraph'; spans: RichSpan[] }
+  /** `marker` is `•` or the number, like `2.` */
+  | { kind: 'listItem'; depth: number; marker: string; spans: RichSpan[] }
+  | { kind: 'quote'; spans: RichSpan[] }
+  | { kind: 'code'; text: string }
+  /** pixels, null when the post didn't say */
+  | { kind: 'image'; url: string; width: number | null; height: number | null }
+  | { kind: 'youtube'; url: string; thumbnailUrl: string }
+  /** a link shown on its own, like a store page Steam previews */
+  | { kind: 'link'; url: string }
+  | { kind: 'rule' };
+
+/** A game's store page. */
+export interface GameDetails extends StoreItem {
+  shortDescription: string;
+  developers: string[];
+  publishers: string[];
+  /** like `Very Positive`, null without enough reviews */
+  reviews: { label: string; percentPositive: number; count: number } | null;
+  tags: string[];
+  screenshots: { url: string; thumbnailUrl: string }[];
+  /** `Windows`, `macOS`, `Linux` */
+  platforms: string[];
+  steamDeck: 'verified' | 'playable' | 'unsupported' | null;
+  description: RichBlock[];
+}
