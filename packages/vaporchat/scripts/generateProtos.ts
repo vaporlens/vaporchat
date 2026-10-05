@@ -13,6 +13,7 @@ const SOURCES = [
   'steammessages_clientserver_friends',
   'steammessages_auth.steamclient',
   'steammessages_chat.steamclient',
+  'steammessages_friendmessages.steamclient',
   'friends_mobile',
 ];
 
@@ -28,6 +29,10 @@ const SERVICE_METHODS = [
   'ChatRoom.JoinChatRoomGroup',
   'ChatRoom.JoinVoiceChat',
   'ChatRoom.LeaveVoiceChat',
+  'ChatRoom.SendChatMessage',
+  'ChatRoom.GetMessageHistory',
+  'FriendMessages.SendMessage',
+  'FriendMessages.GetRecentMessages',
   'WebRTCClient.InitiateWebRTCConnection',
   'WebRTCClient.AcknowledgeUpdatedRemoteDescription',
   'VoiceChat.RequestOneOnOneChat',
@@ -48,6 +53,8 @@ const MESSAGES = [
   'CMsgClientPersonaState',
   'CMsgClientFriendsList',
   'CMsgClientRequestFriendData',
+  'CMsgClientGetEmoticonList',
+  'CMsgClientEmoticonList',
   'CVoiceChat_UserVoiceStatus_Notification',
   'CWebRTC_WebRTCSessionConnected_Notification',
   'CWebRTC_WebRTCUpdateRemoteDescription_Notification',
@@ -60,6 +67,8 @@ const MESSAGES = [
   'CChatRoom_NotifyShouldRejoinChatRoomVoiceChat_Notification',
   'CChatRoom_ChatRoomGroupRoomsChange_Notification',
   'ChatRoomClient_NotifyChatGroupUserStateChanged_Notification',
+  'CChatRoom_IncomingChatMessage_Notification',
+  'CFriendMessages_IncomingMessage_Notification',
 ];
 
 const require = createRequire(import.meta.url);
@@ -88,7 +97,9 @@ function include(object: protobuf.ReflectionObject) {
   const visit = (type: protobuf.ReflectionObject) => {
     if (!(type instanceof protobuf.Type)) return;
     for (const field of type.fieldsArray) {
-      if (field.resolvedType) include(field.resolvedType);
+      // a type another source defined first resolves to that source's own copy, take the merged one
+      if (field.resolvedType)
+        include(root.lookup(field.resolvedType.fullName)!);
     }
     for (const nested of type.nestedArray) visit(nested);
   };

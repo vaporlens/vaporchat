@@ -35,6 +35,13 @@ interface Persona {
   state: number;
 }
 
+// SteamID64 of individual account 0, account ids are offsets from it
+const STEAMID64_BASE = 76561197960265728n;
+
+export function steamIdFromAccountId(accountId: number) {
+  return (STEAMID64_BASE + BigInt(accountId)).toString();
+}
+
 export function hex(bytes: Uint8Array) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }

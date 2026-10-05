@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     borderRadius: 6,
-    backgroundColor: '#32353c',
+    backgroundColor: colors.field,
   },
   input: { flex: 1, height: 48, color: colors.bright, fontSize: 16 },
 });

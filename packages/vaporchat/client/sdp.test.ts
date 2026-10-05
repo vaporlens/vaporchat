@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  accountIdFromStreamId,
-  mungeOpusFmtp,
-  steamIdFromAccountId,
-} from './sdp.ts';
+import { steamIdFromAccountId } from '../steam/friends.ts';
+import { accountIdFromStreamId, mungeOpusFmtp } from './sdp.ts';
 
 const offer = [
   'v=0',

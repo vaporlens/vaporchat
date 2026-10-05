@@ -152,3 +152,47 @@ export interface ChatGroup {
   avatarUrl: string | null;
   rooms: ChatRoom[];
 }
+
+/** A text conversation: with a friend, or in a group chat room. */
+export type ChatTarget =
+  | { kind: 'friend'; steamid: string }
+  | { kind: 'room'; groupId: string; chatId: string };
+
+/** A piece of a message, in reading order. Formatting Steam's clients add (links, quotes) is text. */
+export type ChatPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'emoticon'; name: string; url: string }
+  /** big and often animated (APNG) */
+  | { kind: 'sticker'; name: string; url: string }
+  | {
+      kind: 'image';
+      url: string;
+      thumbnailUrl: string;
+      /** pixels, null when Steam didn't say */
+      width: number | null;
+      height: number | null;
+    };
+
+export type EmoticonPart = Extract<ChatPart, { kind: 'emoticon' }>;
+export type StickerPart = Extract<ChatPart, { kind: 'sticker' }>;
+
+/** The emoticons and stickers the account can send, recently used ones first. */
+export interface OwnedEmoticons {
+  emoticons: EmoticonPart[];
+  stickers: StickerPart[];
+}
+
+export interface ChatMessage {
+  /** unique within its chat, the same for our own message and its echo */
+  id: string;
+  /** SteamID64 of who wrote it */
+  sender: string;
+  parts: ChatPart[];
+  /** milliseconds since the epoch, the ordinal of messages in the same second as milliseconds */
+  time: number;
+}
+
+export interface IncomingChatMessage {
+  chat: ChatTarget;
+  message: ChatMessage;
+}

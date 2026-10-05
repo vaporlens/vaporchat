@@ -17,6 +17,8 @@ export const EMsg = {
   ClientFriendsList: 767,
   ClientRequestFriendData: 815,
   ClientLogon: 5514,
+  ClientGetEmoticonList: 9330,
+  ClientEmoticonList: 9331,
   ServiceMethodCallFromClientNonAuthed: 9804,
   ClientHello: 9805,
 } as const;
@@ -183,6 +185,35 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
       serviceTypeName(method, 'Response'),
       await response,
     );
+  }
+
+  /** Sends a message Steam answers with a message of its own (not a job reply), resolves with its body. */
+  request(emsg: number, typeName: string, body: object, replyEmsg: number) {
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const finish = () => {
+        clearTimeout(timer);
+        offReply();
+        offClose();
+      };
+      const timer = setTimeout(() => {
+        finish();
+        reject(new Error(`Steam did not answer ${typeName}`));
+      }, CALL_TIMEOUT_MS);
+      const offReply = this.onMessage(replyEmsg, (_header, reply) => {
+        finish();
+        resolve(reply);
+      });
+      const offClose = this.on('close', ({ reason }) => {
+        finish();
+        reject(new Error(`Steam connection closed: ${reason}`));
+      });
+      try {
+        this.send(emsg, typeName, body);
+      } catch (err) {
+        finish();
+        reject(err);
+      }
+    });
   }
 
   /** One-way service notification (`Service.NotifyX#1`), Steam sends no reply. */

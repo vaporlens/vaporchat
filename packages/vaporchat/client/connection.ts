@@ -1,11 +1,16 @@
 import type {
   ChatGroup,
+  ChatTarget,
   Friend,
+  IncomingChatMessage,
+  OwnedEmoticons,
   SteamClientNotifications,
   SteamMethods,
   SteamServerNotifications,
+  StickerPart,
 } from '../protocol.ts';
 import { EMsg, type SteamCM } from '../steam/cm.ts';
+import { getEmoticons } from '../steam/emoticons.ts';
 import { EResult, hasEResult } from '../steam/eresult.ts';
 import { FriendsList } from '../steam/friends.ts';
 import {
@@ -13,11 +18,18 @@ import {
   getGroups,
   joinGroupByInviteLink,
 } from '../steam/groups.ts';
+import { type ChatImage, sendImage } from '../steam/imageUpload.ts';
 import {
   type LogOnOptions,
   logOnSteam,
   type TokenStore,
+  webSession,
 } from '../steam/logOn.ts';
+import {
+  getRecentMessages,
+  onChatMessages,
+  sendMessage,
+} from '../steam/messages.ts';
 import { decodeProto } from '../steam/protos.ts';
 import { Emitter } from './emitter.ts';
 
@@ -71,18 +83,24 @@ function failIsExpected<M extends keyof SteamMethods>(
 type ConnectionEvents = SteamServerNotifications & {
   friendsChanged: Friend[];
   groupsChanged: Record<string, never>;
+  /** a text message in any chat, ours from other devices included */
+  message: IncomingChatMessage;
   close: { reason: string };
 };
 
-/** A logged-on Steam connection: voice signaling, friends and group chats. */
+/** A logged-on Steam connection: voice signaling, text chat, friends and group chats. */
 export class VoiceConnection extends Emitter<ConnectionEvents> {
   #cm: SteamCM;
   #friends: FriendsList;
+  /** the refresh token, web sessions for image uploads are made from it */
+  #store: TokenStore;
+  #emoticons: Promise<OwnedEmoticons> | null = null;
 
-  private constructor(cm: SteamCM, friends: FriendsList) {
+  private constructor(cm: SteamCM, friends: FriendsList, store: TokenStore) {
     super();
     this.#cm = cm;
     this.#friends = friends;
+    this.#store = store;
     for (const [name, typeName] of Object.entries(SERVER_NOTIFICATIONS)) {
       cm.onMessage(name, (_header, body) =>
         this.emit(
@@ -94,6 +112,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     for (const name of GROUP_CHANGE_NOTIFICATIONS) {
       cm.onMessage(name, () => this.emit('groupsChanged', {}));
     }
+    onChatMessages(cm, (incoming) => this.emit('message', incoming));
     friends.on('changed', () => this.emit('friendsChanged', friends.friends));
     cm.on('close', (event) => this.emit('close', event));
   }
@@ -112,7 +131,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     });
     const friends = lists.get(cm);
     if (!friends) throw new Error('Steam connection has no friends list');
-    const connection = new VoiceConnection(cm, friends);
+    const connection = new VoiceConnection(cm, friends, store);
     cm.send(EMsg.ClientChangeStatus, 'CMsgClientChangeStatus', {
       persona_state: ONLINE,
     });
@@ -163,6 +182,39 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
 
   joinGroupByInviteLink(inviteLink: string) {
     return joinGroupByInviteLink(this.#cm, inviteLink);
+  }
+
+  /**
+   * Sends text (`:name:` of owned emoticons becomes the emoticon) or a sticker, returns the
+   * message as Steam stored it. Its echo may also come as `message`.
+   */
+  sendMessage(chat: ChatTarget, content: string | StickerPart) {
+    return sendMessage(this.#cm, chat, content);
+  }
+
+  /**
+   * Uploads an image and has Steam post it into the chat. It arrives as `message`. Goes through
+   * steamcommunity.com, which browsers can't reach without a proxy (no CORS).
+   */
+  async sendImage(chat: ChatTarget, image: ChatImage) {
+    const refreshToken = await this.#store.load();
+    if (!refreshToken) throw new Error('Signed out');
+    await sendImage(await webSession(this.#cm, refreshToken), chat, image);
+  }
+
+  /** The emoticons and stickers the account can send, recently used first. Fetched once. */
+  getEmoticons() {
+    this.#emoticons ??= getEmoticons(this.#cm).catch((err: Error) => {
+      // asked again next time
+      this.#emoticons = null;
+      throw err;
+    });
+    return this.#emoticons;
+  }
+
+  /** The latest messages of a chat, oldest first. New ones come as `message`. */
+  getRecentMessages(chat: ChatTarget) {
+    return getRecentMessages(this.#cm, chat);
   }
 
   close() {

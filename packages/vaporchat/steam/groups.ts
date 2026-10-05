@@ -1,15 +1,12 @@
 import type { ChatGroup } from '../protocol.ts';
 import type { SteamCM } from './cm.ts';
-import { avatarUrl, hex } from './friends.ts';
+import { avatarUrl, hex, steamIdFromAccountId } from './friends.ts';
 
 /** Steam notifications after which the group list is worth fetching again. */
 export const GROUP_CHANGE_NOTIFICATIONS = [
   'ChatRoomClient.NotifyChatRoomGroupRoomsChange#1',
   'ChatRoomClient.NotifyChatGroupUserStateChanged#1',
 ];
-
-// SteamID64 of individual account 0, account ids are offsets from it
-const INDIVIDUAL_STEAMID_BASE = 76561197960265728n;
 
 interface ChatRoomState {
   chat_id: string;
@@ -24,10 +21,6 @@ interface ChatGroupSummary {
   chat_group_name?: string;
   chat_group_avatar_sha?: Uint8Array;
   chat_rooms?: ChatRoomState[];
-}
-
-function steamIdFromAccountId(accountId: number) {
-  return String(INDIVIDUAL_STEAMID_BASE + BigInt(accountId));
 }
 
 /** The account's group chats with their rooms and who is in voice. Also subscribes to their changes. */

@@ -1,5 +1,6 @@
 import type { WebRTCSessionConnected } from '../protocol.ts';
 import { SteamError } from '../steam/eresult.ts';
+import { steamIdFromAccountId } from '../steam/friends.ts';
 import type { VoiceConnection } from './connection.ts';
 import { Emitter } from './emitter.ts';
 import { type Participant, Participants } from './participants.ts';
@@ -10,7 +11,7 @@ import {
   retryDelay,
   WATCHDOG_INTERVAL_MS,
 } from './retryPolicy.ts';
-import { mungeOpusFmtp, steamIdFromAccountId } from './sdp.ts';
+import { mungeOpusFmtp } from './sdp.ts';
 import { watchSpeaking } from './speaking.ts';
 import { browserInfo, userAgent, waitForIceConnected } from './webrtc.ts';
 

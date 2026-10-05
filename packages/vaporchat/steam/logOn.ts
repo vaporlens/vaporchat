@@ -9,6 +9,7 @@ import {
   type SteamGuardHandler,
 } from './credentialLogin.ts';
 import { EResult, hasEResult, SteamError } from './eresult.ts';
+import { hex } from './friends.ts';
 import { decodeProto } from './protos.ts';
 
 /** Where the refresh token lives between app starts (secure storage on phones, localStorage on web). */
@@ -125,6 +126,39 @@ export async function logOnWithRefreshToken(
   return cm;
 }
 
+/** An access token for the logged on account. With `renew`, Steam may also hand out a new refresh token. */
+function generateAccessToken(cm: SteamCM, refreshToken: string, renew = false) {
+  return cm.call<{ access_token?: string; refresh_token?: string }>(
+    'Authentication.GenerateAccessTokenForApp#1',
+    {
+      refresh_token: refreshToken,
+      steamid: cm.steamid,
+      ...(renew && { renewal_type: TOKEN_RENEWAL_ALLOW }),
+    },
+  );
+}
+
+export interface WebSession {
+  sessionid: string;
+  /** the cookie header steamcommunity.com wants */
+  cookie: string;
+}
+
+/** A steamcommunity.com session for the logged on account. */
+export async function webSession(
+  cm: SteamCM,
+  refreshToken: string,
+): Promise<WebSession> {
+  const { access_token } = await generateAccessToken(cm, refreshToken);
+  if (!access_token) throw new Error('Steam gave no web session');
+  // any value works as the session id, as long as cookie and form agree
+  const sessionid = hex(crypto.getRandomValues(new Uint8Array(12)));
+  return {
+    sessionid,
+    cookie: `steamLoginSecure=${cm.steamid}%7C%7C${access_token}; sessionid=${sessionid}`,
+  };
+}
+
 /** Swaps the stored token for a fresh one when Steam offers it, tokens last about 200 days. */
 async function renewRefreshToken(
   cm: SteamCM,
@@ -132,14 +166,7 @@ async function renewRefreshToken(
   store: TokenStore,
 ) {
   try {
-    const renewed = await cm.call<{ refresh_token?: string }>(
-      'Authentication.GenerateAccessTokenForApp#1',
-      {
-        refresh_token: refreshToken,
-        steamid: cm.steamid,
-        renewal_type: TOKEN_RENEWAL_ALLOW,
-      },
-    );
+    const renewed = await generateAccessToken(cm, refreshToken, true);
     if (renewed.refresh_token) await store.save(renewed.refresh_token);
   } catch (err) {
     // the old token still works, the next logon tries again

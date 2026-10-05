@@ -17,11 +17,13 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
   go over it. steam-user is no longer a runtime dependency; it only supplies protobuf definitions
   to `scripts/generateProtos.ts`.
 - **The library must work everywhere:** React Native, browsers, Node/Bun. Don't make it RN-only.
-  Use only `Uint8Array`/`DataView`, `fetch`, `WebSocket` and `atob`: no Node `Buffer`, `fs` or `crypto`.
+  Use only web APIs every platform has (`Uint8Array`/`DataView`, `fetch`, `FormData`, `WebSocket`,
+  `atob`, `crypto.getRandomValues`): no Node `Buffer`, `fs` or `crypto` module.
 - **Browsers need a server for one thing only:** Steam's server list endpoint only allows CORS from
   steamcommunity.com, so browsers pass `serverListUrl` pointing at their own proxy of
   `ISteamDirectory/GetCMListForConnect`. This is documented in the vaporchat README under "Platforms". RN and Node
-  fetch Steam directly.
+  fetch Steam directly. Sending images uploads through steamcommunity.com (no CORS either), so the web
+  harness can't send images; it doesn't need to.
 - **`packages/web` stays as a debug harness only:** a Bun server serving the page plus that list proxy,
   and the Playwright live driver. It's not a product.
 - App: React Native via an Expo dev build with native UI (not Expo Go, not a WebView, not SwiftUI).
@@ -38,6 +40,10 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
   several sessions of one account coexist. steam-user is a dev dependency (protos only).
 - Verified live from Bun: credential login, logon, going online, 86 friends with names/avatars/state
   within ~2 s, groups with voice rooms.
+- Text chat (library + app), verified on the phone: friend and room messages with history, unread
+  badges, emoticons and stickers (sent as `:name:` / `/sticker <name>`, Steam drops BBCode we send),
+  images shown full screen, photos sent through Steam's web upload (`steam/imageUpload.ts`). See the
+  vaporchat README's verification table.
 - Web harness (`packages/web`): Bun serves the page plus `/cm-list`; the page signs in itself (token in
   localStorage); `scripts/liveVoice.ts` seeds the token from `data/`, fetching one with `.env`
   credentials when missing. Not run live yet.
@@ -54,9 +60,14 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
 
 - `cd packages/mobile && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npx expo run:ios`
   (add `--device` for the phone). Metro: `npx expo start --dev-client`.
-- Claude's sandbox can't write `~/.cocoapods` or drive the Simulator via AppleScript: run
-  `pod install` yourself after native changes; `expo run:ios` then fails at the very end (after
-  installing) on osascript, which is harmless. Open the app with
+- On the phone, `--device <udid> --configuration Release --no-bundler` bundles the JS into the app.
+  The install is done once the log reaches `Connecting to: <phone>`; the command never prints
+  more and keeps running, so stop it there instead of waiting.
+- `packages/mobile/ios` is generated: after changing config plugins in `app.json`, run
+  `npx expo prebuild --platform ios --no-install` to apply them (Info.plist permission texts, say).
+- After native changes run `pod install` in `packages/mobile/ios` (with `DEVELOPER_DIR` set);
+  it works from Claude's sandbox. The sandbox can't drive the Simulator via AppleScript: `expo run:ios` then
+  fails at the very end (after installing) on osascript, which is harmless. Open the app with
   `xcrun simctl openurl <udid> "exp+vaporchat://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"`.
 
 ## Next steps

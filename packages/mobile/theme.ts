@@ -3,6 +3,10 @@ export const colors = {
   background: '#171d25',
   surface: '#1f2732',
   surfaceRaised: '#2a3442',
+  // steam's header and composer bars
+  bar: '#171a21',
+  // text inputs
+  field: '#32353c',
   border: '#2e3947',
   text: '#dcdedf',
   bright: '#ffffff',

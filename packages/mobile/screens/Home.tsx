@@ -12,26 +12,40 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
-import type { ChatGroup, ChatRoom, Friend } from 'vaporchat/protocol';
+import type {
+  ChatGroup,
+  ChatRoom,
+  ChatTarget,
+  Friend,
+} from 'vaporchat/protocol';
+import { chatKey } from 'vaporchat/steam/messages';
+import { useUnread } from '../chats';
 import { Avatar } from '../components/Avatar';
 import { Field } from '../components/Field';
 import { Toast } from '../components/Toast';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
+import { Chat } from './Chat';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
 import { FriendRow, RoomRow, SectionHeader } from './Rows';
 
-type Row =
-  | { kind: 'room'; key: string; group: ChatGroup; room: ChatRoom }
-  | { kind: 'friend'; key: string; friend: Friend };
+type Row = { key: string; chat: ChatTarget } & (
+  | { kind: 'room'; group: ChatGroup; room: ChatRoom }
+  | { kind: 'friend'; friend: Friend }
+);
 
 interface Section {
   key: 'rooms' | 'online' | 'offline';
   title: string;
   count?: number;
   data: Row[];
+}
+
+function findRoom(groups: ChatGroup[], groupId: string, chatId: string) {
+  const group = groups.find((g) => g.groupId === groupId);
+  return { group, room: group?.rooms.find((r) => r.chatId === chatId) };
 }
 
 function sessionTitle(
@@ -42,9 +56,25 @@ function sessionTitle(
   const { target } = session;
   if (target.kind === 'friend')
     return voice.connection.user(target.steamid).name;
-  const group = groups.find((g) => g.groupId === target.groupId);
-  const room = group?.rooms.find((r) => r.chatId === target.chatId);
+  const { group, room } = findRoom(groups, target.groupId, target.chatId);
   return `${group?.name ?? 'Group'} › ${room?.name ?? 'voice'}`;
+}
+
+function chatHeader(voice: SteamVoice, chat: ChatTarget, groups: ChatGroup[]) {
+  if (chat.kind === 'friend') {
+    const friend = voice.connection.user(chat.steamid);
+    return {
+      title: friend.name,
+      subtitle: friend.online ? 'Online' : 'Offline',
+      avatarUrl: friend.avatarUrl,
+    };
+  }
+  const { group, room } = findRoom(groups, chat.groupId, chat.chatId);
+  return {
+    title: group?.name ?? 'Group',
+    subtitle: room?.name ?? '',
+    avatarUrl: group?.avatarUrl ?? null,
+  };
 }
 
 function matches(query: string, ...names: string[]) {
@@ -54,7 +84,7 @@ function matches(query: string, ...names: string[]) {
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
 
-/** Who you are, your group voice rooms and your friends. Tap a room to join, call a friend. */
+/** Who you are, your group chats and your friends. Tap one to chat, join a room's voice, call a friend. */
 export function Home({
   voice,
   onSignOut,
@@ -71,8 +101,11 @@ export function Home({
   const [joining, setJoining] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [chat, setChat] = useState<ChatTarget | null>(null);
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
-  const showError = (err: Error) => setError(err.message);
+  const unread = useUnread(voice, chat);
+  // stable, the open chat reloads when it changes
+  const showError = useCallback((err: Error) => setError(err.message), []);
   const dismissError = useCallback(() => setError(null), []);
 
   const refreshGroups = useCallback(
@@ -113,28 +146,27 @@ export function Home({
   const target = session?.target;
   const roomRows: Row[] = groups.flatMap((group) =>
     group.rooms
-      .filter(
-        (room) => room.voiceAllowed && matches(query, group.name, room.name),
-      )
-      .map((room) => ({
-        kind: 'room' as const,
-        key: `${group.groupId}:${room.chatId}`,
-        group,
-        room,
-      })),
+      .filter((room) => matches(query, group.name, room.name))
+      .map((room): Row => {
+        const chat = {
+          kind: 'room',
+          groupId: group.groupId,
+          chatId: room.chatId,
+        } as const;
+        return { kind: 'room', key: chatKey(chat), chat, group, room };
+      }),
   );
   const shown = friends.filter((f) => matches(query, f.name)).sort(byName);
-  const friendRow = (friend: Friend): Row => ({
-    kind: 'friend',
-    key: friend.steamid,
-    friend,
-  });
+  const friendRow = (friend: Friend): Row => {
+    const chat = { kind: 'friend', steamid: friend.steamid } as const;
+    return { kind: 'friend', key: chatKey(chat), chat, friend };
+  };
   const online = shown.filter((f) => f.online).map(friendRow);
   const offline = shown.filter((f) => !f.online).map(friendRow);
   // searching shows matching offline friends without having to expand them
   const offlineOpen = showOffline || query.trim() !== '';
   const sections: Section[] = [
-    { key: 'rooms', title: 'VOICE ROOMS', data: roomRows },
+    { key: 'rooms', title: 'GROUP CHATS', data: roomRows },
     { key: 'online', title: 'ONLINE', count: online.length, data: online },
     {
       key: 'offline',
@@ -153,165 +185,182 @@ export function Home({
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Avatar
-          url={me.avatarUrl}
-          name={me.name}
-          size={44}
-          frame={colors.online}
+      {chat && (
+        <Chat
+          voice={voice}
+          chat={chat}
+          {...chatHeader(voice, chat, groups)}
+          bottomInset={session ? 0 : insets.bottom}
+          onBack={() => setChat(null)}
+          onError={showError}
         />
-        <View style={styles.grow}>
-          <Text style={styles.myName} numberOfLines={1}>
-            {me.name}
-          </Text>
-          <Text style={styles.myStatus}>Online</Text>
-        </View>
-        <Pressable
-          onPress={confirmSignOut}
-          accessibilityLabel="Sign out"
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons name="log-out-outline" size={22} color={colors.muted} />
-        </Pressable>
-      </View>
-      <SectionList<Row, Section>
-        sections={sections}
-        keyExtractor={(row) => row.key}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={{
-          paddingBottom: session ? 16 : insets.bottom + 16,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            tintColor={colors.muted}
-            onRefresh={() => {
-              setRefreshing(true);
-              void refreshGroups().finally(() => setRefreshing(false));
-            }}
+      )}
+      {/* hidden rather than unmounted, coming back keeps the scroll position and search */}
+      <View style={[styles.grow, chat && styles.hidden]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Avatar
+            url={me.avatarUrl}
+            name={me.name}
+            size={44}
+            frame={colors.online}
           />
-        }
-        ListHeaderComponent={
-          <>
-            <View style={styles.search}>
-              <Field
-                icon="search"
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search friends and rooms"
-                autoCapitalize="none"
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-                returnKeyType="search"
-              />
-            </View>
-            {joining && (
-              <JoinGroup
-                voice={voice}
-                onJoined={() => {
-                  setJoining(false);
-                  void refreshGroups();
-                }}
-                onError={showError}
-              />
-            )}
-          </>
-        }
-        renderSectionHeader={({ section }) => (
-          <SectionHeader
-            title={section.title}
-            count={section.count}
-            action={
-              section.key === 'rooms' ? (
-                <Pressable
-                  onPress={() => setJoining(!joining)}
-                  hitSlop={10}
-                  accessibilityLabel="Join a group chat"
-                  style={styles.sectionAction}
-                >
-                  <Ionicons
-                    name={joining ? 'close' : 'add'}
-                    size={16}
-                    color={colors.accent}
-                  />
-                  <Text style={styles.sectionActionText}>
-                    {joining ? 'Cancel' : 'Join group'}
-                  </Text>
-                </Pressable>
-              ) : section.key === 'offline' && query.trim() === '' ? (
-                <Pressable
-                  onPress={() => setShowOffline(!showOffline)}
-                  hitSlop={10}
-                  style={styles.sectionAction}
-                >
-                  <Text style={styles.sectionActionText}>
-                    {showOffline ? 'Hide' : 'Show'}
-                  </Text>
-                  <Ionicons
-                    name={showOffline ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={colors.accent}
-                  />
-                </Pressable>
-              ) : undefined
-            }
-          />
-        )}
-        renderSectionFooter={({ section }) =>
-          section.data.length === 0 && section.key !== 'offline' ? (
-            <Text style={styles.empty}>
-              {query.trim() !== ''
-                ? 'No matches'
-                : section.key === 'rooms'
-                  ? 'No voice rooms yet. Join a group chat with its invite link.'
-                  : 'None of your friends are online right now.'}
+          <View style={styles.grow}>
+            <Text style={styles.myName} numberOfLines={1}>
+              {me.name}
             </Text>
-          ) : null
-        }
-        renderItem={({ item }) =>
-          item.kind === 'room' ? (
-            <RoomRow
-              group={item.group}
-              room={item.room}
-              inVoice={item.room.membersInVoice.map((id) =>
-                voice.connection.user(id),
+            <Text style={styles.myStatus}>Online</Text>
+          </View>
+          <Pressable
+            onPress={confirmSignOut}
+            accessibilityLabel="Sign out"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="log-out-outline" size={22} color={colors.muted} />
+          </Pressable>
+        </View>
+        <SectionList<Row, Section>
+          sections={sections}
+          keyExtractor={(row) => row.key}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{
+            paddingBottom: session ? 16 : insets.bottom + 16,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor={colors.muted}
+              onRefresh={() => {
+                setRefreshing(true);
+                void refreshGroups().finally(() => setRefreshing(false));
+              }}
+            />
+          }
+          ListHeaderComponent={
+            <>
+              <View style={styles.search}>
+                <Field
+                  icon="search"
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search friends and rooms"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  clearButtonMode="while-editing"
+                  returnKeyType="search"
+                />
+              </View>
+              {joining && (
+                <JoinGroup
+                  voice={voice}
+                  onJoined={() => {
+                    setJoining(false);
+                    void refreshGroups();
+                  }}
+                  onError={showError}
+                />
               )}
-              connected={
-                target?.kind === 'group' &&
-                target.groupId === item.group.groupId &&
-                target.chatId === item.room.chatId
-              }
-              onJoin={() =>
-                startVoice((mic) =>
-                  voice.joinGroupVoice(
-                    item.group.groupId,
-                    item.room.chatId,
-                    mic,
-                  ),
-                ).catch(showError)
+            </>
+          }
+          renderSectionHeader={({ section }) => (
+            <SectionHeader
+              title={section.title}
+              count={section.count}
+              action={
+                section.key === 'rooms' ? (
+                  <Pressable
+                    onPress={() => setJoining(!joining)}
+                    hitSlop={10}
+                    accessibilityLabel="Join a group chat"
+                    style={styles.sectionAction}
+                  >
+                    <Ionicons
+                      name={joining ? 'close' : 'add'}
+                      size={16}
+                      color={colors.accent}
+                    />
+                    <Text style={styles.sectionActionText}>
+                      {joining ? 'Cancel' : 'Join group'}
+                    </Text>
+                  </Pressable>
+                ) : section.key === 'offline' && query.trim() === '' ? (
+                  <Pressable
+                    onPress={() => setShowOffline(!showOffline)}
+                    hitSlop={10}
+                    style={styles.sectionAction}
+                  >
+                    <Text style={styles.sectionActionText}>
+                      {showOffline ? 'Hide' : 'Show'}
+                    </Text>
+                    <Ionicons
+                      name={showOffline ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.accent}
+                    />
+                  </Pressable>
+                ) : undefined
               }
             />
-          ) : (
-            <FriendRow
-              friend={item.friend}
-              inCall={
-                target?.kind === 'friend' &&
-                target.steamid === item.friend.steamid
-              }
-              onCall={() =>
-                startVoice((mic) =>
-                  voice.callFriend(item.friend.steamid, mic),
-                ).catch(showError)
-              }
-            />
-          )
-        }
-      />
+          )}
+          renderSectionFooter={({ section }) =>
+            section.data.length === 0 && section.key !== 'offline' ? (
+              <Text style={styles.empty}>
+                {query.trim() !== ''
+                  ? 'No matches'
+                  : section.key === 'rooms'
+                    ? 'No group chats yet. Join one with its invite link.'
+                    : 'None of your friends are online right now.'}
+              </Text>
+            ) : null
+          }
+          renderItem={({ item }) =>
+            item.kind === 'room' ? (
+              <RoomRow
+                group={item.group}
+                room={item.room}
+                inVoice={item.room.membersInVoice.map((id) =>
+                  voice.connection.user(id),
+                )}
+                connected={
+                  target?.kind === 'group' &&
+                  target.groupId === item.group.groupId &&
+                  target.chatId === item.room.chatId
+                }
+                unread={unread[item.key] ?? 0}
+                onOpen={() => setChat(item.chat)}
+                onJoin={() =>
+                  startVoice((mic) =>
+                    voice.joinGroupVoice(
+                      item.group.groupId,
+                      item.room.chatId,
+                      mic,
+                    ),
+                  ).catch(showError)
+                }
+              />
+            ) : (
+              <FriendRow
+                friend={item.friend}
+                inCall={
+                  target?.kind === 'friend' &&
+                  target.steamid === item.friend.steamid
+                }
+                unread={unread[item.key] ?? 0}
+                onOpen={() => setChat(item.chat)}
+                onCall={() =>
+                  startVoice((mic) =>
+                    voice.callFriend(item.friend.steamid, mic),
+                  ).catch(showError)
+                }
+              />
+            )
+          }
+        />
+      </View>
       {session && (
         <CallDock
           voice={voice}
@@ -336,11 +385,12 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#171a21',
+    backgroundColor: colors.bar,
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
   grow: { flex: 1 },
+  hidden: { display: 'none' },
   myName: { color: colors.bright, fontSize: 18, fontWeight: '700' },
   myStatus: { color: colors.online, fontSize: 13, marginTop: 1 },
   headerButton: {

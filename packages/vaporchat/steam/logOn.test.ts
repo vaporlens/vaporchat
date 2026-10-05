@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SteamCM } from './cm.ts';
 import { getRefreshTokenWithCredentials } from './credentialLogin.ts';
 import { EResult } from './eresult.ts';
-import { logOnSteam, type TokenStore } from './logOn.ts';
+import { logOnSteam, type TokenStore, webSession } from './logOn.ts';
 
 vi.mock('./credentialLogin.ts', () => ({
   getRefreshTokenWithCredentials: vi.fn(),
@@ -122,5 +123,18 @@ describe('logOnSteam', () => {
 
     expect(credentialLogin).not.toHaveBeenCalled();
     expect(store.token).toBe(token('good'));
+  });
+});
+
+describe('webSession', () => {
+  it('logs steamcommunity.com in with an access token, same session id in cookie and forms', async () => {
+    const cm = {
+      steamid: '76561197960287930',
+      call: async () => ({ access_token: 'token' }),
+    } as unknown as SteamCM;
+    const { sessionid, cookie } = await webSession(cm, 'refresh');
+    expect(cookie).toBe(
+      `steamLoginSecure=76561197960287930%7C%7Ctoken; sessionid=${sessionid}`,
+    );
   });
 });

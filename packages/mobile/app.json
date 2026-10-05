@@ -34,7 +34,14 @@
           "microphonePermission": "VaporChat uses the microphone for Steam voice chat."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "VaporChat sends the photos you pick into Steam chats."
+        }
+      ]
     ],
     "backgroundColor": "#171d25"
   }

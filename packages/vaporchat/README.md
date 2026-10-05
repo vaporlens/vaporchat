@@ -1,11 +1,11 @@
 # vaporchat
 
-Steam voice chat (group voice channels and 1:1 friend calls) for React Native, browsers and
-Node/Bun, with no server in between.
+Steam voice and text chat (group chat rooms and 1:1 friend calls and messages) for React Native,
+browsers and Node/Bun, with no server in between.
 
 - **Steam connection (`steam/`):** a protobuf client for Steam's connection managers over WebSocket,
   the transport Steam's own web and mobile clients use. Login (refresh token or password with
-  Steam Guard), friends, group chats and voice signaling all go over it.
+  Steam Guard), friends, group chats, text messages and voice signaling all go over it.
 - **Voice client (`client/`):** the voice chat state machine on the platform's own
   `RTCPeerConnection`. Audio flows directly between the device and Steam's voice servers, so the
   device's echo cancellation, audio routing and Bluetooth handling all apply.
@@ -22,10 +22,12 @@ React Native, Node/Bun and browsers. **Browsers need a server for one thing:** S
 from steamcommunity.com, so a browser page can't fetch Steam's server list. Serve that list from
 your own backend (proxy `https://api.steampowered.com/ISteamDirectory/GetCMListForConnect/v1/?cellid=0`)
 and pass its URL as `serverListUrl`. Everything else, including login, goes over a WebSocket to Steam,
-which browsers allow.
+which browsers allow. The one exception is `sendImage`: like Steam's own chat it uploads through
+`https://steamcommunity.com/chat/`, which has no CORS either, so browsers can't send images without
+a proxy for it too.
 
-Password login encrypts the password with `crypto.getRandomValues`. React Native has to polyfill it
-(the app uses `expo-crypto`); logging on with a stored refresh token doesn't need it.
+Password login and `sendImage` use `crypto.getRandomValues`. React Native has to polyfill it (the
+app uses `expo-crypto`); logging on with a stored refresh token doesn't need it.
 
 ## Client
 
@@ -51,6 +53,15 @@ voice.on('session', (session) => {
   session?.on('state', (state) => render(state)); // connecting | ringing | connected | reconnecting | ended
 });
 
+// text chat, with a friend or in a group chat room
+const chat = { kind: 'friend', steamid } as const; // or { kind: 'room', groupId, chatId }
+await voice.connection.getRecentMessages(chat); // last 50, oldest first
+voice.connection.on('message', ({ chat, message }) => show(chat, message)); // every chat
+await voice.connection.sendMessage(chat, 'hi :steamhappy:'); // resolves with the stored message
+const { emoticons, stickers } = await voice.connection.getEmoticons(); // what the account owns
+await voice.connection.sendMessage(chat, stickers[0]); // a sticker is a message of its own
+await voice.connection.sendImage(chat, { bytes, type: 'image/jpeg', width, height }); // Steam posts it
+
 const session = await voice.joinGroupVoice(groupId, chatId, mic); // or voice.callFriend(steamid, mic)
 session.setMicMuted(true);
 session.setOutputMuted(true); // announces deafen, silencing playback is up to you
@@ -67,6 +78,13 @@ await session.leave(); // leaves the channel or ends the call
 - `voice.connection.user(steamid)` returns anyone's name and avatar, looking up strangers (people
   in a group voice room) on first use. `joinGroupByInviteLink` joins `https://s.team/chat/…` links.
 - Each logon picks a random logon id, so the same account can be signed in from several devices.
+- Messages come as `parts` to render: text, emoticons, stickers and images with their URLs (other
+  BBCode such as links and quotes reads as its text). Our own messages sent from other devices come
+  as `message` too, with the same `id` as the one `sendMessage` returned: `mergeMessages` and
+  `chatKey` from `steam/messages` keep one list per chat.
+- Sending works like Steam's own clients: Steam turns `:name:` into an emoticon and
+  `/sticker <name>` into a sticker when the sender owns it. BBCode tags sent directly are dropped,
+  and `sendMessage` escapes brackets in text.
 - One voice chat at a time, like the official client. Starting a new one leaves the current one.
 - Pass `null` as the microphone to join listen-only.
 - The caller owns the microphone stream: on `ended`, stop the tracks of `session.microphone`. A
@@ -122,6 +140,10 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Group voice: join, two-way audio, per-user streams, leave | live |
 | 1:1 calls: place, ring, connect, two-way audio, hang up | live |
 | Incoming calls: accept, decline, caller cancels | live |
+| Text chat: friend and room messages, history, sending (brackets escaped), echo dedupe | live (Bun) |
+| Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
+| Sending images to friends and rooms | live (Bun) |
+| iOS app: chat screen, unread badges, emoticons, animated stickers, image viewer, emoticon and sticker picker, sending photos | live (phone) |
 | Mute/deafen sent to Steam, other users' mute status received | live |
 | Speaking indicators | live |
 | iOS app: sign in, friends, groups, tap to join/call | iOS simulator, no call placed yet |

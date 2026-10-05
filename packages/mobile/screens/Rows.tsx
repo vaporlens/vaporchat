@@ -29,11 +29,22 @@ export function SectionHeader({
   );
 }
 
+function UnreadBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <View style={styles.unread}>
+      <Text style={styles.unreadText}>{count > 99 ? '99+' : count}</Text>
+    </View>
+  );
+}
+
 export function RoomRow({
   group,
   room,
   inVoice,
   connected,
+  unread,
+  onOpen,
   onJoin,
 }: {
   group: ChatGroup;
@@ -41,12 +52,13 @@ export function RoomRow({
   /** the people in its voice chat */
   inVoice: Friend[];
   connected: boolean;
+  unread: number;
+  onOpen: () => void;
   onJoin: () => void;
 }) {
   return (
     <Pressable
-      onPress={onJoin}
-      disabled={connected}
+      onPress={onOpen}
       style={({ pressed }) => [
         styles.card,
         connected && styles.cardConnected,
@@ -59,27 +71,34 @@ export function RoomRow({
           {group.name}
         </Text>
         <View style={styles.roomName}>
-          <Ionicons name="volume-medium" size={16} color={colors.text} />
+          <Ionicons
+            name={room.voiceAllowed ? 'volume-medium' : 'chatbubble-outline'}
+            size={16}
+            color={colors.text}
+          />
           <Text style={styles.name} numberOfLines={1}>
             {room.name}
           </Text>
         </View>
-        <View style={styles.inVoice}>
-          {inVoice.slice(0, SHOWN_IN_VOICE).map((person) => (
-            <Avatar
-              key={person.steamid}
-              url={person.avatarUrl}
-              name={person.name}
-              size={20}
-            />
-          ))}
-          <Text style={styles.sub}>
-            {inVoice.length === 0
-              ? 'Nobody in voice'
-              : `${inVoice.length} in voice`}
-          </Text>
-        </View>
+        {room.voiceAllowed && (
+          <View style={styles.inVoice}>
+            {inVoice.slice(0, SHOWN_IN_VOICE).map((person) => (
+              <Avatar
+                key={person.steamid}
+                url={person.avatarUrl}
+                name={person.name}
+                size={20}
+              />
+            ))}
+            <Text style={styles.sub}>
+              {inVoice.length === 0
+                ? 'Nobody in voice'
+                : `${inVoice.length} in voice`}
+            </Text>
+          </View>
+        )}
       </View>
+      <UnreadBadge count={unread} />
       {connected ? (
         <View style={[styles.pill, styles.pillConnected]}>
           <Text style={[styles.pillText, { color: colors.speaking }]}>
@@ -87,9 +106,16 @@ export function RoomRow({
           </Text>
         </View>
       ) : (
-        <View style={styles.pill}>
-          <Text style={styles.pillText}>Join</Text>
-        </View>
+        room.voiceAllowed && (
+          <Pressable
+            onPress={onJoin}
+            accessibilityLabel={`Join voice in ${room.name}`}
+            hitSlop={8}
+            style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
+          >
+            <Text style={styles.pillText}>Join</Text>
+          </Pressable>
+        )
       )}
     </Pressable>
   );
@@ -98,15 +124,26 @@ export function RoomRow({
 export function FriendRow({
   friend,
   inCall,
+  unread,
+  onOpen,
   onCall,
 }: {
   friend: Friend;
   inCall: boolean;
+  unread: number;
+  onOpen: () => void;
   onCall: () => void;
 }) {
   const status = friend.online ? colors.online : colors.offline;
   return (
-    <View style={[styles.row, !friend.online && styles.offline]}>
+    <Pressable
+      onPress={onOpen}
+      style={({ pressed }) => [
+        styles.row,
+        !friend.online && styles.offline,
+        pressed && styles.pressed,
+      ]}
+    >
       <Avatar
         url={friend.avatarUrl}
         name={friend.name}
@@ -124,6 +161,7 @@ export function FriendRow({
           {inCall ? 'In call' : friend.online ? 'Online' : 'Offline'}
         </Text>
       </View>
+      <UnreadBadge count={unread} />
       {friend.online && !inCall && (
         <Pressable
           onPress={onCall}
@@ -134,7 +172,7 @@ export function FriendRow({
           <Ionicons name="call" size={18} color={colors.bright} />
         </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -202,6 +240,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   offline: { opacity: 0.6 },
+  unread: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  unreadText: { color: colors.bright, fontSize: 12, fontWeight: '700' },
   call: {
     width: 38,
     height: 38,
