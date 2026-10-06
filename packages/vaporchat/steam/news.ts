@@ -98,7 +98,8 @@ export async function getYourNews(
     items: documents.flatMap(({ unique_id }) => {
       const found = byId.get(unique_id);
       if (!found) return [];
-      const event = toSteamEvent(found);
+      // english like the post's body, which is only fetched in english
+      const event = toSteamEvent(found, 0);
       const game = event.appid ? games.get(event.appid) : undefined;
       return [
         {

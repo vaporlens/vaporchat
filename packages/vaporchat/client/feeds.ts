@@ -24,15 +24,22 @@ import { getWishlist } from '../steam/wishlist.ts';
 export class SteamFeeds {
   #cm: SteamCM;
   #webSession: () => Promise<WebSession>;
+  /** steam's language id that sale events are in */
+  #language: number;
 
-  constructor(cm: SteamCM, webSession: () => Promise<WebSession>) {
+  constructor(
+    cm: SteamCM,
+    webSession: () => Promise<WebSession>,
+    language: number,
+  ) {
     this.#cm = cm;
     this.#webSession = webSession;
+    this.#language = language;
   }
 
   /** The sale events running now. */
   getSaleEvents() {
-    return getLiveSaleEvents();
+    return getLiveSaleEvents(this.#language);
   }
 
   /** The store's top discounts. */
@@ -82,7 +89,7 @@ export class SteamFeeds {
 
   /** The texts and game lists of a sale event's page, by the event's `id`. */
   getSalePage(eventId: string) {
-    return getSalePage(eventId, this.#cm.country);
+    return getSalePage(eventId, this.#cm.country, this.#language);
   }
 
   /** News of the user's games (owned, wishlisted, followed), like the News Hub's "Your News". */

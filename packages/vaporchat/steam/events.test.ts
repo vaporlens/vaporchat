@@ -25,18 +25,19 @@ describe('toSteamEvent', () => {
           sale_vanity_id: 'BigSale',
           sale_vanity_id_valve_approved_for_sale_subpath: true,
         }),
+        0,
       ).url,
     ).toBe('https://store.steampowered.com/sale/BigSale');
-    expect(toSteamEvent(event({ sale_vanity_id: 'BigSale' })).url).toBe(
+    expect(toSteamEvent(event({ sale_vanity_id: 'BigSale' }), 0).url).toBe(
       'https://store.steampowered.com/curator/46255707/sale/BigSale',
     );
   });
 
   it("links posts without a sale page to their game's or group's news", () => {
-    expect(toSteamEvent(event({}, { appid: '440' })).url).toBe(
+    expect(toSteamEvent(event({}, { appid: '440' }), 0).url).toBe(
       'https://store.steampowered.com/news/app/440/view/7',
     );
-    expect(toSteamEvent(event({})).url).toBe(
+    expect(toSteamEvent(event({}), 0).url).toBe(
       'https://store.steampowered.com/news/group/46255707/view/7',
     );
   });
@@ -48,6 +49,7 @@ describe('toSteamEvent', () => {
           localized_capsule_image: ['cap.png', 'other.png'],
           localized_summary: ['Everything is cheap', null],
         }),
+        0,
       ),
     ).toMatchObject({
       title: 'Big Sale',
@@ -59,12 +61,30 @@ describe('toSteamEvent', () => {
     });
   });
 
-  it('summarizes the body when there is no summary, and survives broken JSON', () => {
-    const summarized = toSteamEvent({
-      ...event({}),
-      jsondata: '{',
-      announcement_body: { body: '[p]Patch [b]notes[/b][/p]' },
+  it("has the capsule and summary in the user's language, english where there is none", () => {
+    expect(
+      toSteamEvent(
+        event({
+          localized_capsule_image: ['cap.png', null],
+          localized_summary: ['Everything is cheap', 'Alles ist billig'],
+        }),
+        1,
+      ),
+    ).toMatchObject({
+      imageUrl: 'https://clan.fastly.steamstatic.com/images/46255707/cap.png',
+      summary: 'Alles ist billig',
     });
+  });
+
+  it('summarizes the body when there is no summary, and survives broken JSON', () => {
+    const summarized = toSteamEvent(
+      {
+        ...event({}),
+        jsondata: '{',
+        announcement_body: { body: '[p]Patch [b]notes[/b][/p]' },
+      },
+      0,
+    );
     expect(summarized).toMatchObject({
       summary: 'Patch notes',
       imageUrl: null,

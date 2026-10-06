@@ -33,7 +33,7 @@ describe('toSaleSections', () => {
         },
       ],
     });
-    expect(toSaleSections(jsondata)).toEqual([
+    expect(toSaleSections(jsondata, 0)).toEqual([
       {
         title: 'About',
         body: [
@@ -57,8 +57,37 @@ describe('toSaleSections', () => {
     ]);
   });
 
+  it("shows texts and labels in the user's language only, english where there is none", () => {
+    const jsondata = JSON.stringify({
+      sale_sections: [
+        {
+          section_type: 'text_section',
+          localized_label: ['About', 'Über'],
+          text_section_contents: ['In english', 'Auf Deutsch', 'En français'],
+        },
+        {
+          section_type: 'text_section',
+          localized_label: ['Rules', null],
+          text_section_contents: ['English only'],
+        },
+      ],
+    });
+    expect(
+      toSaleSections(jsondata, 1).map(({ title, body }) => ({ title, body })),
+    ).toEqual([
+      {
+        title: 'Über',
+        body: [{ kind: 'paragraph', spans: [{ text: 'Auf Deutsch' }] }],
+      },
+      {
+        title: 'Rules',
+        body: [{ kind: 'paragraph', spans: [{ text: 'English only' }] }],
+      },
+    ]);
+  });
+
   it('has no sections without sale JSON', () => {
-    expect(toSaleSections('{')).toEqual([]);
-    expect(toSaleSections('{}')).toEqual([]);
+    expect(toSaleSections('{', 0)).toEqual([]);
+    expect(toSaleSections('{}', 0)).toEqual([]);
   });
 });

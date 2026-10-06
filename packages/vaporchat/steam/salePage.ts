@@ -1,5 +1,6 @@
 import type { RichBlock, SaleSection, StoreItem } from '../protocol.ts';
 import { getEvents } from './events.ts';
+import { localized } from './language.ts';
 import { parseRichText } from './richText.ts';
 import {
   type ApiStoreItem,
@@ -16,7 +17,8 @@ interface ApiSaleSection {
   /** a localization token like `#Sale_default_label`, or the label itself */
   default_label?: string;
   capsules?: { id: number; type?: string }[];
-  text_section_contents?: string[];
+  /** per language like the labels, english first */
+  text_section_contents?: (string | null)[];
 }
 
 /** A sale section before its items are looked up. */
@@ -44,17 +46,24 @@ function itemKey({ item_type = 0, id }: ApiStoreItem) {
   return `${item_type}:${id}`;
 }
 
-function title({ localized_label, default_label = '' }: ApiSaleSection) {
+function title(
+  { localized_label, default_label = '' }: ApiSaleSection,
+  language: number,
+) {
   return (
-    localized_label?.[0] ?? (default_label.startsWith('#') ? '' : default_label)
+    localized(localized_label, language) ??
+    (default_label.startsWith('#') ? '' : default_label)
   );
 }
 
 /**
- * The text and game list sections of a sale page, in order. Other sections (tabs, trailers,
- * streams, links) only make sense on the website.
+ * The text and game list sections of a sale page, in order, their texts in Steam's `language`.
+ * Other sections (tabs, trailers, streams, links) only make sense on the website.
  */
-export function toSaleSections(jsondata: string): SaleSectionRefs[] {
+export function toSaleSections(
+  jsondata: string,
+  language: number,
+): SaleSectionRefs[] {
   let sections: ApiSaleSection[];
   try {
     sections =
@@ -64,29 +73,29 @@ export function toSaleSections(jsondata: string): SaleSectionRefs[] {
     return [];
   }
   return sections.flatMap((section): SaleSectionRefs[] => {
+    const label = title(section, language);
     if (section.section_type === 'text_section') {
       const body = parseRichText(
-        (section.text_section_contents ?? []).join('\n'),
+        localized(section.text_section_contents, language) ?? '',
       );
-      return body.length > 0 ? [{ title: title(section), body, refs: [] }] : [];
+      return body.length > 0 ? [{ title: label, body, refs: [] }] : [];
     }
     if (section.section_type === 'items' && section.capsules?.length) {
-      return [
-        { title: title(section), body: [], refs: section.capsules.map(ref) },
-      ];
+      return [{ title: label, body: [], refs: section.capsules.map(ref) }];
     }
     return [];
   });
 }
 
-/** A sale event's page: its texts and the games of each section. */
+/** A sale event's page: its texts in Steam's `language` and the games of each section. */
 export async function getSalePage(
   eventId: string,
   country: string,
+  language: number,
 ): Promise<SaleSection[]> {
   const [event] = await getEvents([eventId]);
   if (!event) throw new Error('Steam has no such event');
-  const sections = toSaleSections(event.jsondata ?? '');
+  const sections = toSaleSections(event.jsondata ?? '', language);
   // a game can be in several sections, each is looked up once
   const refs = new Map(
     sections.flatMap((section) => section.refs.map((r) => [refKey(r), r])),

@@ -1,5 +1,5 @@
-import type { LogOnOptions, TokenStore } from '../steam/logOn.ts';
-import { VoiceConnection } from './connection.ts';
+import type { TokenStore } from '../steam/logOn.ts';
+import { VoiceConnection, type VoiceLogOnOptions } from './connection.ts';
 import { Emitter } from './emitter.ts';
 import { VoiceSession, type VoiceTarget } from './voiceSession.ts';
 
@@ -47,7 +47,7 @@ export class SteamVoice extends Emitter<SteamVoiceEvents> {
   }
 
   /** Logs on to Steam with the stored refresh token, or `options.credentials` when there is none. */
-  static async logOn(store: TokenStore, options?: LogOnOptions) {
+  static async logOn(store: TokenStore, options?: VoiceLogOnOptions) {
     return new SteamVoice(await VoiceConnection.logOn(store, options));
   }
 

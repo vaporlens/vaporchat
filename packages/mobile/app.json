@@ -41,7 +41,8 @@
         {
           "photosPermission": "Vaporlens sends the photos you pick into Steam chats."
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "backgroundColor": "#171d25"
   }

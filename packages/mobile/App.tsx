@@ -1,3 +1,4 @@
+import { getLocales } from 'expo-localization';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
@@ -27,6 +28,10 @@ type State =
   | { kind: 'disconnected'; reason: string; failures: number }
   | { kind: 'signedIn'; voice: SteamVoice };
 
+// the device's preferred language, sale events show in it. Not `Intl`'s, which iOS keeps to the
+// languages the app itself is translated to (english)
+const locale = getLocales()[0]?.languageTag ?? 'en';
+
 function message(err: unknown) {
   return err instanceof Error ? err.message : String(err);
 }
@@ -54,7 +59,7 @@ export default function App() {
       return;
     }
     try {
-      signedIn(await SteamVoice.logOn(tokenStore));
+      signedIn(await SteamVoice.logOn(tokenStore, { locale }));
     } catch (err) {
       const hasToken = (await tokenStore.load()) !== null;
       // a rejected token was cleared, everything else (offline, steam down) is worth retrying
@@ -78,7 +83,9 @@ export default function App() {
     steamGuard: SteamGuardHandler,
   ) {
     try {
-      signedIn(await SteamVoice.logOn(tokenStore, { credentials, steamGuard }));
+      signedIn(
+        await SteamVoice.logOn(tokenStore, { locale, credentials, steamGuard }),
+      );
     } catch (err) {
       setState({ kind: 'signedOut', error: message(err) });
     }

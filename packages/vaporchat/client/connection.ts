@@ -19,6 +19,7 @@ import {
   joinGroupByInviteLink,
 } from '../steam/groups.ts';
 import { type ChatImage, sendImage } from '../steam/imageUpload.ts';
+import { steamLanguage } from '../steam/language.ts';
 import {
   type LogOnOptions,
   logOnSteam,
@@ -92,6 +93,11 @@ type ConnectionEvents = SteamServerNotifications & {
   close: { reason: string };
 };
 
+export interface VoiceLogOnOptions extends LogOnOptions {
+  /** the user's BCP 47 locale (`de-DE`), sale events are in its language where they have it */
+  locale?: string;
+}
+
 /** A logged-on Steam connection: voice signaling, text chat, friends and group chats. */
 export class VoiceConnection extends Emitter<ConnectionEvents> {
   #cm: SteamCM;
@@ -103,12 +109,18 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   /** Steam's store and client feeds: deals, releases, game pages, news, friends' activity. */
   readonly feeds: SteamFeeds;
 
-  private constructor(cm: SteamCM, friends: FriendsList, store: TokenStore) {
+  private constructor(
+    cm: SteamCM,
+    friends: FriendsList,
+    store: TokenStore,
+    /** steam's language id, for sale events */
+    language: number,
+  ) {
     super();
     this.#cm = cm;
     this.#friends = friends;
     this.#store = store;
-    this.feeds = new SteamFeeds(cm, () => this.#webSession());
+    this.feeds = new SteamFeeds(cm, () => this.#webSession(), language);
     for (const [name, typeName] of Object.entries(SERVER_NOTIFICATIONS)) {
       cm.onMessage(name, (_header, body) =>
         this.emit(
@@ -129,7 +141,10 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
    * Logs on with the stored refresh token (or `options.credentials`) and goes online,
    * like the official client does.
    */
-  static async logOn(store: TokenStore, options: LogOnOptions = {}) {
+  static async logOn(
+    store: TokenStore,
+    { locale = 'en', ...options }: VoiceLogOnOptions = {},
+  ) {
     const lists = new Map<SteamCM, FriendsList>();
     const cm = await logOnSteam(store, {
       ...options,
@@ -139,7 +154,12 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     });
     const friends = lists.get(cm);
     if (!friends) throw new Error('Steam connection has no friends list');
-    const connection = new VoiceConnection(cm, friends, store);
+    const connection = new VoiceConnection(
+      cm,
+      friends,
+      store,
+      steamLanguage(locale),
+    );
     cm.send(EMsg.ClientChangeStatus, 'CMsgClientChangeStatus', {
       persona_state: ONLINE,
     });

@@ -37,6 +37,7 @@ import { SteamVoice } from 'vaporchat/client/steamVoice';
 
 // stored refresh token first, credentials only when there is none or Steam rejected it
 const voice = await SteamVoice.logOn(tokenStore, {
+  locale: 'de-DE', // sale events' texts in its language where they have it, english otherwise
   credentials: { accountName, password },
   steamGuard: async ({ codeType, emailDomain, canApproveOnDevice, lastCodeWrong }) =>
     askUserForCode(),

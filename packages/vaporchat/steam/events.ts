@@ -1,4 +1,5 @@
 import type { SteamEvent } from '../protocol.ts';
+import { localized } from './language.ts';
 import { parseRichText, plainText } from './richText.ts';
 import { CLAN_IMAGES_URL, getJson, inBatches, STORE_URL } from './web.ts';
 
@@ -38,11 +39,12 @@ function parseJson(jsondata: string | undefined): EventJson {
   }
 }
 
-export function toSteamEvent(event: ApiEvent): SteamEvent {
+/** `language` is Steam's language id for the texts and pictures that have one. */
+export function toSteamEvent(event: ApiEvent, language: number): SteamEvent {
   const json = parseJson(event.jsondata);
   const clan = String(BigInt(event.clan_steamid) - CLAN_STEAMID_BASE);
   const appid = Number(event.appid) || null;
-  const capsule = json.localized_capsule_image?.[0];
+  const capsule = localized(json.localized_capsule_image, language);
   const vanity = json.sale_vanity_id;
   // like the store's own links: unapproved sale paths only work under the curator
   const url = vanity
@@ -53,7 +55,8 @@ export function toSteamEvent(event: ApiEvent): SteamEvent {
       ? `${STORE_URL}news/app/${appid}/view/${event.gid}`
       : `${STORE_URL}news/group/${clan}/view/${event.gid}`;
   const body = parseRichText(event.announcement_body?.body ?? '', appid);
-  const summary = json.localized_summary?.[0] ?? plainText(body);
+  const summary =
+    localized(json.localized_summary, language) ?? plainText(body);
   return {
     id: event.gid,
     title: event.event_name ?? '',
@@ -78,11 +81,11 @@ export function getEvents(gids: string[]): Promise<ApiEvent[]> {
   });
 }
 
-/** The sales publishers, franchises and festivals are running now. */
-export async function getLiveSaleEvents() {
+/** The sales publishers, franchises and festivals are running now, in Steam's `language`. */
+export async function getLiveSaleEvents(language: number) {
   const { recent_events = [] } = await getJson<{
     recent_events?: { gid: string }[];
   }>(`${STORE_URL}saleaction/ajaxgetlivesaleevents?l=english`);
   const events = await getEvents(recent_events.map(({ gid }) => gid));
-  return events.map(toSteamEvent);
+  return events.map((event) => toSteamEvent(event, language));
 }
