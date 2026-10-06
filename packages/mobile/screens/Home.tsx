@@ -14,7 +14,6 @@ import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
 import type {
   ChatGroup,
-  ChatRoom,
   ChatTarget,
   Friend,
   StoreItem,
@@ -34,15 +33,16 @@ import { FeedTabs } from './FeedTabs';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
 import { type Page, PageStack } from './PageStack';
-import { FriendRow, RoomRow, SectionHeader } from './Rows';
+import { FriendRow, GroupRow, SectionHeader } from './Rows';
+import { VoiceChannels } from './VoiceChannels';
 
 type Row = { key: string; chat: ChatTarget } & (
-  | { kind: 'room'; group: ChatGroup; room: ChatRoom }
+  | { kind: 'group'; group: ChatGroup }
   | { kind: 'friend'; friend: Friend }
 );
 
 interface Section {
-  key: 'rooms' | 'online' | 'offline';
+  key: 'groups' | 'online' | 'offline';
   title: string;
   count?: number;
   data: Row[];
@@ -154,18 +154,18 @@ export function Home({
   }, [voice, refreshGroups]);
 
   const target = session?.target;
-  const roomRows: Row[] = groups.flatMap((group) =>
-    group.rooms
-      .filter((room) => matches(query, group.name, room.name))
-      .map((room): Row => {
-        const chat = {
-          kind: 'room',
-          groupId: group.groupId,
-          chatId: room.chatId,
-        } as const;
-        return { kind: 'room', key: chatKey(chat), chat, group, room };
-      }),
-  );
+  const groupRows: Row[] = groups.flatMap((group): Row[] => {
+    // a group opens its first text room, its voice channels are on top of that chat
+    const room = group.rooms.find((r) => !r.voiceAllowed) ?? group.rooms[0];
+    if (!room || !matches(query, group.name, ...group.rooms.map((r) => r.name)))
+      return [];
+    const chat = {
+      kind: 'room',
+      groupId: group.groupId,
+      chatId: room.chatId,
+    } as const;
+    return [{ kind: 'group', key: chatKey(chat), chat, group }];
+  });
   const shown = friends.filter((f) => matches(query, f.name)).sort(byName);
   const friendRow = (friend: Friend): Row => {
     const chat = { kind: 'friend', steamid: friend.steamid } as const;
@@ -176,7 +176,7 @@ export function Home({
   // searching shows matching offline friends without having to expand them
   const offlineOpen = showOffline || query.trim() !== '';
   const sections: Section[] = [
-    { key: 'rooms', title: 'GROUP CHATS', data: roomRows },
+    { key: 'groups', title: 'GROUP CHATS', data: groupRows },
     { key: 'online', title: 'ONLINE', count: online.length, data: online },
     {
       key: 'offline',
@@ -201,6 +201,11 @@ export function Home({
   );
   const back = useCallback(() => setPages((stack) => stack.slice(0, -1)), []);
 
+  const chatGroup =
+    chat?.kind === 'room'
+      ? groups.find((group) => group.groupId === chat.groupId)
+      : undefined;
+
   function confirmSignOut() {
     Alert.alert('Sign out?', 'You will need your password to sign in again.', [
       { text: 'Cancel', style: 'cancel' },
@@ -216,6 +221,16 @@ export function Home({
             voice={voice}
             chat={chat}
             {...chatHeader(voice, chat, groups)}
+            top={
+              chatGroup && (
+                <VoiceChannels
+                  voice={voice}
+                  group={chatGroup}
+                  target={target}
+                  onError={showError}
+                />
+              )
+            }
             bottomInset={session ? 0 : insets.bottom}
             onBack={() => setChat(null)}
             onError={showError}
@@ -286,7 +301,7 @@ export function Home({
                   icon="search"
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search friends and rooms"
+                  placeholder="Search friends and groups"
                   autoCapitalize="none"
                   autoCorrect={false}
                   clearButtonMode="while-editing"
@@ -312,7 +327,7 @@ export function Home({
               title={section.title}
               count={section.count}
               action={
-                section.key === 'rooms' ? (
+                section.key === 'groups' ? (
                   <Pressable
                     onPress={() => setJoining(!joining)}
                     hitSlop={10}
@@ -352,36 +367,25 @@ export function Home({
               <Text style={styles.empty}>
                 {query.trim() !== ''
                   ? 'No matches'
-                  : section.key === 'rooms'
+                  : section.key === 'groups'
                     ? 'No group chats yet. Join one with its invite link.'
                     : 'None of your friends are online right now.'}
               </Text>
             ) : null
           }
           renderItem={({ item }) =>
-            item.kind === 'room' ? (
-              <RoomRow
+            item.kind === 'group' ? (
+              <GroupRow
                 group={item.group}
-                room={item.room}
-                inVoice={item.room.membersInVoice.map((id) =>
-                  voice.connection.user(id),
+                inVoice={item.group.rooms.flatMap((room) =>
+                  room.membersInVoice.map((id) => voice.connection.user(id)),
                 )}
                 connected={
                   target?.kind === 'group' &&
-                  target.groupId === item.group.groupId &&
-                  target.chatId === item.room.chatId
+                  target.groupId === item.group.groupId
                 }
                 unread={unread[item.key] ?? 0}
                 onOpen={() => setChat(item.chat)}
-                onJoin={() =>
-                  startVoice((mic) =>
-                    voice.joinGroupVoice(
-                      item.group.groupId,
-                      item.room.chatId,
-                      mic,
-                    ),
-                  ).catch(showError)
-                }
               />
             ) : (
               <FriendRow

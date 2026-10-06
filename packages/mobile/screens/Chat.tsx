@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,6 +29,7 @@ export function Chat({
   title,
   subtitle,
   avatarUrl,
+  top,
   bottomInset,
   onBack,
   onError,
@@ -38,6 +39,8 @@ export function Chat({
   title: string;
   subtitle: string;
   avatarUrl: string | null;
+  /** above the messages, under the header */
+  top?: ReactNode;
   /** room for the home indicator, unless something below the chat takes care of it */
   bottomInset: number;
   onBack: () => void;
@@ -126,6 +129,7 @@ export function Chat({
         avatar={<Avatar url={avatarUrl} name={title} size={36} />}
         onBack={onBack}
       />
+      {top}
       <FlatList
         inverted
         data={newestFirst}

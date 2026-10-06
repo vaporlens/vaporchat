@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ChatGroup, ChatRoom, Friend } from 'vaporchat/protocol';
+import type { ChatGroup, Friend } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { colors } from '../theme';
 
@@ -38,24 +38,71 @@ function UnreadBadge({ count }: { count: number }) {
   );
 }
 
-export function RoomRow({
+/** Who is in a voice chat: the first few avatars and how many. */
+export function InVoice({ people, size }: { people: Friend[]; size: number }) {
+  return (
+    <View style={styles.inVoice}>
+      {people.slice(0, SHOWN_IN_VOICE).map((person) => (
+        <Avatar
+          key={person.steamid}
+          url={person.avatarUrl}
+          name={person.name}
+          size={size}
+        />
+      ))}
+      <Text style={styles.sub}>
+        {people.length === 0 ? 'Nobody in voice' : `${people.length} in voice`}
+      </Text>
+    </View>
+  );
+}
+
+/** Connected while you are in the voice chat, Join otherwise. */
+export function VoicePill({
+  connected,
+  onJoin,
+  accessibilityLabel,
+}: {
+  connected: boolean;
+  onJoin?: () => void;
+  accessibilityLabel?: string;
+}) {
+  if (connected)
+    return (
+      <View style={[styles.pill, styles.pillConnected]}>
+        <Text style={[styles.pillText, { color: colors.speaking }]}>
+          Connected
+        </Text>
+      </View>
+    );
+  return (
+    <Pressable
+      onPress={onJoin}
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={8}
+      style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
+    >
+      <Text style={styles.pillText}>Join</Text>
+    </Pressable>
+  );
+}
+
+/** A group chat: opens its chat, which has its voice channels on top. */
+export function GroupRow({
   group,
-  room,
   inVoice,
   connected,
   unread,
   onOpen,
-  onJoin,
 }: {
   group: ChatGroup;
-  room: ChatRoom;
-  /** the people in its voice chat */
+  /** the people in its voice channels */
   inVoice: Friend[];
   connected: boolean;
   unread: number;
   onOpen: () => void;
-  onJoin: () => void;
 }) {
+  const hasVoice = group.rooms.some((room) => room.voiceAllowed);
   return (
     <Pressable
       onPress={onOpen}
@@ -67,56 +114,13 @@ export function RoomRow({
     >
       <Avatar url={group.avatarUrl} name={group.name} size={48} />
       <View style={styles.grow}>
-        <Text style={styles.groupName} numberOfLines={1}>
+        <Text style={styles.name} numberOfLines={1}>
           {group.name}
         </Text>
-        <View style={styles.roomName}>
-          <Ionicons
-            name={room.voiceAllowed ? 'volume-medium' : 'chatbubble-outline'}
-            size={16}
-            color={colors.text}
-          />
-          <Text style={styles.name} numberOfLines={1}>
-            {room.name}
-          </Text>
-        </View>
-        {room.voiceAllowed && (
-          <View style={styles.inVoice}>
-            {inVoice.slice(0, SHOWN_IN_VOICE).map((person) => (
-              <Avatar
-                key={person.steamid}
-                url={person.avatarUrl}
-                name={person.name}
-                size={20}
-              />
-            ))}
-            <Text style={styles.sub}>
-              {inVoice.length === 0
-                ? 'Nobody in voice'
-                : `${inVoice.length} in voice`}
-            </Text>
-          </View>
-        )}
+        {hasVoice && <InVoice people={inVoice} size={20} />}
       </View>
       <UnreadBadge count={unread} />
-      {connected ? (
-        <View style={[styles.pill, styles.pillConnected]}>
-          <Text style={[styles.pillText, { color: colors.speaking }]}>
-            Connected
-          </Text>
-        </View>
-      ) : (
-        room.voiceAllowed && (
-          <Pressable
-            onPress={onJoin}
-            accessibilityLabel={`Join voice in ${room.name}`}
-            hitSlop={8}
-            style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
-          >
-            <Text style={styles.pillText}>Join</Text>
-          </Pressable>
-        )
-      )}
+      {connected && <VoicePill connected />}
     </Pressable>
   );
 }
@@ -208,14 +212,6 @@ const styles = StyleSheet.create({
   cardConnected: { borderColor: colors.speaking },
   pressed: { opacity: 0.7 },
   grow: { flex: 1, gap: 2 },
-  groupName: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  roomName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { flexShrink: 1, color: colors.text, fontSize: 16, fontWeight: '600' },
   inVoice: {
     flexDirection: 'row',
