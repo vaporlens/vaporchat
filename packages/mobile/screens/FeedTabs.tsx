@@ -2,25 +2,24 @@ import {
   type ComponentType,
   memo,
   type ReactElement,
-  type ReactNode,
   useCallback,
   useEffect,
   useState,
 } from 'react';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
-import type { FriendActivity, SteamEvent, StoreItem } from 'vaporchat/protocol';
+import type {
+  FeedPage,
+  FriendActivity,
+  SteamEvent,
+  StoreItem,
+} from 'vaporchat/protocol';
 import { KeepOpened } from '../components/KeepOpened';
 import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
 import { Feed } from './Feed';
-import {
-  ActivityRow,
-  EventCard,
-  EventCarousel,
-  StoreItemCard,
-} from './FeedCards';
+import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
 import type { Page } from './PageStack';
 
 type FeedTab = Exclude<Tab, 'chat'>;
@@ -32,60 +31,71 @@ interface Props {
   onError: (err: Error) => void;
 }
 
-interface StoreList {
+/** A list of a tab and where it loads from, a page at a time (`next` of the last one). */
+interface List<T> {
   tab: string;
   title: string;
   empty: string;
-  get: (feeds: SteamFeeds) => Promise<StoreItem[]>;
+  load: (feeds: SteamFeeds, next: number | null) => Promise<FeedPage<T>>;
 }
 
-const STORE_LISTS: StoreList[] = [
+/** Loads a list Steam gives all at once. */
+function whole<T>(get: (feeds: SteamFeeds) => Promise<T[]>) {
+  return async (feeds: SteamFeeds) => ({ items: await get(feeds), next: null });
+}
+
+const STORE_LISTS: List<StoreItem>[] = [
   {
     tab: 'discounted',
     title: 'Discounted',
     empty: 'No deals right now.',
-    get: (feeds) => feeds.getSpecials(),
+    load: whole((feeds) => feeds.getSpecials()),
   },
   {
     tab: 'topSellers',
     title: 'Top sellers',
     empty: 'No top sellers right now.',
-    get: (feeds) => feeds.getTopSellers(),
+    load: whole((feeds) => feeds.getTopSellers()),
+  },
+  {
+    tab: 'wishlist',
+    title: 'Wishlist',
+    empty: 'Your wishlist is empty.',
+    load: (feeds, next) => feeds.getWishlist(next),
   },
 ];
 
-const RELEASE_LISTS: StoreList[] = [
+const RELEASE_LISTS: List<StoreItem>[] = [
   {
     tab: 'new',
     title: 'Popular new',
     empty: 'No new releases.',
-    get: (feeds) => feeds.getNewReleases(),
+    load: whole((feeds) => feeds.getNewReleases()),
   },
   {
     tab: 'upcoming',
     title: 'Popular upcoming',
     empty: 'No upcoming releases.',
-    get: (feeds) => feeds.getUpcoming(),
+    load: whole((feeds) => feeds.getUpcoming()),
+  },
+  {
+    tab: 'calendar',
+    title: 'For you',
+    empty: 'Nothing for you releasing in the next few days.',
+    load: whole((feeds) => feeds.getPersonalCalendar()),
   },
 ];
 
-/** A tab's lists, switched between by the pills over them (under `top`). */
+/** A tab's lists, switched between by the pills over them. */
 function Lists<L extends { tab: string; title: string }>({
   lists,
-  top,
   render,
 }: {
   lists: L[];
-  top?: ReactNode;
   render: (list: L, header: ReactElement) => ReactElement;
 }) {
   const [tab, setTab] = useState(lists[0].tab);
-  const header = (
-    <>
-      {top}
-      <SubTabs tabs={lists} tab={tab} onChange={setTab} />
-    </>
-  );
+  const header = <SubTabs tabs={lists} tab={tab} onChange={setTab} />;
   return (
     <KeepOpened
       tab={tab}
@@ -98,19 +108,19 @@ function Lists<L extends { tab: string; title: string }>({
 
 function StoreItems({
   voice,
-  list: { get, empty },
+  list,
   show,
   header,
   onOpenGame,
   onError,
 }: Props & {
-  list: StoreList;
+  list: List<StoreItem>;
   show: 'released' | 'discountEnds';
   header: ReactElement;
 }) {
   const load = useCallback(
-    async () => ({ items: await get(voice.connection.feeds), next: null }),
-    [voice, get],
+    (next: number | null) => list.load(voice.connection.feeds, next),
+    [voice, list],
   );
   return (
     <Feed
@@ -124,30 +134,16 @@ function StoreItems({
         />
       )}
       header={header}
-      empty={empty}
+      empty={list.empty}
       onError={onError}
     />
   );
 }
 
 const Store = memo(function Store(props: Props) {
-  const { voice, onOpenPage, onError } = props;
-  // loaded once, sale events run for days
-  const [events, setEvents] = useState<SteamEvent[]>([]);
-  useEffect(() => {
-    voice.connection.feeds.getSaleEvents().then(setEvents, onError);
-  }, [voice, onError]);
   return (
     <Lists
       lists={STORE_LISTS}
-      top={
-        events.length > 0 && (
-          <EventCarousel
-            events={events}
-            onOpen={(event) => onOpenPage({ kind: 'sale', event })}
-          />
-        )
-      }
       render={(list, header) => (
         <StoreItems
           {...props}
@@ -171,15 +167,20 @@ const Releases = memo(function Releases(props: Props) {
   );
 });
 
-function News({
+/** News posts or sale events, opening as an article or a sale page. */
+function Events({
   voice,
+  list,
+  header,
   onOpenPage,
   onError,
-  header,
-}: Props & { header: ReactElement }) {
+}: Props & {
+  list: List<SteamEvent> & { page: 'article' | 'sale' };
+  header: ReactElement;
+}) {
   const load = useCallback(
-    (before: number | null) => voice.connection.feeds.getNews(before),
-    [voice],
+    (next: number | null) => list.load(voice.connection.feeds, next),
+    [voice, list],
   );
   return (
     <Feed
@@ -188,11 +189,11 @@ function News({
       renderItem={(event) => (
         <EventCard
           event={event}
-          onPress={() => onOpenPage({ kind: 'article', event })}
+          onPress={() => onOpenPage({ kind: list.page, event })}
         />
       )}
       header={header}
-      empty="No news of your games yet."
+      empty={list.empty}
       onError={onError}
     />
   );
@@ -233,16 +234,35 @@ function Activity({
 }
 
 const FEED_LISTS = [
-  { tab: 'news', title: 'News', Screen: News },
-  { tab: 'activity', title: 'Activity', Screen: Activity },
+  {
+    tab: 'news',
+    title: 'News',
+    empty: 'No news of your games yet.',
+    load: (feeds: SteamFeeds, before: number | null) => feeds.getNews(before),
+    page: 'article' as const,
+  },
+  { tab: 'activity', title: 'Activity' },
+  {
+    tab: 'events',
+    title: 'Events',
+    empty: 'No sale events right now.',
+    load: whole((feeds) => feeds.getSaleEvents()),
+    page: 'sale' as const,
+  },
 ];
 
-/** News of the user's games and what their friends did. */
-const NewsAndActivity = memo(function NewsAndActivity(props: Props) {
+/** News of the user's games, what their friends did and the store's sale events. */
+const SteamFeed = memo(function SteamFeed(props: Props) {
   return (
     <Lists
       lists={FEED_LISTS}
-      render={({ Screen }, header) => <Screen {...props} header={header} />}
+      render={(list, header) =>
+        list.page ? (
+          <Events {...props} list={list} header={header} />
+        ) : (
+          <Activity {...props} header={header} />
+        )
+      }
     />
   );
 });
@@ -250,7 +270,7 @@ const NewsAndActivity = memo(function NewsAndActivity(props: Props) {
 const SCREENS: Record<FeedTab, ComponentType<Props>> = {
   store: Store,
   releases: Releases,
-  feed: NewsAndActivity,
+  feed: SteamFeed,
 };
 
 /**

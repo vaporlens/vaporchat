@@ -28,7 +28,10 @@ export function fetchWithCookie(
 export async function getJson<T>(url: string, cookie?: string) {
   const response = await (cookie ? fetchWithCookie(url, cookie) : fetch(url));
   if (!response.ok) {
-    throw new Error(`Steam answered HTTP ${response.status} for ${url}`);
+    // without the query, it can have an access token
+    throw new Error(
+      `Steam answered HTTP ${response.status} for ${url.split('?')[0]}`,
+    );
   }
   return (await response.json()) as T;
 }

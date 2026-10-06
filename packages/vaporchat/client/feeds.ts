@@ -4,6 +4,7 @@ import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails } from '../steam/gameDetails.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
+import { getPersonalCalendar } from '../steam/personalCalendar.ts';
 import { getSalePage } from '../steam/salePage.ts';
 import {
   getNewReleases,
@@ -11,11 +12,13 @@ import {
   getTopSellers,
   getUpcoming,
 } from '../steam/store.ts';
+import { getWishlist } from '../steam/wishlist.ts';
 
 /**
- * What Steam's store and client show: sale events, deals, top sellers, new and upcoming games, game and sale pages, news and
- * friends' activity. Store pages go through store.steampowered.com, which browsers can't reach
- * without a proxy (no CORS). Prices are in the currency of where Steam located us at logon.
+ * What Steam's store and client show: sale events, deals, top sellers, the user's wishlist, new
+ * and upcoming games, personal release calendar, game and sale pages, news and friends'
+ * activity. Store pages go through store.steampowered.com, which browsers can't reach without a
+ * proxy (no CORS). Prices are in the currency of where Steam located us at logon.
  */
 export class SteamFeeds {
   #cm: SteamCM;
@@ -41,6 +44,16 @@ export class SteamFeeds {
     return getTopSellers(this.#cm.country);
   }
 
+  /** A page of the user's wishlist, biggest discounts first. */
+  async getWishlist(start: number | null = null) {
+    return getWishlist(
+      this.#cm.steamid,
+      await this.#webSession(),
+      this.#cm.country,
+      start,
+    );
+  }
+
   /** Popular new releases, newest first. */
   getNewReleases() {
     return getNewReleases(this.#cm.country);
@@ -49,6 +62,11 @@ export class SteamFeeds {
   /** Popular games coming soon. */
   getUpcoming() {
     return getUpcoming(this.#cm.country);
+  }
+
+  /** Releases of the next few days Steam picked for the user, like the store's Personal Calendar. */
+  async getPersonalCalendar() {
+    return getPersonalCalendar(await this.#webSession(), this.#cm.country);
   }
 
   /** A game's store page: descriptions, screenshots, reviews and tags. */

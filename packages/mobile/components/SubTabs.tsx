@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { colors } from '../theme';
 
-/** The pills switching between the lists of a tab. */
+/** The pills switching between the lists of a tab, scrolling sideways when they don't fit. */
 export function SubTabs<K extends string>({
   tabs,
   tab,
@@ -12,7 +12,11 @@ export function SubTabs<K extends string>({
   onChange: (tab: K) => void;
 }) {
   return (
-    <View style={styles.bar}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.bar}
+    >
       {tabs.map((item) => {
         const selected = item.tab === tab;
         return (
@@ -29,13 +33,12 @@ export function SubTabs<K extends string>({
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,

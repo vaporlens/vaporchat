@@ -1,7 +1,7 @@
 import type { StoreItem } from '../protocol.ts';
 import { API_URL, ASSETS_URL, getJson, inBatches, STORE_URL } from './web.ts';
 
-// the store's own JSON APIs work without logging in
+// the store's own JSON APIs work without logging in, `callApi` can call them as the user too
 // GetItems takes up to this many ids per request
 const BATCH_SIZE = 100;
 const SPECIALS_COUNT = 50;
@@ -32,11 +32,19 @@ export interface ApiStoreItem {
   };
 }
 
-/** Calls a store WebAPI method, `IStoreBrowseService/GetItems` say, with a JSON request. */
-export function callApi<T>(method: string, request: object) {
+/**
+ * Calls a store WebAPI method, `IStoreBrowseService/GetItems` say, with a JSON request. As the
+ * user with an access token, see `WebSession`.
+ */
+export function callApi<T>(
+  method: string,
+  request: object,
+  accessToken?: string,
+) {
   const input = encodeURIComponent(JSON.stringify(request));
+  const token = accessToken ? `&access_token=${accessToken}` : '';
   return getJson<{ response?: T }>(
-    `${API_URL}${method}/v1/?input_json=${input}`,
+    `${API_URL}${method}/v1/?input_json=${input}${token}`,
   ).then(({ response }) => response ?? ({} as T));
 }
 

@@ -4,6 +4,7 @@ import { sendImage } from './imageUpload.ts';
 const SESSION = {
   sessionid: 'abc',
   cookie: 'steamLoginSecure=x; sessionid=abc',
+  accessToken: 'x',
 };
 const IMAGE = {
   bytes: new Uint8Array([1, 2, 3]),

@@ -1,12 +1,5 @@
 import { Image } from 'expo-image';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type {
   Friend,
   FriendActivity,
@@ -17,10 +10,6 @@ import type {
 import { Avatar } from '../components/Avatar';
 import { date, fullDate, timeAgo } from '../format';
 import { colors } from '../theme';
-
-// the store's event carousel takes this much of the screen's height
-const CAROUSEL_SHARE = 0.2;
-const CAROUSEL_GAP = 10;
 
 export function Price({ item }: { item: StoreItem }) {
   if (item.free) return <Text style={styles.price}>Free</Text>;
@@ -79,53 +68,6 @@ function when(event: SteamEvent) {
     event.startsAt < Date.now()
     ? `Until ${date(event.endsAt)}`
     : timeAgo(event.startsAt);
-}
-
-/** Sale events side by side, swiped through. */
-export function EventCarousel({
-  events,
-  onOpen,
-}: {
-  events: SteamEvent[];
-  onOpen: (event: SteamEvent) => void;
-}) {
-  const window = useWindowDimensions();
-  const height = Math.round(window.height * CAROUSEL_SHARE);
-  // the 16:9 capsules, or nearly the screen's width when that's narrower
-  const width = Math.min(Math.round((height * 16) / 9), window.width - 48);
-  return (
-    <FlatList
-      horizontal
-      data={events}
-      keyExtractor={(event) => event.id}
-      showsHorizontalScrollIndicator={false}
-      snapToInterval={width + CAROUSEL_GAP}
-      decelerationRate="fast"
-      contentContainerStyle={styles.carousel}
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => onOpen(item)}
-          style={({ pressed }) => [
-            styles.slide,
-            { width, height },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Image
-            source={item.imageUrl}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-          />
-          <View style={styles.slideText}>
-            <Text style={styles.slideTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text style={styles.slideWhen}>{when(item)}</Text>
-          </View>
-        </Pressable>
-      )}
-    />
-  );
 }
 
 /** A sale or news post: its picture, title and the start of its text. */
@@ -289,22 +231,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   final: { color: colors.discount, fontSize: 14, fontWeight: '600' },
-  carousel: { gap: CAROUSEL_GAP, paddingHorizontal: 12, paddingBottom: 4 },
-  slide: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceRaised,
-    justifyContent: 'flex-end',
-  },
-  slideText: {
-    paddingHorizontal: 12,
-    paddingTop: 24,
-    paddingBottom: 10,
-    experimental_backgroundImage:
-      'linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.8) 100%)',
-  },
-  slideTitle: { color: colors.bright, fontSize: 15, fontWeight: '700' },
-  slideWhen: { color: colors.text, fontSize: 12, marginTop: 2 },
   eventCard: {
     marginHorizontal: 12,
     marginBottom: 12,

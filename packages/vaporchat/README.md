@@ -23,8 +23,8 @@ from steamcommunity.com, so a browser page can't fetch Steam's server list. Serv
 your own backend (proxy `https://api.steampowered.com/ISteamDirectory/GetCMListForConnect/v1/?cellid=0`)
 and pass its URL as `serverListUrl`. Everything else, including login, goes over a WebSocket to Steam,
 which browsers allow. The exceptions are `sendImage`, which like Steam's own chat uploads through
-`https://steamcommunity.com/chat/`, and the store feeds (`getDeals`, `getNewReleases`, `getNews`),
-which read store.steampowered.com and api.steampowered.com. Those have no CORS either, so browsers
+`https://steamcommunity.com/chat/`, and the store feeds (`getSpecials`, `getNewReleases`, `getNews`,
+`getWishlist` and the rest), which read store.steampowered.com and api.steampowered.com. Those have no CORS either, so browsers
 need a proxy for them too.
 
 Password login and `sendImage` use `crypto.getRandomValues`. React Native has to polyfill it (the
@@ -65,8 +65,13 @@ await voice.connection.sendImage(chat, { bytes, type: 'image/jpeg', width, heigh
 
 // what Steam's store and client show
 const { feeds } = voice.connection;
-await feeds.getDeals(); // { events: sales running now, specials: top discounts }
+await feeds.getSaleEvents(); // sales running now
+await feeds.getSpecials(); // the store's top discounts
+await feeds.getTopSellers(); // best selling first
+const wishlist = await feeds.getWishlist(); // the user's, biggest discounts first; pages like news
 await feeds.getNewReleases(); // popular new releases, newest first
+await feeds.getUpcoming(); // popular games coming soon
+await feeds.getPersonalCalendar(); // releases of the next 3 days Steam picked for the user
 await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
 await feeds.getSalePage(event.id); // a sale event's sections: texts and their games
 const news = await feeds.getNews(); // the News Hub's "Your News", newest first
@@ -88,7 +93,8 @@ await feeds.getFriendsActivity(); // achievements, purchases, screenshots; pages
 - The feeds use the endpoints Steam's own store, News Hub and client use, none of them documented.
   Store prices follow the country Steam located the connection in at logon. Friends' activity
   comes over the Steam connection (`UserNews.GetUserNews`, its protobuf is in
-  `scripts/userNews.proto`), news uses a web session like `sendImage`, deals and releases need no login.
+  `scripts/userNews.proto`), news, the wishlist and the personal calendar use a web session like
+  `sendImage`, and the other store lists need no login.
 - Messages come as `parts` to render: text, emoticons, stickers and images with their URLs (other
   BBCode such as links and quotes reads as its text). Our own messages sent from other devices come
   as `message` too, with the same `id` as the one `sendMessage` returned: `mergeMessages` and
@@ -155,10 +161,11 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |
+| Store feeds: top sellers, upcoming, wishlist (private too), personal calendar | live (Bun), wishlist paging not tried (bot's fits one page) |
 | Game pages; store descriptions and news posts as rich text | live (Bun) |
 | Sale event pages with their games, bundles included | live (Bun) |
-| iOS app: Deals, New, News, Activity tabs | iOS simulator (rendering only, links and paging not tried) |
-| iOS app: game and article screens, deals carousel | iOS simulator (rendering only) |
+| iOS app: Store, Releases, Feed tabs and their lists | installed on the phone, not tried yet |
+| iOS app: game and article screens | iOS simulator (rendering only) |
 | iOS app: sale screens, VaporLens analysis on game screens | iOS simulator (rendering only) |
 | iOS app: chat screen, unread badges, emoticons, animated stickers, image viewer, emoticon and sticker picker, sending photos | live (phone) |
 | Mute/deafen sent to Steam, other users' mute status received | live |

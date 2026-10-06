@@ -146,6 +146,8 @@ export interface WebSession {
   sessionid: string;
   /** the cookie header steamcommunity.com wants */
   cookie: string;
+  /** the WebAPI's `access_token` */
+  accessToken: string;
 }
 
 /** A steamcommunity.com session for the logged on account. */
@@ -160,6 +162,7 @@ export async function webSession(
   return {
     sessionid,
     cookie: `steamLoginSecure=${cm.steamid}%7C%7C${access_token}; sessionid=${sessionid}`,
+    accessToken: access_token,
   };
 }
 
