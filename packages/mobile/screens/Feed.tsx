@@ -26,6 +26,7 @@ export function Feed<T>({
   keyOf,
   renderItem,
   empty,
+  header,
   extraData,
   onError,
 }: {
@@ -34,6 +35,8 @@ export function Feed<T>({
   keyOf: (item: T) => string;
   renderItem: (item: T) => ReactElement;
   empty: string;
+  /** over the rows, shown while they load too */
+  header?: ReactElement;
   /** rows render again when it changes */
   extraData?: unknown;
   onError: (err: Error) => void;
@@ -78,28 +81,9 @@ export function Feed<T>({
     }
   }
 
-  if (items === null) {
-    return (
-      <View style={styles.center}>
-        {error === null ? (
-          <ActivityIndicator color={colors.muted} />
-        ) : (
-          <>
-            <Text style={styles.message}>{error}</Text>
-            <Pressable
-              onPress={loadFirst}
-              style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
-            >
-              <Text style={styles.retryText}>Try again</Text>
-            </Pressable>
-          </>
-        )}
-      </View>
-    );
-  }
   return (
     <FlatList
-      data={items}
+      data={items ?? []}
       keyExtractor={keyOf}
       renderItem={({ item }) => renderItem(item)}
       extraData={extraData}
@@ -118,7 +102,31 @@ export function Feed<T>({
           }}
         />
       }
-      ListEmptyComponent={<Text style={styles.message}>{empty}</Text>}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        items !== null ? (
+          <Text style={styles.message}>{empty}</Text>
+        ) : (
+          <View style={styles.center}>
+            {error === null ? (
+              <ActivityIndicator color={colors.muted} />
+            ) : (
+              <>
+                <Text style={styles.message}>{error}</Text>
+                <Pressable
+                  onPress={loadFirst}
+                  style={({ pressed }) => [
+                    styles.retry,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.retryText}>Try again</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        )
+      }
       ListFooterComponent={
         loadingMore ? (
           <ActivityIndicator color={colors.muted} style={styles.more} />
@@ -136,7 +144,8 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 32,
   },
-  content: { paddingVertical: 12 },
+  // grows so the loading state centers in the space left
+  content: { flexGrow: 1, paddingVertical: 12 },
   message: {
     color: colors.muted,
     fontSize: 14,
@@ -147,7 +156,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 9,
     borderRadius: 18,
-    backgroundColor: 'rgba(26, 159, 255, 0.15)',
+    backgroundColor: colors.accentBackground,
   },
   retryText: { color: colors.accent, fontSize: 14, fontWeight: '700' },
   pressed: { opacity: 0.7 },

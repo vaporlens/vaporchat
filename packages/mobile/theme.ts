@@ -12,6 +12,8 @@ export const colors = {
   bright: '#ffffff',
   muted: '#8b97a5',
   accent: '#1a9fff',
+  // behind accent text: pills and their buttons
+  accentBackground: 'rgba(26, 159, 255, 0.15)',
   // steam's colors for names and avatar frames of online and offline friends
   online: '#57cbde',
   offline: '#6a7480',

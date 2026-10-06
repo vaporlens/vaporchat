@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: 'rgba(26, 159, 255, 0.15)',
+    backgroundColor: colors.accentBackground,
   },
   pillConnected: { backgroundColor: 'rgba(111, 209, 75, 0.15)' },
   pillText: { color: colors.accent, fontSize: 14, fontWeight: '700' },

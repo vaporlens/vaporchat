@@ -2,17 +2,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 
-export type Tab = 'deals' | 'releases' | 'news' | 'activity' | 'chat';
+export type Tab = 'store' | 'releases' | 'feed' | 'chat';
 
 const TABS: {
   tab: Tab;
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { tab: 'deals', title: 'Deals', icon: 'pricetags' },
-  { tab: 'releases', title: 'New', icon: 'sparkles' },
-  { tab: 'news', title: 'News', icon: 'newspaper' },
-  { tab: 'activity', title: 'Activity', icon: 'people' },
+  { tab: 'store', title: 'Store', icon: 'pricetags' },
+  { tab: 'releases', title: 'Releases', icon: 'sparkles' },
+  { tab: 'feed', title: 'Feed', icon: 'newspaper' },
   { tab: 'chat', title: 'Chat', icon: 'chatbubbles' },
 ];
 

@@ -1,14 +1,17 @@
 import {
+  type ComponentType,
   memo,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useEffect,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { FriendActivity, SteamEvent, StoreItem } from 'vaporchat/protocol';
-import { SectionTitle } from '../components/SectionTitle';
+import { KeepOpened } from '../components/KeepOpened';
+import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
 import { Feed } from './Feed';
@@ -29,58 +32,85 @@ interface Props {
   onError: (err: Error) => void;
 }
 
-type DealRow =
-  | { kind: 'events'; events: SteamEvent[] }
-  | { kind: 'title' }
-  | { kind: 'item'; item: StoreItem };
-
-function dealKey(row: DealRow) {
-  return row.kind === 'item' ? row.item.url : row.kind;
+interface StoreList {
+  tab: string;
+  title: string;
+  empty: string;
+  get: (feeds: SteamFeeds) => Promise<StoreItem[]>;
 }
 
-function Deals({ voice, onOpenGame, onOpenPage, onError }: Props) {
-  const load = useCallback(async () => {
-    const { events, specials } = await voice.connection.feeds.getDeals();
-    const rows: DealRow[] = [
-      ...(events.length > 0 ? [{ kind: 'events', events } as const] : []),
-      { kind: 'title' },
-      ...specials.map((item) => ({ kind: 'item', item }) as const),
-    ];
-    return { items: rows, next: null };
-  }, [voice]);
+const STORE_LISTS: StoreList[] = [
+  {
+    tab: 'discounted',
+    title: 'Discounted',
+    empty: 'No deals right now.',
+    get: (feeds) => feeds.getSpecials(),
+  },
+  {
+    tab: 'topSellers',
+    title: 'Top sellers',
+    empty: 'No top sellers right now.',
+    get: (feeds) => feeds.getTopSellers(),
+  },
+];
+
+const RELEASE_LISTS: StoreList[] = [
+  {
+    tab: 'new',
+    title: 'Popular new',
+    empty: 'No new releases.',
+    get: (feeds) => feeds.getNewReleases(),
+  },
+  {
+    tab: 'upcoming',
+    title: 'Popular upcoming',
+    empty: 'No upcoming releases.',
+    get: (feeds) => feeds.getUpcoming(),
+  },
+];
+
+/** A tab's lists, switched between by the pills over them (under `top`). */
+function Lists<L extends { tab: string; title: string }>({
+  lists,
+  top,
+  render,
+}: {
+  lists: L[];
+  top?: ReactNode;
+  render: (list: L, header: ReactElement) => ReactElement;
+}) {
+  const [tab, setTab] = useState(lists[0].tab);
+  const header = (
+    <>
+      {top}
+      <SubTabs tabs={lists} tab={tab} onChange={setTab} />
+    </>
+  );
   return (
-    <Feed
-      load={load}
-      keyOf={dealKey}
-      renderItem={(row) =>
-        row.kind === 'events' ? (
-          <EventCarousel
-            events={row.events}
-            onOpen={(event) => onOpenPage({ kind: 'sale', event })}
-          />
-        ) : row.kind === 'title' ? (
-          <SectionTitle title="Special offers" style={styles.title} />
-        ) : (
-          <StoreItemCard
-            item={row.item}
-            show="discountEnds"
-            onPress={() => onOpenGame(row.item)}
-          />
-        )
+    <KeepOpened
+      tab={tab}
+      render={(name) =>
+        render(lists.find((list) => list.tab === name)!, header)
       }
-      empty="No deals right now."
-      onError={onError}
     />
   );
 }
 
-function NewReleases({ voice, onOpenGame, onError }: Props) {
+function StoreItems({
+  voice,
+  list: { get, empty },
+  show,
+  header,
+  onOpenGame,
+  onError,
+}: Props & {
+  list: StoreList;
+  show: 'released' | 'discountEnds';
+  header: ReactElement;
+}) {
   const load = useCallback(
-    async () => ({
-      items: await voice.connection.feeds.getNewReleases(),
-      next: null,
-    }),
-    [voice],
+    async () => ({ items: await get(voice.connection.feeds), next: null }),
+    [voice, get],
   );
   return (
     <Feed
@@ -89,17 +119,64 @@ function NewReleases({ voice, onOpenGame, onError }: Props) {
       renderItem={(item) => (
         <StoreItemCard
           item={item}
-          show="released"
+          show={show}
           onPress={() => onOpenGame(item)}
         />
       )}
-      empty="No new releases."
+      header={header}
+      empty={empty}
       onError={onError}
     />
   );
 }
 
-function News({ voice, onOpenPage, onError }: Props) {
+const Store = memo(function Store(props: Props) {
+  const { voice, onOpenPage, onError } = props;
+  // loaded once, sale events run for days
+  const [events, setEvents] = useState<SteamEvent[]>([]);
+  useEffect(() => {
+    voice.connection.feeds.getSaleEvents().then(setEvents, onError);
+  }, [voice, onError]);
+  return (
+    <Lists
+      lists={STORE_LISTS}
+      top={
+        events.length > 0 && (
+          <EventCarousel
+            events={events}
+            onOpen={(event) => onOpenPage({ kind: 'sale', event })}
+          />
+        )
+      }
+      render={(list, header) => (
+        <StoreItems
+          {...props}
+          list={list}
+          show="discountEnds"
+          header={header}
+        />
+      )}
+    />
+  );
+});
+
+const Releases = memo(function Releases(props: Props) {
+  return (
+    <Lists
+      lists={RELEASE_LISTS}
+      render={(list, header) => (
+        <StoreItems {...props} list={list} show="released" header={header} />
+      )}
+    />
+  );
+});
+
+function News({
+  voice,
+  onOpenPage,
+  onError,
+  header,
+}: Props & { header: ReactElement }) {
   const load = useCallback(
     (before: number | null) => voice.connection.feeds.getNews(before),
     [voice],
@@ -114,13 +191,19 @@ function News({ voice, onOpenPage, onError }: Props) {
           onPress={() => onOpenPage({ kind: 'article', event })}
         />
       )}
+      header={header}
       empty="No news of your games yet."
       onError={onError}
     />
   );
 }
 
-function Activity({ voice, onOpenGame, onError }: Props) {
+function Activity({
+  voice,
+  onOpenGame,
+  onError,
+  header,
+}: Props & { header: ReactElement }) {
   // names and avatars of people who aren't friends arrive later
   const [friends, setFriends] = useState(voice.connection.friends);
   useEffect(() => voice.connection.on('friendsChanged', setFriends), [voice]);
@@ -141,6 +224,7 @@ function Activity({ voice, onOpenGame, onError }: Props) {
           onOpenGame={onOpenGame}
         />
       )}
+      header={header}
       extraData={friends}
       empty="Your friends haven't done anything lately."
       onError={onError}
@@ -148,37 +232,42 @@ function Activity({ voice, onOpenGame, onError }: Props) {
   );
 }
 
-const SCREENS: Record<FeedTab, (props: Props) => ReactElement> = {
-  deals: Deals,
-  releases: NewReleases,
-  news: News,
-  activity: Activity,
+const FEED_LISTS = [
+  { tab: 'news', title: 'News', Screen: News },
+  { tab: 'activity', title: 'Activity', Screen: Activity },
+];
+
+/** News of the user's games and what their friends did. */
+const NewsAndActivity = memo(function NewsAndActivity(props: Props) {
+  return (
+    <Lists
+      lists={FEED_LISTS}
+      render={({ Screen }, header) => <Screen {...props} header={header} />}
+    />
+  );
+});
+
+const SCREENS: Record<FeedTab, ComponentType<Props>> = {
+  store: Store,
+  releases: Releases,
+  feed: NewsAndActivity,
 };
 
 /**
- * The Steam feeds of the tabs. Each loads when first opened and stays (hidden) after, so
- * coming back keeps its scroll position. Memoized, Home renders again on every friend's
- * status change.
+ * The Steam feeds of the tabs, each with its lists to switch between. Memoized, Home renders
+ * again on every friend's status change.
  */
 export const FeedTabs = memo(function FeedTabs({
   tab,
   ...props
 }: Props & { tab: Tab }) {
-  const [opened, setOpened] = useState<FeedTab[]>([]);
-  if (tab !== 'chat' && !opened.includes(tab)) setOpened([...opened, tab]);
-  return opened.map((name) => {
-    const Screen = SCREENS[name];
-    return (
-      <View key={name} style={[styles.grow, name !== tab && styles.hidden]}>
-        <Screen {...props} />
-      </View>
-    );
-  });
-});
-
-const styles = StyleSheet.create({
-  // like the other section titles of the feeds
-  title: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  grow: { flex: 1 },
-  hidden: { display: 'none' },
+  return (
+    <KeepOpened
+      tab={tab === 'chat' ? null : tab}
+      render={(name) => {
+        const Screen = SCREENS[name];
+        return <Screen {...props} />;
+      }}
+    />
+  );
 });

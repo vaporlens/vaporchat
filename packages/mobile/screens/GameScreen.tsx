@@ -77,7 +77,7 @@ function Details({
       )}
       <View style={styles.facts}>
         <Fact
-          label="Released"
+          label="Release date"
           value={game.releasedAt ? fullDate(game.releasedAt) : ''}
         />
         <Fact label="Developer" value={game.developers.join(', ')} />

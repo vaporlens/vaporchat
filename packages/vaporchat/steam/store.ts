@@ -5,7 +5,7 @@ import { API_URL, ASSETS_URL, getJson, inBatches, STORE_URL } from './web.ts';
 // GetItems takes up to this many ids per request
 const BATCH_SIZE = 100;
 const SPECIALS_COUNT = 50;
-const NEW_RELEASES_COUNT = 50;
+const SEARCH_COUNT = 50;
 
 /** A store item as the IStore*Service APIs describe it, only what we use. */
 export interface ApiStoreItem {
@@ -19,7 +19,11 @@ export interface ApiStoreItem {
   store_url_path?: string;
   is_free?: boolean;
   assets?: { asset_url_format?: string; header?: string };
-  release?: { steam_release_date?: number };
+  release?: {
+    steam_release_date?: number;
+    /** how precise the date of a coming game is: `date_full`, `date_month`, `date_quarter`… */
+    coming_soon_display?: string;
+  };
   best_purchase_option?: {
     formatted_final_price?: string;
     formatted_original_price?: string;
@@ -47,7 +51,8 @@ export function toStoreItem(item: ApiStoreItem): StoreItem {
   const { assets, best_purchase_option: offer } = item;
   const discounted = (offer?.discount_pct ?? 0) > 0;
   const endsAt = offer?.active_discounts?.[0]?.discount_end_date;
-  const released = item.release?.steam_release_date;
+  const { steam_release_date: released, coming_soon_display: precision } =
+    item.release ?? {};
   return {
     appid: item.appid ?? null,
     name: item.name ?? '',
@@ -64,7 +69,11 @@ export function toStoreItem(item: ApiStoreItem): StoreItem {
       : null,
     discountPercent: offer?.discount_pct ?? 0,
     discountEndsAt: discounted && endsAt ? endsAt * 1000 : null,
-    releasedAt: released ? released * 1000 : null,
+    // a coming game's month, quarter or year comes as the period's last day, no use showing
+    releasedAt:
+      released && (precision ?? 'date_full') === 'date_full'
+        ? released * 1000
+        : null,
     free: item.is_free ?? false,
   };
 }
@@ -128,11 +137,26 @@ export function appidsFromSearch(items: { logo?: string }[]) {
   });
 }
 
-/** Popular new releases, newest first, like the store's New Releases page. */
-export async function getNewReleases(country: string) {
+/** Games of a store search, `filter=topsellers` say, in the order the store gives. */
+async function searchStore(query: string, country: string) {
   const { items = [] } = await getJson<{ items?: { logo?: string }[] }>(
-    `${STORE_URL}search/results/?filter=popularnew&sort_by=Released_DESC&start=0` +
-      `&count=${NEW_RELEASES_COUNT}&cc=${country}&l=english&json=1`,
+    `${STORE_URL}search/results/?${query}&start=0&count=${SEARCH_COUNT}` +
+      `&cc=${country}&l=english&json=1`,
   );
   return getStoreItems(appidsFromSearch(items), country);
+}
+
+/** Popular new releases, newest first, like the store's New Releases page. */
+export function getNewReleases(country: string) {
+  return searchStore('filter=popularnew&sort_by=Released_DESC', country);
+}
+
+/** Popular games coming soon, like the store's Upcoming page. */
+export function getUpcoming(country: string) {
+  return searchStore('filter=popularcomingsoon', country);
+}
+
+/** The store's top sellers right now, best selling first. */
+export function getTopSellers(country: string) {
+  return searchStore('filter=topsellers', country);
 }

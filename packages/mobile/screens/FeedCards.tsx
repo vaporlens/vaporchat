@@ -15,10 +15,10 @@ import type {
   StoreItem,
 } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
-import { date, timeAgo } from '../format';
+import { date, fullDate, timeAgo } from '../format';
 import { colors } from '../theme';
 
-// the deals' event carousel takes this much of the screen's height
+// the store's event carousel takes this much of the screen's height
 const CAROUSEL_SHARE = 0.2;
 const CAROUSEL_GAP = 10;
 
@@ -38,7 +38,7 @@ export function Price({ item }: { item: StoreItem }) {
   );
 }
 
-/** A game with its price. The release date, or when its discount ends. */
+/** A game with its price. When it was or will be released, or when its discount ends. */
 export function StoreItemCard({
   item,
   show,
@@ -50,7 +50,10 @@ export function StoreItemCard({
 }) {
   const detail =
     show === 'released'
-      ? item.releasedAt && `Released ${date(item.releasedAt)}`
+      ? item.releasedAt &&
+        (item.releasedAt > Date.now()
+          ? `Releases ${fullDate(item.releasedAt)}`
+          : `Released ${date(item.releasedAt)}`)
       : item.discountEndsAt && `Offer ends ${date(item.discountEndsAt)}`;
   return (
     <Pressable

@@ -110,7 +110,7 @@ export function Home({
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [chat, setChat] = useState<ChatTarget | null>(null);
-  const [tab, setTab] = useState<Tab>('deals');
+  const [tab, setTab] = useState<Tab>('store');
   const [pages, setPages] = useState<Page[]>([]);
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
   const unread = useUnread(voice, chat);

@@ -1,4 +1,3 @@
-import type { Deals } from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
 import { getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
@@ -6,10 +5,15 @@ import { getGameDetails } from '../steam/gameDetails.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
 import { getSalePage } from '../steam/salePage.ts';
-import { getNewReleases, getSpecials } from '../steam/store.ts';
+import {
+  getNewReleases,
+  getSpecials,
+  getTopSellers,
+  getUpcoming,
+} from '../steam/store.ts';
 
 /**
- * What Steam's store and client show: deals, new releases, game and sale pages, news and
+ * What Steam's store and client show: sale events, deals, top sellers, new and upcoming games, game and sale pages, news and
  * friends' activity. Store pages go through store.steampowered.com, which browsers can't reach
  * without a proxy (no CORS). Prices are in the currency of where Steam located us at logon.
  */
@@ -22,18 +26,29 @@ export class SteamFeeds {
     this.#webSession = webSession;
   }
 
-  /** The sale events running now and the store's top discounts. */
-  async getDeals(): Promise<Deals> {
-    const [events, specials] = await Promise.all([
-      getLiveSaleEvents(),
-      getSpecials(this.#cm.country),
-    ]);
-    return { events, specials };
+  /** The sale events running now. */
+  getSaleEvents() {
+    return getLiveSaleEvents();
+  }
+
+  /** The store's top discounts. */
+  getSpecials() {
+    return getSpecials(this.#cm.country);
+  }
+
+  /** The store's top sellers, best selling first. */
+  getTopSellers() {
+    return getTopSellers(this.#cm.country);
   }
 
   /** Popular new releases, newest first. */
   getNewReleases() {
     return getNewReleases(this.#cm.country);
+  }
+
+  /** Popular games coming soon. */
+  getUpcoming() {
+    return getUpcoming(this.#cm.country);
   }
 
   /** A game's store page: descriptions, screenshots, reviews and tags. */

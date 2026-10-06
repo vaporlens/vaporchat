@@ -242,12 +242,6 @@ export interface SaleSection {
   items: StoreItem[];
 }
 
-/** The sale events running now and the store's top discounts. */
-export interface Deals {
-  events: SteamEvent[];
-  specials: StoreItem[];
-}
-
 export type FriendActivityKind =
   | 'friendAdded'
   | 'achievement'

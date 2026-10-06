@@ -54,6 +54,16 @@ describe('toStoreItem', () => {
     });
   });
 
+  it('has the release date of a coming game only when it is a full date', () => {
+    const coming = (coming_soon_display: string) =>
+      toStoreItem({
+        appid: 10,
+        release: { steam_release_date: 1000, coming_soon_display },
+      }).releasedAt;
+    expect(coming('date_full')).toBe(1_000_000);
+    expect(coming('date_quarter')).toBeNull();
+  });
+
   it('has no price when free or not for sale yet', () => {
     expect(toStoreItem({ appid: 10, is_free: true })).toMatchObject({
       price: null,
