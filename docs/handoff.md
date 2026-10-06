@@ -69,6 +69,7 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
   it works from Claude's sandbox. The sandbox can't drive the Simulator via AppleScript: `expo run:ios` then
   fails at the very end (after installing) on osascript, which is harmless. Open the app with
   `xcrun simctl openurl <udid> "exp+vaporchat://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"`.
+- Publishing a TestFlight build: `docs/testflight.md`.
 
 ## Next steps
 

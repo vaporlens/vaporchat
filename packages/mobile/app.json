@@ -8,6 +8,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "org.vaporlens.Vaporlens",
+      "buildNumber": "1",
       "appleTeamId": "EA3F6PEEAV",
       "supportsTablet": true,
       "config": {
