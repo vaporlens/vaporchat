@@ -73,6 +73,7 @@ await feeds.getNewReleases(); // popular new releases, newest first
 await feeds.getUpcoming(); // popular games coming soon
 await feeds.getPersonalCalendar(); // releases of the next 3 days Steam picked for the user
 await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
+await feeds.getStoreItems(bundle.includedAppids); // a bundle's games
 await feeds.getSalePage(event.id); // a sale event's sections: texts and their games
 const news = await feeds.getNews(); // the News Hub's "Your News", newest first
 await feeds.getNews(news.next); // older ones, `next` is null at the end
@@ -166,6 +167,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Sale event pages with their games, bundles included | live (Bun) |
 | iOS app: Store, Releases, Feed tabs and their lists | installed on the phone, not tried yet |
 | iOS app: game and article screens | iOS simulator (rendering only) |
+| iOS app: bundle screens with their games | not tried yet (bundle games live in Bun) |
 | iOS app: sale screens, VaporLens analysis on game screens | iOS simulator (rendering only) |
 | iOS app: chat screen, unread badges, emoticons, animated stickers, image viewer, emoticon and sticker picker, sending photos | live (phone) |
 | Mute/deafen sent to Steam, other users' mute status received | live |

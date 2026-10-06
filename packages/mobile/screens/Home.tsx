@@ -25,7 +25,6 @@ import { Avatar } from '../components/Avatar';
 import { Field } from '../components/Field';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
-import { openLink } from '../links';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
@@ -190,12 +189,13 @@ export function Home({
     (page: Page) => setPages((stack) => [...stack, page]),
     [],
   );
-  // bundles have no game page of their own
   const openGame = useCallback(
-    ({ appid, ...item }: StoreItem) =>
-      appid === null
-        ? openLink(item.url)
-        : push({ kind: 'game', item: { ...item, appid } }),
+    (item: StoreItem) =>
+      push(
+        item.appid === null
+          ? { kind: 'bundle', item }
+          : { kind: 'game', item: { ...item, appid: item.appid } },
+      ),
     [push],
   );
   const back = useCallback(() => setPages((stack) => stack.slice(0, -1)), []);

@@ -4,12 +4,14 @@ import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SteamEvent, StoreItem } from 'vaporchat/protocol';
 import { ImageViewer } from '../components/ImageViewer';
 import { ArticleScreen } from './ArticleScreen';
+import { BundleScreen } from './BundleScreen';
 import { GameScreen } from './GameScreen';
 import { SaleScreen } from './SaleScreen';
 
 /** A screen pushed over the tabs. */
 export type Page =
   | { kind: 'game'; item: StoreItem & { appid: number } }
+  | { kind: 'bundle'; item: StoreItem }
   | { kind: 'article'; event: SteamEvent }
   | { kind: 'sale'; event: SteamEvent };
 
@@ -45,6 +47,13 @@ export const PageStack = memo(function PageStack({
               item={page.item}
               onBack={onBack}
               onOpenImage={setViewing}
+            />
+          ) : page.kind === 'bundle' ? (
+            <BundleScreen
+              voice={voice}
+              item={page.item}
+              onBack={onBack}
+              onOpenGame={onOpenGame}
             />
           ) : page.kind === 'article' ? (
             <ArticleScreen

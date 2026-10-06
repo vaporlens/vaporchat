@@ -8,8 +8,10 @@ import type {
   StoreItem,
 } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
+import { GradientButton } from '../components/GradientButton';
 import { date, fullDate, timeAgo } from '../format';
-import { colors } from '../theme';
+import { openLink } from '../links';
+import { colors, gradients } from '../theme';
 
 export function Price({ item }: { item: StoreItem }) {
   if (item.free) return <Text style={styles.price}>Free</Text>;
@@ -24,6 +26,30 @@ export function Price({ item }: { item: StoreItem }) {
         <Text style={styles.final}>{item.price}</Text>
       </View>
     </View>
+  );
+}
+
+/** A game's or bundle's name over its price, and opening it on Steam to buy it. */
+export function BuyHeader({ item }: { item: StoreItem }) {
+  return (
+    <>
+      <Text style={styles.name}>{item.name}</Text>
+      <View style={styles.buy}>
+        <View style={styles.grow}>
+          <Price item={item} />
+          {item.discountEndsAt && (
+            <Text style={styles.offerEnds}>
+              Offer ends {date(item.discountEndsAt)}
+            </Text>
+          )}
+        </View>
+        <GradientButton
+          title="Open in Steam"
+          gradient={gradients.accept}
+          onPress={() => openLink(item.url)}
+        />
+      </View>
+    </>
   );
 }
 
@@ -231,6 +257,9 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   final: { color: colors.discount, fontSize: 14, fontWeight: '600' },
+  name: { color: colors.bright, fontSize: 24, fontWeight: '800' },
+  buy: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  offerEnds: { color: colors.muted, fontSize: 13 },
   eventCard: {
     marginHorizontal: 12,
     marginBottom: 12,

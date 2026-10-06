@@ -15,6 +15,8 @@ export interface ApiStoreItem {
   success?: number;
   visible?: boolean;
   appid?: number;
+  /** a bundle's or package's apps */
+  included_appids?: number[];
   name?: string;
   store_url_path?: string;
   is_free?: boolean;
@@ -63,6 +65,7 @@ export function toStoreItem(item: ApiStoreItem): StoreItem {
     item.release ?? {};
   return {
     appid: item.appid ?? null,
+    includedAppids: item.appid ? [] : (item.included_appids ?? []),
     name: item.name ?? '',
     url: STORE_URL + (item.store_url_path ?? ''),
     imageUrl:

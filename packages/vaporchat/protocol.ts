@@ -199,8 +199,10 @@ export interface IncomingChatMessage {
 
 /** A game or bundle in the Steam store. Times are milliseconds since the epoch. */
 export interface StoreItem {
-  /** null for bundles */
+  /** null for bundles and packages */
   appid: number | null;
+  /** the games of a bundle or package, empty for a game */
+  includedAppids: number[];
   name: string;
   /** its store page */
   url: string;

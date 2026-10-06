@@ -9,6 +9,7 @@ import { getSalePage } from '../steam/salePage.ts';
 import {
   getNewReleases,
   getSpecials,
+  getStoreItems,
   getTopSellers,
   getUpcoming,
 } from '../steam/store.ts';
@@ -67,6 +68,11 @@ export class SteamFeeds {
   /** Releases of the next few days Steam picked for the user, like the store's Personal Calendar. */
   async getPersonalCalendar() {
     return getPersonalCalendar(await this.#webSession(), this.#cm.country);
+  }
+
+  /** Games by appid, in the order asked, a bundle's `includedAppids` say. */
+  getStoreItems(appids: number[]) {
+    return getStoreItems(appids, this.#cm.country);
   }
 
   /** A game's store page: descriptions, screenshots, reviews and tags. */

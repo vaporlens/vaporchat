@@ -11,18 +11,17 @@ import {
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { GameDetails, StoreItem } from 'vaporchat/protocol';
 import { DetailPage } from '../components/DetailPage';
-import { GradientButton } from '../components/GradientButton';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
-import { date, fullDate } from '../format';
+import { fullDate } from '../format';
 import { openLink } from '../links';
-import { colors, gradients } from '../theme';
+import { colors } from '../theme';
 import {
   getVaporlensReport,
   type VaporlensReport as Report,
   vaporlensUrl,
 } from '../vaporlens';
-import { Price } from './FeedCards';
+import { BuyHeader } from './FeedCards';
 import { VaporlensReport } from './VaporlensReport';
 
 const DECK = {
@@ -181,22 +180,7 @@ export function GameScreen({
       imageUrl={shown.imageUrl}
       imageRatio={460 / 215}
     >
-      <Text style={styles.name}>{shown.name}</Text>
-      <View style={styles.buy}>
-        <View style={styles.grow}>
-          <Price item={shown} />
-          {shown.discountEndsAt && (
-            <Text style={styles.muted}>
-              Offer ends {date(shown.discountEndsAt)}
-            </Text>
-          )}
-        </View>
-        <GradientButton
-          title="Open in Steam"
-          gradient={gradients.accept}
-          onPress={() => openLink(item.url)}
-        />
-      </View>
+      <BuyHeader item={shown} />
       {game ? (
         <Details
           appid={item.appid}
@@ -216,9 +200,6 @@ export function GameScreen({
 const styles = StyleSheet.create({
   // edge to edge inside the padded page
   bleed: { marginHorizontal: -16 },
-  name: { color: colors.bright, fontSize: 24, fontWeight: '800' },
-  buy: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  grow: { flex: 1, gap: 4 },
   muted: { color: colors.muted, fontSize: 13 },
   loading: { marginTop: 24 },
   reviews: { color: colors.muted, fontSize: 14 },

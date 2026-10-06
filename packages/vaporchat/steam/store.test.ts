@@ -25,6 +25,7 @@ describe('toStoreItem', () => {
       }),
     ).toEqual({
       appid: 10,
+      includedAppids: [],
       name: 'Game',
       url: 'https://store.steampowered.com/app/10/Game',
       imageUrl:
@@ -36,6 +37,12 @@ describe('toStoreItem', () => {
       releasedAt: 1_000_000,
       free: false,
     });
+  });
+
+  it('has the games of a bundle', () => {
+    expect(
+      toStoreItem({ item_type: 2, id: 5, included_appids: [10, 20] }),
+    ).toMatchObject({ appid: null, includedAppids: [10, 20] });
   });
 
   it('has no original price or discount end without a discount', () => {
