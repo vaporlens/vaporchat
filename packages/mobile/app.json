@@ -2,14 +2,17 @@
   "expo": {
     "name": "Vaporlens",
     "slug": "vaporchat",
-    "version": "1.0.0",
+    "version": "0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "bundleIdentifier": "com.yamalight.vaporchat",
+      "bundleIdentifier": "org.vaporlens.Vaporlens",
       "appleTeamId": "EA3F6PEEAV",
       "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
