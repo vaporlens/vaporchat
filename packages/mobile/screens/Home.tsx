@@ -18,6 +18,7 @@ import type {
   Friend,
   StoreItem,
 } from 'vaporchat/protocol';
+import { groupTitle } from 'vaporchat/steam/groups';
 import { chatKey } from 'vaporchat/steam/messages';
 import { useUnread } from '../chats';
 import { Appear } from '../components/Appear';
@@ -103,7 +104,7 @@ export function Home({
   const insets = useSafeAreaInsets();
   const [me, setMe] = useState(voice.me);
   const [friends, setFriends] = useState(voice.connection.friends);
-  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [fetchedGroups, setGroups] = useState<ChatGroup[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [joining, setJoining] = useState(false);
@@ -153,6 +154,11 @@ export function Home({
     };
   }, [voice, refreshGroups]);
 
+  // unnamed groups go by their members' names, which come in as `friendsChanged`
+  const groups = fetchedGroups.map((group) => ({
+    ...group,
+    name: groupTitle(group, me.steamid, (id) => voice.connection.user(id).name),
+  }));
   const target = session?.target;
   const groupRows: Row[] = groups.flatMap((group): Row[] => {
     // a group opens its first text room, its voice channels are on top of that chat

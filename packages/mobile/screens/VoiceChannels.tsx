@@ -23,7 +23,7 @@ export function VoiceChannels({
   const rooms = group.rooms.filter((room) => room.voiceAllowed);
   if (rooms.length === 0) return null;
   return (
-    // a few rows tall at most, the chat below stays usable in groups with many channels
+    // two rows of two at most, the chat below stays usable in groups with many channels
     <ScrollView style={styles.list} contentContainerStyle={styles.content}>
       {rooms.map((room) => {
         const connected =
@@ -35,11 +35,13 @@ export function VoiceChannels({
             key={room.chatId}
             style={[styles.channel, connected && styles.channelConnected]}
           >
-            <Ionicons name="volume-medium" size={18} color={colors.text} />
             <View style={styles.grow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {room.name}
-              </Text>
+              <View style={styles.title}>
+                <Ionicons name="volume-medium" size={18} color={colors.text} />
+                <Text style={styles.name} numberOfLines={1}>
+                  {room.name}
+                </Text>
+              </View>
               <InVoice
                 people={room.membersInVoice.map((id) =>
                   voice.connection.user(id),
@@ -64,25 +66,35 @@ export function VoiceChannels({
 }
 
 const styles = StyleSheet.create({
+  // never squeezed by a long chat below, a third row peeks out to show it scrolls
   list: {
     flexGrow: 0,
-    maxHeight: 190,
+    flexShrink: 0,
+    maxHeight: 160,
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
-  content: { padding: 8, gap: 6 },
+  // two per row
+  content: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 6,
+    padding: 8,
+  },
   channel: {
+    width: '49%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 8,
+    padding: 10,
     borderRadius: 10,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },
   channelConnected: { borderColor: colors.speaking },
-  grow: { flex: 1, gap: 2 },
-  name: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  grow: { flex: 1, gap: 4 },
+  title: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { flexShrink: 1, color: colors.text, fontSize: 15, fontWeight: '600' },
 });

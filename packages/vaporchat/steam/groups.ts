@@ -21,6 +21,8 @@ interface ChatGroupSummary {
   chat_group_name?: string;
   chat_group_avatar_sha?: Uint8Array;
   chat_rooms?: ChatRoomState[];
+  /** account ids, some of the members */
+  top_members?: number[];
 }
 
 /** The account's group chats with their rooms and who is in voice. Also subscribes to their changes. */
@@ -36,6 +38,7 @@ export async function getGroups(cm: SteamCM): Promise<ChatGroup[]> {
     chat_states?: {
       header_state?: { chat_group_id: string };
       chat_rooms?: ChatRoomState[];
+      members?: { accountid: number }[];
     }[];
   }>('ChatRoom.SetSessionActiveChatRoomGroups#1', {
     chat_group_ids: groupIds,
@@ -54,6 +57,12 @@ export async function getGroups(cm: SteamCM): Promise<ChatGroup[]> {
       avatarUrl: avatarSha?.some((byte) => byte !== 0)
         ? avatarUrl(hex(avatarSha))
         : null,
+      // big groups leave out their member list, top members stand in
+      memberIds: (
+        state?.members?.map((member) => member.accountid) ??
+        summary.top_members ??
+        []
+      ).map(steamIdFromAccountId),
       rooms: rooms.map((room) => ({
         chatId: room.chat_id,
         // steam leaves the default room unnamed and shows it as General
@@ -63,6 +72,19 @@ export async function getGroups(cm: SteamCM): Promise<ChatGroup[]> {
       })),
     };
   });
+}
+
+/** What to call a group: its name, or like Steam, its other members' names when it has none. */
+export function groupTitle(
+  group: ChatGroup,
+  myId: string,
+  nameOf: (steamid: string) => string,
+) {
+  if (group.name !== '') return group.name;
+  return group.memberIds
+    .filter((id) => id !== myId)
+    .map(nameOf)
+    .join(', ');
 }
 
 /** Joins the group an `https://s.team/chat/…` link invites to, returns its id. */

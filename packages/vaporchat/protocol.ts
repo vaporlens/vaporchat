@@ -148,8 +148,11 @@ export interface ChatRoom {
 
 export interface ChatGroup {
   groupId: string;
+  /** empty when unnamed, see `groupTitle` */
   name: string;
   avatarUrl: string | null;
+  /** SteamID64s */
+  memberIds: string[];
   rooms: ChatRoom[];
 }
 

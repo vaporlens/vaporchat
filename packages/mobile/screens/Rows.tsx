@@ -50,7 +50,7 @@ export function InVoice({ people, size }: { people: Friend[]; size: number }) {
           size={size}
         />
       ))}
-      <Text style={styles.sub}>
+      <Text style={styles.sub} numberOfLines={1}>
         {people.length === 0 ? 'Nobody in voice' : `${people.length} in voice`}
       </Text>
     </View>
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
   },
-  sub: { color: colors.muted, fontSize: 13, marginLeft: 2 },
+  sub: { flexShrink: 1, color: colors.muted, fontSize: 13, marginLeft: 2 },
   pill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
