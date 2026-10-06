@@ -11,8 +11,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
+import { LoopingVideo } from './LoopingVideo';
 
-/** An image over everything, pinch to zoom. Shown while `url` is set. */
+const VIDEO = /\.(webm|mp4)(\?|$)/i;
+
+/** An image or video over everything, pinch to zoom. Shown while `url` is set. */
 export function ImageViewer({
   url,
   onClose,
@@ -38,13 +41,20 @@ export function ImageViewer({
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
         >
-          {url && (
-            <Image
-              source={{ uri: url }}
-              resizeMode="contain"
-              style={{ width, height }}
-            />
-          )}
+          {url &&
+            (VIDEO.test(url) ? (
+              <LoopingVideo
+                url={url}
+                posterUrl={null}
+                style={{ width, height }}
+              />
+            ) : (
+              <Image
+                source={{ uri: url }}
+                resizeMode="contain"
+                style={{ width, height }}
+              />
+            ))}
         </ScrollView>
         <Pressable
           onPress={onClose}

@@ -55,7 +55,7 @@ describe('parseRichText', () => {
   it('has pictures, videos and links as blocks of their own, with image placeholders filled', () => {
     expect(
       parseRichText(
-        '[p]Look:[img src="{STEAM_APP_IMAGE}/extras/a.gif" width="600" height="300"][/img] nice[/p]' +
+        '[p]Look:[img src="{STEAM_APP_IMAGE}/extras/a.avif" width="600" height="300" webm="{STEAM_APP_IMAGE}/extras/a.webm" poster="{STEAM_APP_IMAGE}/extras/a.poster.avif"][/img] nice[/p]' +
           '[img]{STEAM_CLAN_IMAGE}/12/b.png[/img]' +
           '[previewyoutube="abc123;full"][/previewyoutube]' +
           '[video mp4="https://example.com/v.mp4" poster="https://example.com/v.png"][/video]' +
@@ -66,9 +66,14 @@ describe('parseRichText', () => {
       { kind: 'paragraph', spans: [{ text: 'Look:' }] },
       {
         kind: 'image',
-        url: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.gif',
+        url: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.avif',
         width: 600,
         height: 300,
+        video: {
+          url: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.webm',
+          posterUrl:
+            'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.poster.avif',
+        },
       },
       { kind: 'paragraph', spans: [{ text: 'nice' }] },
       {
@@ -76,6 +81,7 @@ describe('parseRichText', () => {
         url: 'https://clan.fastly.steamstatic.com/images/12/b.png',
         width: null,
         height: null,
+        video: null,
       },
       {
         kind: 'youtube',
@@ -87,6 +93,7 @@ describe('parseRichText', () => {
         url: 'https://example.com/v.png',
         width: null,
         height: null,
+        video: null,
       },
       { kind: 'link', url: 'https://store.steampowered.com/app/10' },
       { kind: 'rule' },

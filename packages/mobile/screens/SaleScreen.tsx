@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SaleSection, SteamEvent, StoreItem } from 'vaporchat/protocol';
 import { DetailHeader } from '../components/DetailHeader';
+import { useScrollWatch } from '../components/onScreen';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { fullDate } from '../format';
@@ -34,6 +35,7 @@ export function SaleScreen({
   onOpenImage: (url: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const scroll = useScrollWatch();
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,53 +66,57 @@ export function SaleScreen({
         onBack={onBack}
         steamUrl={event.url}
       />
-      <SectionList<StoreItem, Section>
-        sections={sections ?? []}
-        keyExtractor={(item, index) => `${item.url}-${index}`}
-        stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        ListHeaderComponent={
-          <View style={styles.intro}>
-            {event.imageUrl && (
-              <Image
-                source={event.imageUrl}
-                style={styles.hero}
-                contentFit="cover"
-              />
-            )}
-            <Text style={styles.title}>{event.title}</Text>
-            {event.summary !== '' && (
-              <Text style={styles.summary}>{event.summary}</Text>
-            )}
-          </View>
-        }
-        ListEmptyComponent={
-          error ? (
-            <Text style={styles.message}>{error}</Text>
-          ) : sections ? (
-            <Text style={styles.message}>This sale lists no games.</Text>
-          ) : (
-            <ActivityIndicator color={colors.muted} style={styles.message} />
-          )
-        }
-        renderSectionHeader={({ section }) =>
-          section.title !== '' || section.body.length > 0 ? (
-            <View style={styles.sectionHeader}>
-              {section.title !== '' && <SectionTitle title={section.title} />}
-              {section.body.length > 0 && (
-                <RichText blocks={section.body} onOpenImage={onOpenImage} />
+      <scroll.Provider value={scroll.listeners}>
+        <SectionList<StoreItem, Section>
+          sections={sections ?? []}
+          onScroll={scroll.onScroll}
+          scrollEventThrottle={100}
+          keyExtractor={(item, index) => `${item.url}-${index}`}
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          ListHeaderComponent={
+            <View style={styles.intro}>
+              {event.imageUrl && (
+                <Image
+                  source={event.imageUrl}
+                  style={styles.hero}
+                  contentFit="cover"
+                />
+              )}
+              <Text style={styles.title}>{event.title}</Text>
+              {event.summary !== '' && (
+                <Text style={styles.summary}>{event.summary}</Text>
               )}
             </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <StoreItemCard
-            item={item}
-            show="discountEnds"
-            onPress={() => onOpenGame(item)}
-          />
-        )}
-      />
+          }
+          ListEmptyComponent={
+            error ? (
+              <Text style={styles.message}>{error}</Text>
+            ) : sections ? (
+              <Text style={styles.message}>This sale lists no games.</Text>
+            ) : (
+              <ActivityIndicator color={colors.muted} style={styles.message} />
+            )
+          }
+          renderSectionHeader={({ section }) =>
+            section.title !== '' || section.body.length > 0 ? (
+              <View style={styles.sectionHeader}>
+                {section.title !== '' && <SectionTitle title={section.title} />}
+                {section.body.length > 0 && (
+                  <RichText blocks={section.body} onOpenImage={onOpenImage} />
+                )}
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <StoreItemCard
+              item={item}
+              show="discountEnds"
+              onPress={() => onOpenGame(item)}
+            />
+          )}
+        />
+      </scroll.Provider>
     </View>
   );
 }

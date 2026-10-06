@@ -51,6 +51,12 @@ function parseAttributes(rest: string) {
   };
 }
 
+/** An animated picture also comes as a video, lighter to play. */
+function animation(attrs: Record<string, string>) {
+  const url = attrs.mp4 ?? attrs.webm;
+  return url ? { url, posterUrl: attrs.poster ?? null } : null;
+}
+
 function youtube(value: string): RichBlock {
   const id = value.split(';')[0];
   return {
@@ -158,6 +164,7 @@ export function parseRichText(
             url,
             width: size(attrs.width),
             height: size(attrs.height),
+            video: animation(attrs),
           };
         }
       } else if (name === 'video' && attrs.poster) {
@@ -166,6 +173,7 @@ export function parseRichText(
           url: attrs.poster,
           width: null,
           height: null,
+          video: null,
         };
       } else if (name === 'previewyoutube' && attrs.value) {
         block = youtube(attrs.value);

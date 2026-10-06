@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { DetailHeader } from './DetailHeader';
+import { useScrollWatch } from './onScreen';
 
 /** A pushed screen that scrolls: the header bar, a picture as wide as the screen, its content. */
 export function DetailPage({
@@ -25,6 +26,7 @@ export function DetailPage({
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const scroll = useScrollWatch();
   return (
     <View style={styles.screen}>
       <DetailHeader
@@ -38,15 +40,19 @@ export function DetailPage({
           styles.content,
           { paddingBottom: insets.bottom + 24 },
         ]}
+        onScroll={scroll.onScroll}
+        scrollEventThrottle={100}
       >
-        {imageUrl && (
-          <Image
-            source={imageUrl}
-            style={[styles.image, { aspectRatio: imageRatio }]}
-            contentFit="cover"
-          />
-        )}
-        {children}
+        <scroll.Provider value={scroll.listeners}>
+          {imageUrl && (
+            <Image
+              source={imageUrl}
+              style={[styles.image, { aspectRatio: imageRatio }]}
+              contentFit="cover"
+            />
+          )}
+          {children}
+        </scroll.Provider>
       </ScrollView>
     </View>
   );

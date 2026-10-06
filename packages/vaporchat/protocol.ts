@@ -304,8 +304,15 @@ export type RichBlock =
   | { kind: 'listItem'; depth: number; marker: string; spans: RichSpan[] }
   | { kind: 'quote'; spans: RichSpan[] }
   | { kind: 'code'; text: string }
-  /** pixels, null when the post didn't say */
-  | { kind: 'image'; url: string; width: number | null; height: number | null }
+  | {
+      kind: 'image';
+      url: string;
+      /** pixels, null when the post didn't say */
+      width: number | null;
+      height: number | null;
+      /** an animation's silent looping video to play in its place, like Steam does */
+      video: { url: string; posterUrl: string | null } | null;
+    }
   | { kind: 'youtube'; url: string; thumbnailUrl: string }
   /** a link shown on its own, like a store page Steam previews */
   | { kind: 'link'; url: string }

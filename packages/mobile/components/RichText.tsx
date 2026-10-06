@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -11,6 +11,8 @@ import {
 import type { RichBlock, RichSpan } from 'vaporchat/protocol';
 import { openLink } from '../links';
 import { colors } from '../theme';
+import { LoopingVideo, type LoopingVideoControls } from './LoopingVideo';
+import { useOnScreen } from './onScreen';
 
 function spanStyle(span: RichSpan): TextStyle {
   const lines = [
@@ -69,18 +71,54 @@ function RichImage({
   const [ratio, setRatio] = useState(
     block.width && block.height ? block.width / block.height : 16 / 9,
   );
+  const box = useRef<View>(null);
+  const image = useRef<Image>(null);
+  const videoControls = useRef<LoopingVideoControls>(null);
+  // animations decode every frame as they play, the ones scrolled away stop
+  const playing = useRef(true);
+  const play = useCallback((onScreen: boolean) => {
+    if (onScreen === playing.current) return;
+    playing.current = onScreen;
+    if (onScreen) {
+      image.current?.startAnimating();
+      videoControls.current?.play();
+    } else {
+      image.current?.stopAnimating();
+      videoControls.current?.pause();
+    }
+  }, []);
+  const check = useOnScreen(box, play);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const video = videoFailed ? null : block.video;
   return (
-    <Pressable onPress={() => onOpenImage(block.url)}>
-      <Image
-        source={block.url}
-        style={[styles.image, { aspectRatio: ratio }]}
-        contentFit="contain"
-        onLoad={({ source }) => {
-          if (source.width > 0 && source.height > 0) {
-            setRatio(source.width / source.height);
-          }
-        }}
-      />
+    <Pressable
+      ref={box}
+      onLayout={check}
+      onPress={() => onOpenImage(video?.url ?? block.url)}
+    >
+      {video ? (
+        <LoopingVideo
+          ref={videoControls}
+          url={video.url}
+          posterUrl={video.posterUrl}
+          style={[styles.image, { aspectRatio: ratio }]}
+          onError={() => setVideoFailed(true)}
+        />
+      ) : (
+        <Image
+          ref={image}
+          source={block.url}
+          style={[styles.image, { aspectRatio: ratio }]}
+          contentFit="contain"
+          onLoad={({ source }) => {
+            // it starts playing once loaded, wherever it is
+            if (!playing.current) image.current?.stopAnimating();
+            if (source.width > 0 && source.height > 0) {
+              setRatio(source.width / source.height);
+            }
+          }}
+        />
+      )}
     </Pressable>
   );
 }
