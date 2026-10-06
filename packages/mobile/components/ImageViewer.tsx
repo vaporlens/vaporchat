@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -6,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -25,6 +27,9 @@ export function ImageViewer({
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  // by URL, so the next one opened starts out loading
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const onError = () => setFailedUrl(url);
   return (
     <Modal
       visible={url !== null}
@@ -33,26 +38,39 @@ export function ImageViewer({
       supportedOrientations={['portrait', 'landscape']}
     >
       <View style={styles.screen}>
-        <ActivityIndicator color={colors.muted} style={styles.loading} />
         <ScrollView
           maximumZoomScale={4}
           minimumZoomScale={1}
-          centerContent
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
         >
+          {/* behind the media, moving with it, covered once it shows */}
+          {url !== null && url === failedUrl ? (
+            <View style={styles.behind}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={32}
+                color={colors.muted}
+              />
+              <Text style={styles.failed}>Could not load</Text>
+            </View>
+          ) : (
+            <ActivityIndicator color={colors.muted} style={styles.behind} />
+          )}
           {url &&
             (VIDEO.test(url) ? (
               <LoopingVideo
                 url={url}
                 posterUrl={null}
                 style={{ width, height }}
+                onError={onError}
               />
             ) : (
               <Image
                 source={{ uri: url }}
                 resizeMode="contain"
                 style={{ width, height }}
+                onError={onError}
               />
             ))}
         </ScrollView>
@@ -75,7 +93,13 @@ export function ImageViewer({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000' },
-  loading: { ...StyleSheet.absoluteFill },
+  behind: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  failed: { color: colors.muted, fontSize: 15 },
   close: {
     position: 'absolute',
     right: 16,
