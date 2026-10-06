@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { gradients } from '../theme';
+import { colors, gradients } from '../theme';
 
 export function GradientButton({
   title,
@@ -20,16 +20,21 @@ export function GradientButton({
       disabled={disabled || busy}
       style={({ pressed }) => [
         styles.button,
-        {
-          experimental_backgroundImage: gradient,
-          opacity: disabled ? 0.4 : pressed ? 0.8 : 1,
-        },
+        // flat when disabled, a faded gradient reads as muddy rather than off
+        disabled
+          ? styles.disabled
+          : {
+              experimental_backgroundImage: gradient,
+              opacity: pressed ? 0.8 : 1,
+            },
       ]}
     >
       {busy ? (
         <ActivityIndicator color="#fff" />
       ) : (
-        <Text style={styles.title}>{title}</Text>
+        <Text style={[styles.title, disabled && styles.disabledTitle]}>
+          {title}
+        </Text>
       )}
     </Pressable>
   );
@@ -43,5 +48,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  disabled: { backgroundColor: colors.surfaceRaised },
   title: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  disabledTitle: { color: colors.muted },
 });

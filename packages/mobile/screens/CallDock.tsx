@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type {
@@ -8,6 +8,7 @@ import type {
   VoiceSessionState,
 } from 'vaporchat/client/voiceSession';
 import type { Friend } from 'vaporchat/protocol';
+import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
 import { type IconName, RoundButton } from '../components/RoundButton';
 import { colors, gradients } from '../theme';
@@ -38,6 +39,37 @@ function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const rest = String(Math.floor(seconds % 60)).padStart(2, '0');
   return `${minutes}:${rest}`;
+}
+
+/** Green once connected, pulsing amber while it gets there. */
+function StatusDot({ connected }: { connected: boolean }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (connected) {
+      opacity.setValue(1);
+      return;
+    }
+    const pulse = (toValue: number) =>
+      Animated.timing(opacity, {
+        toValue,
+        duration: 700,
+        useNativeDriver: true,
+      });
+    const loop = Animated.loop(Animated.sequence([pulse(0.3), pulse(1)]));
+    loop.start();
+    return () => loop.stop();
+  }, [connected, opacity]);
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        {
+          opacity,
+          backgroundColor: connected ? colors.speaking : colors.warning,
+        },
+      ]}
+    />
+  );
 }
 
 function Person({
@@ -96,14 +128,12 @@ export function CallDock({
   const elapsed = useElapsed(session.state === 'connected');
   const connected = session.state === 'connected';
   return (
-    <View style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}>
+    <Appear
+      from="bottom"
+      style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}
+    >
       <View style={styles.titleRow}>
-        <View
-          style={[
-            styles.dot,
-            { backgroundColor: connected ? colors.speaking : colors.warning },
-          ]}
-        />
+        <StatusDot connected={connected} />
         <View style={styles.grow}>
           <Text style={styles.title} numberOfLines={1}>
             {title}
@@ -169,7 +199,7 @@ export function CallDock({
           onPress={() => void session.leave()}
         />
       </View>
-    </View>
+    </Appear>
   );
 }
 

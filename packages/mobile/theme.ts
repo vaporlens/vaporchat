@@ -35,3 +35,6 @@ export const gradients = {
   danger: 'linear-gradient(90deg, #ff5a4e 0%, #c9302c 100%)',
   dock: 'linear-gradient(180deg, #2a3442 0%, #1f2732 100%)',
 };
+
+/** How long pictures take to fade in once loaded, rather than popping in. */
+export const imageFadeMs = 200;

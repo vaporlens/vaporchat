@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
+import { Appear } from './Appear';
+import { useLastShown } from './useLastShown';
 
 export interface Info {
   title: string;
@@ -26,20 +28,25 @@ export function InfoSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const shown = useLastShown(info);
   return (
+    // fading, the backdrop stays in place while the sheet rises over it
     <Modal
       visible={info !== null}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+      <Appear
+        from="bottom"
+        style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}
+      >
         <View style={styles.header}>
           <View style={styles.grow}>
-            <Text style={styles.title}>{info?.title}</Text>
-            {info?.subtitle ? (
-              <Text style={styles.subtitle}>{info.subtitle}</Text>
+            <Text style={styles.title}>{shown?.title}</Text>
+            {shown?.subtitle ? (
+              <Text style={styles.subtitle}>{shown.subtitle}</Text>
             ) : null}
           </View>
           <Pressable onPress={onClose} accessibilityLabel="Close" hitSlop={8}>
@@ -47,9 +54,9 @@ export function InfoSheet({
           </Pressable>
         </View>
         <ScrollView>
-          <Text style={styles.body}>{info?.body}</Text>
+          <Text style={styles.body}>{shown?.body}</Text>
         </ScrollView>
-      </View>
+      </Appear>
     </Modal>
   );
 }

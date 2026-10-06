@@ -144,16 +144,20 @@ export function Chat({
         }
         renderItem={({ item, index }) => {
           const mine = item.sender === me;
+          // a run of someone's messages in a row reads as one
+          const runStart = newestFirst[index + 1]?.sender !== item.sender;
+          const runEnd = newestFirst[index - 1]?.sender !== item.sender;
           // in rooms, name the sender where their messages start
-          const previous = newestFirst[index + 1];
           const sender =
-            chat.kind === 'room' && !mine && previous?.sender !== item.sender
+            chat.kind === 'room' && !mine && runStart
               ? voice.connection.user(item.sender)
               : null;
           return (
             <MessageBubble
               message={item}
               mine={mine}
+              runStart={runStart}
+              runEnd={runEnd}
               senderName={sender?.name ?? null}
               senderAvatarUrl={sender?.avatarUrl ?? null}
               onOpenImage={setViewing}

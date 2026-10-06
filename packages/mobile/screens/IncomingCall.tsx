@@ -6,6 +6,7 @@ import type {
 } from 'vaporchat/client/steamVoice';
 import { Avatar } from '../components/Avatar';
 import { RoundButton } from '../components/RoundButton';
+import { useLastShown } from '../components/useLastShown';
 import { colors, gradients } from '../theme';
 import { startVoice } from '../voice';
 
@@ -58,11 +59,12 @@ export function IncomingCall({
   calls: Call[];
   onError: (err: Error) => void;
 }) {
-  const call = calls[0];
+  // the call answered or declined stays shown as the screen slides away
+  const call = useLastShown(calls[0]);
   const caller = call ? voice.connection.user(call.steamid) : null;
   return (
     <Modal
-      visible={call !== undefined}
+      visible={calls.length > 0}
       animationType="slide"
       presentationStyle="fullScreen"
     >

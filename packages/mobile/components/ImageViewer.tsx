@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { LoopingVideo } from './LoopingVideo';
+import { useLastShown } from './useLastShown';
 
 const VIDEO = /\.(webm|mp4)(\?|$)/i;
 
@@ -29,7 +30,8 @@ export function ImageViewer({
   const { width, height } = useWindowDimensions();
   // by URL, so the next one opened starts out loading
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const onError = () => setFailedUrl(url);
+  const shown = useLastShown(url);
+  const onError = () => setFailedUrl(shown);
   return (
     <Modal
       visible={url !== null}
@@ -45,7 +47,7 @@ export function ImageViewer({
           showsVerticalScrollIndicator={false}
         >
           {/* behind the media, moving with it, covered once it shows */}
-          {url !== null && url === failedUrl ? (
+          {shown !== null && shown === failedUrl ? (
             <View style={styles.behind}>
               <Ionicons
                 name="alert-circle-outline"
@@ -57,17 +59,17 @@ export function ImageViewer({
           ) : (
             <ActivityIndicator color={colors.muted} style={styles.behind} />
           )}
-          {url &&
-            (VIDEO.test(url) ? (
+          {shown &&
+            (VIDEO.test(shown) ? (
               <LoopingVideo
-                url={url}
+                url={shown}
                 posterUrl={null}
                 style={{ width, height }}
                 onError={onError}
               />
             ) : (
               <Image
-                source={{ uri: url }}
+                source={{ uri: shown }}
                 resizeMode="contain"
                 style={{ width, height }}
                 onError={onError}

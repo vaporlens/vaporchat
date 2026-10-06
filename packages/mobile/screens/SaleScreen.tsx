@@ -5,20 +5,23 @@ import {
   SectionList,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SaleSection, SteamEvent, StoreItem } from 'vaporchat/protocol';
-import { DetailHeader } from '../components/DetailHeader';
+import { DetailHeader, useScrolledPast } from '../components/DetailHeader';
 import { useScrollWatch } from '../components/onScreen';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { fullDate } from '../format';
-import { colors } from '../theme';
+import { colors, imageFadeMs } from '../theme';
 import { StoreItemCard } from './FeedCards';
 
 type Section = SaleSection & { key: string; data: StoreItem[] };
+
+const HERO_RATIO = 16 / 9;
 
 /** A sale event: its picture and texts, and the games of each of its sections. */
 export function SaleScreen({
@@ -35,7 +38,10 @@ export function SaleScreen({
   onOpenImage: (url: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const scroll = useScrollWatch();
+  // its title is under the picture, the header shows it once that scrolled away
+  const pastHero = useScrolledPast(event.imageUrl ? width / HERO_RATIO : 0);
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,11 +71,15 @@ export function SaleScreen({
         subtitle={event.endsAt ? `Until ${fullDate(event.endsAt)}` : undefined}
         onBack={onBack}
         steamUrl={event.url}
+        titleShown={pastHero.past}
       />
       <scroll.Provider value={scroll.listeners}>
         <SectionList<StoreItem, Section>
           sections={sections ?? []}
-          onScroll={scroll.onScroll}
+          onScroll={(scrolled) => {
+            scroll.onScroll();
+            pastHero.onScroll(scrolled);
+          }}
           scrollEventThrottle={100}
           keyExtractor={(item, index) => `${item.url}-${index}`}
           stickySectionHeadersEnabled={false}
@@ -79,6 +89,7 @@ export function SaleScreen({
               {event.imageUrl && (
                 <Image
                   source={event.imageUrl}
+                  transition={imageFadeMs}
                   style={styles.hero}
                   contentFit="cover"
                 />
@@ -124,7 +135,7 @@ export function SaleScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   intro: { gap: 12, paddingBottom: 4 },
-  hero: { width: '100%', aspectRatio: 16 / 9 },
+  hero: { width: '100%', aspectRatio: HERO_RATIO },
   title: {
     color: colors.bright,
     fontSize: 22,

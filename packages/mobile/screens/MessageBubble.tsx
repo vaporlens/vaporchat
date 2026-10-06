@@ -40,12 +40,18 @@ function blocks(parts: ChatPart[]) {
 export const MessageBubble = memo(function MessageBubble({
   message,
   mine,
+  runStart,
+  runEnd,
   senderName,
   senderAvatarUrl,
   onOpenImage,
 }: {
   message: ChatMessage;
   mine: boolean;
+  /** the first of the sender's messages in a row, set apart from the ones before */
+  runStart: boolean;
+  /** the last of them, its corner points at the sender's side */
+  runEnd: boolean;
   /** who wrote it, shown where a run of someone's messages starts in a room */
   senderName: string | null;
   senderAvatarUrl: string | null;
@@ -61,7 +67,13 @@ export const MessageBubble = memo(function MessageBubble({
   // stickers float without a bubble
   const bare = parts.every((part) => part.kind === 'sticker');
   return (
-    <View style={[styles.line, mine && styles.lineMine]}>
+    <View
+      style={[
+        styles.line,
+        mine && styles.lineMine,
+        runStart && styles.runStart,
+      ]}
+    >
       {senderName !== null && (
         <View style={styles.sender}>
           <Avatar url={senderAvatarUrl} name={senderName} size={18} />
@@ -74,6 +86,7 @@ export const MessageBubble = memo(function MessageBubble({
         style={[
           styles.bubble,
           bare ? styles.bare : mine ? styles.mine : styles.theirs,
+          !bare && runEnd && (mine ? styles.tailMine : styles.tailTheirs),
         ]}
       >
         {blocks(parts).map((block, index) => {
@@ -140,11 +153,11 @@ export const MessageBubble = memo(function MessageBubble({
 const styles = StyleSheet.create({
   line: { alignItems: 'flex-start', maxWidth: '82%' },
   lineMine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
+  runStart: { marginTop: 8 },
   sender: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
     marginBottom: 3,
   },
   senderName: { color: colors.online, fontSize: 13, fontWeight: '600' },
@@ -154,8 +167,10 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 14,
   },
-  mine: { backgroundColor: '#2d73ff', borderBottomRightRadius: 4 },
-  theirs: { backgroundColor: colors.surfaceRaised, borderBottomLeftRadius: 4 },
+  mine: { backgroundColor: '#2d73ff' },
+  theirs: { backgroundColor: colors.surfaceRaised },
+  tailMine: { borderBottomRightRadius: 4 },
+  tailTheirs: { borderBottomLeftRadius: 4 },
   bare: { paddingHorizontal: 0 },
   text: { color: colors.bright, fontSize: 16 },
   sticker: { width: STICKER_SIZE, height: STICKER_SIZE },

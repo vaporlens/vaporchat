@@ -39,6 +39,7 @@ export function BundleScreen({
       onBack={onBack}
       imageUrl={item.imageUrl}
       imageRatio={460 / 215}
+      titleInContent
     >
       <BuyHeader item={item} />
       {games?.length === 0 ? (

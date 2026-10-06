@@ -1,7 +1,8 @@
 import { memo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SteamEvent, StoreItem } from 'vaporchat/protocol';
+import { Appear } from '../components/Appear';
 import { ImageViewer } from '../components/ImageViewer';
 import { ArticleScreen } from './ArticleScreen';
 import { BundleScreen } from './BundleScreen';
@@ -35,10 +36,11 @@ export const PageStack = memo(function PageStack({
   return (
     <>
       {pages.map((page, index) => (
-        <View
+        <Appear
           // a stack only changes at its top, the position is a stable key
           // biome-ignore lint/suspicious/noArrayIndexKey: see above
           key={index}
+          from="right"
           style={[styles.page, index < pages.length - 1 && styles.hidden]}
         >
           {page.kind === 'game' ? (
@@ -70,7 +72,7 @@ export const PageStack = memo(function PageStack({
               onOpenImage={setViewing}
             />
           )}
-        </View>
+        </Appear>
       ))}
       <ImageViewer url={viewing} onClose={() => setViewing(null)} />
     </>

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import type { RichBlock, RichSpan } from 'vaporchat/protocol';
 import { openLink } from '../links';
-import { colors } from '../theme';
+import { colors, imageFadeMs } from '../theme';
 import { LoopingVideo, type LoopingVideoControls } from './LoopingVideo';
 import { useOnScreen } from './onScreen';
 
@@ -108,6 +108,7 @@ function RichImage({
         <Image
           ref={image}
           source={block.url}
+          transition={imageFadeMs}
           style={[styles.image, { aspectRatio: ratio }]}
           contentFit="contain"
           onLoad={({ source }) => {
@@ -172,6 +173,7 @@ function Block({
         >
           <Image
             source={block.thumbnailUrl}
+            transition={imageFadeMs}
             style={styles.video}
             contentFit="cover"
           />

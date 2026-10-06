@@ -11,7 +11,7 @@ import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
 import { date, fullDate, timeAgo } from '../format';
 import { openLink } from '../links';
-import { colors, gradients } from '../theme';
+import { colors, gradients, imageFadeMs } from '../theme';
 
 export function Price({ item }: { item: StoreItem }) {
   if (item.free) return <Text style={styles.price}>Free</Text>;
@@ -75,7 +75,12 @@ export function StoreItemCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <Image source={item.imageUrl} style={styles.header} contentFit="cover" />
+      <Image
+        source={item.imageUrl}
+        transition={imageFadeMs}
+        style={styles.header}
+        contentFit="cover"
+      />
       <View style={styles.grow}>
         <Text style={styles.title} numberOfLines={2}>
           {item.name}
@@ -112,6 +117,7 @@ export function EventCard({
       {event.imageUrl && (
         <Image
           source={event.imageUrl}
+          transition={imageFadeMs}
           style={styles.capsule}
           contentFit="cover"
         />
@@ -191,6 +197,7 @@ export function ActivityRow({
               <Image
                 key={achievement.name}
                 source={achievement.iconUrl}
+                transition={imageFadeMs}
                 style={styles.achievement}
                 accessibilityLabel={achievement.name}
               />
@@ -207,6 +214,7 @@ export function ActivityRow({
         >
           <Image
             source={game.imageUrl}
+            transition={imageFadeMs}
             style={styles.gameThumb}
             contentFit="cover"
           />

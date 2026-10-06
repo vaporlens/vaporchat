@@ -12,6 +12,7 @@ import { retryDelay } from 'vaporchat/client/retryPolicy';
 import { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SteamGuardHandler } from 'vaporchat/steam/credentialLogin';
 import type { SteamCredentials } from 'vaporchat/steam/logOn';
+import { Appear } from './components/Appear';
 import { GradientButton } from './components/GradientButton';
 import { Logo } from './components/Logo';
 import { Home } from './screens/Home';
@@ -128,7 +129,9 @@ export default function App() {
         </View>
       )}
       {state.kind === 'signedOut' && (
-        <SignIn error={state.error} onSignIn={signIn} />
+        <Appear style={styles.screen}>
+          <SignIn error={state.error} onSignIn={signIn} />
+        </Appear>
       )}
       {state.kind === 'disconnected' && (
         <View style={styles.center}>
@@ -145,7 +148,9 @@ export default function App() {
         </View>
       )}
       {state.kind === 'signedIn' && (
-        <Home voice={state.voice} onSignOut={() => signOut(state.voice)} />
+        <Appear style={styles.screen}>
+          <Home voice={state.voice} onSignOut={() => signOut(state.voice)} />
+        </Appear>
       )}
       <StatusBar style="light" />
     </SafeAreaProvider>
@@ -158,6 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     experimental_backgroundImage: gradients.screen,
   },
+  screen: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',

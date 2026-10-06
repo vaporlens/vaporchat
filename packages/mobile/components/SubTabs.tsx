@@ -25,7 +25,11 @@ export function SubTabs<K extends string>({
             onPress={() => onChange(item.tab)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            style={[styles.pill, selected && styles.selected]}
+            style={({ pressed }) => [
+              styles.pill,
+              selected && styles.selected,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={[styles.title, selected && styles.selectedTitle]}>
               {item.title}
@@ -50,6 +54,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   selected: { backgroundColor: colors.accentBackground },
+  pressed: { opacity: 0.7 },
   title: { color: colors.muted, fontSize: 13, fontWeight: '700' },
   selectedTitle: { color: colors.accent },
 });

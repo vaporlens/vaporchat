@@ -21,6 +21,7 @@ import type {
 } from 'vaporchat/protocol';
 import { chatKey } from 'vaporchat/steam/messages';
 import { useUnread } from '../chats';
+import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
 import { Field } from '../components/Field';
 import { type Tab, TabBar } from '../components/TabBar';
@@ -210,14 +211,16 @@ export function Home({
   return (
     <View style={styles.screen}>
       {chat && (
-        <Chat
-          voice={voice}
-          chat={chat}
-          {...chatHeader(voice, chat, groups)}
-          bottomInset={session ? 0 : insets.bottom}
-          onBack={() => setChat(null)}
-          onError={showError}
-        />
+        <Appear from="right" style={styles.grow}>
+          <Chat
+            voice={voice}
+            chat={chat}
+            {...chatHeader(voice, chat, groups)}
+            bottomInset={session ? 0 : insets.bottom}
+            onBack={() => setChat(null)}
+            onError={showError}
+          />
+        </Appear>
       )}
       <PageStack
         voice={voice}
@@ -291,14 +294,16 @@ export function Home({
                 />
               </View>
               {joining && (
-                <JoinGroup
-                  voice={voice}
-                  onJoined={() => {
-                    setJoining(false);
-                    void refreshGroups();
-                  }}
-                  onError={showError}
-                />
+                <Appear>
+                  <JoinGroup
+                    voice={voice}
+                    onJoined={() => {
+                      setJoining(false);
+                      void refreshGroups();
+                    }}
+                    onError={showError}
+                  />
+                </Appear>
               )}
             </>
           }

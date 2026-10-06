@@ -15,7 +15,7 @@ import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { fullDate } from '../format';
 import { openLink } from '../links';
-import { colors } from '../theme';
+import { colors, imageFadeMs } from '../theme';
 import {
   getVaporlensReport,
   type VaporlensReport as Report,
@@ -108,6 +108,7 @@ function Details({
             <Pressable onPress={() => onOpenImage(item.url)}>
               <Image
                 source={item.thumbnailUrl}
+                transition={imageFadeMs}
                 style={styles.screenshot}
                 contentFit="cover"
               />
@@ -179,6 +180,7 @@ export function GameScreen({
       onBack={onBack}
       imageUrl={shown.imageUrl}
       imageRatio={460 / 215}
+      titleInContent
     >
       <BuyHeader item={shown} />
       {game ? (
