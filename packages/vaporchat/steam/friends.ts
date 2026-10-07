@@ -62,6 +62,7 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   #personas = new Map<string, Persona>();
   #requested = new Set<string>();
   #started = false;
+  #self = '';
 
   constructor(cm: SteamCM) {
     super();
@@ -77,6 +78,7 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   /** Once logged on: asks for the personas of everyone known so far, and of `self`. */
   start(self: string) {
     this.#started = true;
+    this.#self = self;
     this.#requestPersonas([self, ...this.#relationships.keys()]);
   }
 
@@ -152,8 +154,18 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   #requestPersonas(steamids: string[]) {
     if (steamids.length === 0) return;
     for (const id of steamids) this.#requested.add(id);
+    const others = steamids.filter((id) => id !== this.#self);
+    if (others.length > 0) this.#send(others, PERSONA_FLAGS);
+    // asking for the account's own status makes steam send all its sessions an offline
+    // status, which signs the official clients out of friends & chat
+    if (others.length < steamids.length) {
+      this.#send([this.#self], PERSONA_FLAGS & ~PERSONA_STATUS);
+    }
+  }
+
+  #send(steamids: string[], flags: number) {
     this.#cm.send(EMsg.ClientRequestFriendData, 'CMsgClientRequestFriendData', {
-      persona_state_requested: PERSONA_FLAGS,
+      persona_state_requested: flags,
       friends: steamids,
     });
   }

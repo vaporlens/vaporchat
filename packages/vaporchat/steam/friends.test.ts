@@ -23,6 +23,8 @@ function fakeSteam() {
     (header: object, body: Uint8Array) => void
   >();
   const requested: string[][] = [];
+  // the persona flags asked for, per request
+  const flags: number[] = [];
   const cm = {
     onMessage(
       key: number | string,
@@ -31,8 +33,13 @@ function fakeSteam() {
       handlers.set(key, handler);
       return () => {};
     },
-    send(_emsg: number, _type: string, body: { friends: string[] }) {
+    send(
+      _emsg: number,
+      _type: string,
+      body: { friends: string[]; persona_state_requested: number },
+    ) {
       requested.push(body.friends);
+      flags.push(body.persona_state_requested);
     },
   };
   const deliver = (emsg: number, typeName: string, body: object) =>
@@ -40,6 +47,7 @@ function fakeSteam() {
   return {
     cm: cm as unknown as SteamCM,
     requested,
+    flags,
     friendsList: (bincremental: boolean, friends: [string, number][]) =>
       deliver(EMsg.ClientFriendsList, 'CMsgClientFriendsList', {
         bincremental,
@@ -80,7 +88,7 @@ describe('FriendsList', () => {
       },
     ]);
 
-    expect(steam.requested).toEqual([[ME, ALICE, BOB, BLOCKED]]);
+    expect(steam.requested).toEqual([[ALICE, BOB, BLOCKED], [ME]]);
     expect(list.friends).toEqual([
       {
         steamid: BOB,
@@ -124,6 +132,22 @@ describe('FriendsList', () => {
 
     expect(list.friends.map((f) => f.steamid)).toEqual([BOB]);
     expect(steam.requested.at(-1)).toEqual([BOB]);
+  });
+
+  it('never asks for the status of the logged on account', () => {
+    const steam = fakeSteam();
+    const list = new FriendsList(steam.cm);
+    steam.friendsList(false, [[ALICE, FRIEND]]);
+    list.start(ME);
+    list.lookUp([ME, BOB]);
+
+    // steam would send every session of the account an offline status, and the
+    // official clients sign out of friends & chat on it
+    const askedForMe = steam.flags.filter((_, i) =>
+      steam.requested[i].includes(ME),
+    );
+    expect(askedForMe).toEqual([NAME | PRESENCE]);
+    expect(steam.requested.flat().sort()).toEqual([ME, ALICE, BOB]);
   });
 
   it('looks up strangers once', () => {
