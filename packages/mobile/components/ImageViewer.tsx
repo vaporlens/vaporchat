@@ -5,7 +5,6 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { LoopingVideo } from './LoopingVideo';
 import { useLastShown } from './useLastShown';
+import { Zoomable } from './Zoomable';
 
 const VIDEO = /\.(webm|mp4)(\?|$)/i;
 
@@ -40,12 +40,8 @@ export function ImageViewer({
       supportedOrientations={['portrait', 'landscape']}
     >
       <View style={styles.screen}>
-        <ScrollView
-          maximumZoomScale={4}
-          minimumZoomScale={1}
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-        >
+        {/* each one opens unzoomed */}
+        <Zoomable key={shown}>
           {/* behind the media, moving with it, covered once it shows */}
           {shown !== null && shown === failedUrl ? (
             <View style={styles.behind}>
@@ -75,7 +71,7 @@ export function ImageViewer({
                 onError={onError}
               />
             ))}
-        </ScrollView>
+        </Zoomable>
         <Pressable
           onPress={onClose}
           accessibilityLabel="Close image"

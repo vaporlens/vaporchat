@@ -54,7 +54,7 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
   No call placed from it yet.
 - Xcode 27 specifics: the app must adopt the UIScene lifecycle (`plugins/withSceneLifecycle.ts`
   backports Expo SDK 58's template; delete it after upgrading). The simulator app is DeviceHub.
-  `modules/audio-route` is a local Expo module (iOS only) that switches earpiece/speaker.
+  `modules/audio-route` is a local Expo module that switches earpiece/speaker (iOS, and Android since).
 
 ## Running it
 
@@ -70,6 +70,7 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
   fails at the very end (after installing) on osascript, which is harmless. Open the app with
   `xcrun simctl openurl <udid> "exp+vaporchat://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"`.
 - Publishing a TestFlight build: `docs/testflight.md`.
+- Running on Android: `docs/android.md`.
 
 ## Next steps
 
@@ -79,7 +80,8 @@ voice status. The repo is a **library** (`packages/vaporchat`), a **web debug ha
    WebRTC's audio session changes.
 2. Steam Guard live (the user's account has it).
 3. Does Steam end a voice chat when the CM connection drops? The old proxy left chats explicitly.
-4. Android: `audio-route` has no Android side yet.
+4. Android: the speaker switch (`audio-route`) and the background call service (`call-service`)
+   haven't been tried in a real call yet. See `docs/android.md`.
 
 ## Live testing setup
 

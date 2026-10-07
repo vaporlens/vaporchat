@@ -17,6 +17,7 @@ import type { SteamCredentials } from 'vaporchat/steam/logOn';
 import { Field } from '../components/Field';
 import { GradientButton } from '../components/GradientButton';
 import { Logo } from '../components/Logo';
+import { useBackHandler } from '../components/useBackHandler';
 import { colors } from '../theme';
 
 interface GuardRequest {
@@ -48,6 +49,10 @@ function SteamGuard({ guard }: { guard: GuardRequest }) {
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const { codeType, lastCodeWrong } = guard.prompt;
+  useBackHandler(() => {
+    guard.cancel();
+    return true;
+  });
 
   function submit() {
     if (code.trim() === '') return;

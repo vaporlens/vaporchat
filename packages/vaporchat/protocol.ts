@@ -300,6 +300,12 @@ export interface RichSpan {
   link?: string;
 }
 
+/** A video in the formats Steam has it in, at least one: mp4 is HEVC, webm VP9. */
+export type RichVideo = { posterUrl: string | null } & (
+  | { mp4: string; webm: string | null }
+  | { mp4: null; webm: string }
+);
+
 export type RichBlock =
   | { kind: 'heading'; level: 1 | 2 | 3; spans: RichSpan[] }
   | { kind: 'paragraph'; spans: RichSpan[] }
@@ -314,7 +320,7 @@ export type RichBlock =
       width: number | null;
       height: number | null;
       /** an animation's silent looping video to play in its place, like Steam does */
-      video: { url: string; posterUrl: string | null } | null;
+      video: RichVideo | null;
     }
   | { kind: 'youtube'; url: string; thumbnailUrl: string }
   /** a link shown on its own, like a store page Steam previews */

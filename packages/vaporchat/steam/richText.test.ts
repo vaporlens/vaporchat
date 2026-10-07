@@ -55,7 +55,7 @@ describe('parseRichText', () => {
   it('has pictures, videos and links as blocks of their own, with image placeholders filled', () => {
     expect(
       parseRichText(
-        '[p]Look:[img src="{STEAM_APP_IMAGE}/extras/a.avif" width="600" height="300" webm="{STEAM_APP_IMAGE}/extras/a.webm" poster="{STEAM_APP_IMAGE}/extras/a.poster.avif"][/img] nice[/p]' +
+        '[p]Look:[img src="{STEAM_APP_IMAGE}/extras/a.avif" width="600" height="300" mp4="{STEAM_APP_IMAGE}/extras/a.mp4" webm="{STEAM_APP_IMAGE}/extras/a.webm" poster="{STEAM_APP_IMAGE}/extras/a.poster.avif"][/img] nice[/p]' +
           '[img]{STEAM_CLAN_IMAGE}/12/b.png[/img]' +
           '[previewyoutube="abc123;full"][/previewyoutube]' +
           '[video mp4="https://example.com/v.mp4" poster="https://example.com/v.png"][/video]' +
@@ -70,7 +70,8 @@ describe('parseRichText', () => {
         width: 600,
         height: 300,
         video: {
-          url: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.webm',
+          mp4: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.mp4',
+          webm: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.webm',
           posterUrl:
             'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/440/extras/a.poster.avif',
         },
@@ -97,6 +98,26 @@ describe('parseRichText', () => {
       },
       { kind: 'link', url: 'https://store.steampowered.com/app/10' },
       { kind: 'rule' },
+    ]);
+  });
+
+  it('takes an empty video attribute as that format missing', () => {
+    expect(
+      parseRichText(
+        '[img src="https://example.com/a.avif" mp4="" webm="https://example.com/a.webm"][/img]',
+      ),
+    ).toEqual([
+      {
+        kind: 'image',
+        url: 'https://example.com/a.avif',
+        width: null,
+        height: null,
+        video: {
+          mp4: null,
+          webm: 'https://example.com/a.webm',
+          posterUrl: null,
+        },
+      },
     ]);
   });
 

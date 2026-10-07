@@ -22,22 +22,29 @@
     },
     "android": {
       "package": "com.yamalight.vaporchat",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#2D73FF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.CAMERA",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "plugins": [
       "./plugins/withSceneLifecycle.ts",
+      "./plugins/withReleaseSigning.ts",
       [
         "@config-plugins/react-native-webrtc",
         {
           "microphonePermission": "Vaporlens uses the microphone for Steam voice chat."
         }
       ],
+      "./plugins/withoutScreenSharing.ts",
       "expo-secure-store",
       "expo-image",
       [

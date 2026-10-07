@@ -2,13 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { useCallback, useRef, useState } from 'react';
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   type TextStyle,
   View,
 } from 'react-native';
-import type { RichBlock, RichSpan } from 'vaporchat/protocol';
+import type { RichBlock, RichSpan, RichVideo } from 'vaporchat/protocol';
 import { openLink } from '../links';
 import { colors, imageFadeMs } from '../theme';
 import { LoopingVideo, type LoopingVideoControls } from './LoopingVideo';
@@ -60,6 +61,12 @@ function Spans({ spans }: { spans: RichSpan[] }) {
   });
 }
 
+/** Android's WebView plays VP9 on every phone, HEVC only where the phone decodes it. */
+function videoUrl(video: RichVideo) {
+  if (video.mp4 === null) return video.webm;
+  return Platform.OS === 'android' ? (video.webm ?? video.mp4) : video.mp4;
+}
+
 /** A picture as wide as the text, as tall as its proportions say once known. */
 function RichImage({
   block,
@@ -79,11 +86,12 @@ function RichImage({
   const play = useCallback((onScreen: boolean) => {
     if (onScreen === playing.current) return;
     playing.current = onScreen;
+    // nothing to start or stop when its view is already gone
     if (onScreen) {
-      image.current?.startAnimating();
+      image.current?.startAnimating().catch(() => {});
       videoControls.current?.play();
     } else {
-      image.current?.stopAnimating();
+      image.current?.stopAnimating().catch(() => {});
       videoControls.current?.pause();
     }
   }, []);
@@ -94,12 +102,12 @@ function RichImage({
     <Pressable
       ref={box}
       onLayout={check}
-      onPress={() => onOpenImage(video?.url ?? block.url)}
+      onPress={() => onOpenImage(video ? videoUrl(video) : block.url)}
     >
       {video ? (
         <LoopingVideo
           ref={videoControls}
-          url={video.url}
+          url={videoUrl(video)}
           posterUrl={video.posterUrl}
           style={[styles.image, { aspectRatio: ratio }]}
           onError={() => setVideoFailed(true)}
@@ -113,7 +121,9 @@ function RichImage({
           contentFit="contain"
           onLoad={({ source }) => {
             // it starts playing once loaded, wherever it is
-            if (!playing.current) image.current?.stopAnimating();
+            if (!playing.current) {
+              image.current?.stopAnimating().catch(() => {});
+            }
             if (source.width > 0 && source.height > 0) {
               setRatio(source.width / source.height);
             }

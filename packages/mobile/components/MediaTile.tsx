@@ -31,6 +31,7 @@ export function mediaCount(media: MediaItem[]) {
 function Player({ url, onExit }: { url: string; onExit: () => void }) {
   const player = useVideoPlayer(url, (player) => player.play());
   const view = useRef<VideoView>(null);
+  const entered = useRef(false);
   useEventListener(player, 'statusChange', ({ status }) => {
     if (status === 'error') onExit();
   });
@@ -40,8 +41,13 @@ function Player({ url, onExit }: { url: string; onExit: () => void }) {
       player={player}
       style={StyleSheet.absoluteFill}
       nativeControls
-      // iOS ignores it before the view is on screen, which it is by the first frame
-      onFirstFrameRender={() => view.current?.enterFullscreen()}
+      // iOS ignores it before the view is on screen, which it is by the first frame. Once,
+      // Android renders a first frame again when leaving fullscreen brings the video back
+      onFirstFrameRender={() => {
+        if (entered.current) return;
+        entered.current = true;
+        view.current?.enterFullscreen().catch(onExit);
+      }}
       onFullscreenExit={() => {
         // expo-video resumes it on leaving fullscreen, it stops right away instead of on unmounting
         player.pause();

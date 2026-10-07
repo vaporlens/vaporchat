@@ -27,6 +27,7 @@ import { Avatar } from '../components/Avatar';
 import { Field } from '../components/Field';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
+import { useBackHandler } from '../components/useBackHandler';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
@@ -249,6 +250,13 @@ export function Home({
     [push],
   );
   const back = useCallback(() => setPages((stack) => stack.slice(0, -1)), []);
+  // pages open over the chat
+  useBackHandler(() => {
+    if (pages.length > 0) back();
+    else if (chat) setChat(null);
+    else return false;
+    return true;
+  });
 
   const chatGroup =
     chat?.kind === 'room'
@@ -347,139 +355,143 @@ export function Home({
           onOpenPage={push}
           onError={showError}
         />
-        <SectionList<Row, Section>
-          style={tab !== 'chat' && styles.hidden}
-          sections={sections}
-          keyExtractor={(row) => row.key}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          contentContainerStyle={styles.listEnd}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              tintColor={colors.muted}
-              onRefresh={() => {
-                setRefreshing(true);
-                void refreshGroups().finally(() => setRefreshing(false));
-              }}
-            />
-          }
-          ListHeaderComponent={
-            <>
-              <View style={styles.search}>
-                <Field
-                  icon="search"
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder="Search friends and groups"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  clearButtonMode="while-editing"
-                  returnKeyType="search"
-                />
-              </View>
-              {joining && (
-                <Appear>
-                  <JoinGroup
-                    voice={voice}
-                    onJoined={() => {
-                      setJoining(false);
-                      void refreshGroups();
-                    }}
-                    onError={showError}
+        {/* hidden by a View, Android wraps a list that can refresh in a view it doesn't hide */}
+        <View style={[styles.grow, tab !== 'chat' && styles.hidden]}>
+          <SectionList<Row, Section>
+            sections={sections}
+            keyExtractor={(row) => row.key}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={styles.listEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                tintColor={colors.muted}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  void refreshGroups().finally(() => setRefreshing(false));
+                }}
+              />
+            }
+            ListHeaderComponent={
+              <>
+                <View style={styles.search}>
+                  <Field
+                    icon="search"
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder="Search friends and groups"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    clearButtonMode="while-editing"
+                    returnKeyType="search"
                   />
-                </Appear>
-              )}
-            </>
-          }
-          renderSectionHeader={({ section }) => (
-            <SectionHeader
-              title={section.title}
-              count={section.count}
-              action={
-                section.key === 'groups' ? (
-                  <Pressable
-                    onPress={() => setJoining(!joining)}
-                    hitSlop={10}
-                    accessibilityLabel="Join a group chat"
-                    style={styles.sectionAction}
-                  >
-                    <Ionicons
-                      name={joining ? 'close' : 'add'}
-                      size={16}
-                      color={colors.accent}
+                </View>
+                {joining && (
+                  <Appear>
+                    <JoinGroup
+                      voice={voice}
+                      onJoined={() => {
+                        setJoining(false);
+                        void refreshGroups();
+                      }}
+                      onError={showError}
                     />
-                    <Text style={styles.sectionActionText}>
-                      {joining ? 'Cancel' : 'Join group'}
-                    </Text>
-                  </Pressable>
-                ) : section.key === 'offline' && query.trim() === '' && live ? (
-                  <Pressable
-                    onPress={() => setShowOffline(!showOffline)}
-                    hitSlop={10}
-                    style={styles.sectionAction}
-                  >
-                    <Text style={styles.sectionActionText}>
-                      {showOffline ? 'Hide' : 'Show'}
-                    </Text>
-                    <Ionicons
-                      name={showOffline ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={colors.accent}
-                    />
-                  </Pressable>
-                ) : undefined
-              }
-            />
-          )}
-          renderSectionFooter={({ section }) =>
-            section.data.length === 0 && section.key !== 'offline' ? (
-              <Text style={styles.empty}>
-                {query.trim() !== ''
-                  ? 'No matches'
-                  : section.key !== 'groups'
-                    ? live
-                      ? 'None of your friends are online right now.'
-                      : 'Who is online shows once connected.'
-                    : // with cached groups shown, the header tells about the connection
-                      cachedGroups === null && groupsError
-                      ? `Could not load groups: ${groupsError}`
-                      : 'No group chats yet. Join one with its invite link.'}
-              </Text>
-            ) : null
-          }
-          renderItem={({ item }) =>
-            item.kind === 'group' ? (
-              <GroupRow
-                group={item.group}
-                inVoice={item.group.rooms.flatMap((room) =>
-                  room.membersInVoice.map((id) => voice.connection.user(id)),
+                  </Appear>
                 )}
-                connected={
-                  target?.kind === 'group' &&
-                  target.groupId === item.group.groupId
+              </>
+            }
+            renderSectionHeader={({ section }) => (
+              <SectionHeader
+                title={section.title}
+                count={section.count}
+                action={
+                  section.key === 'groups' ? (
+                    <Pressable
+                      onPress={() => setJoining(!joining)}
+                      hitSlop={10}
+                      accessibilityLabel="Join a group chat"
+                      style={styles.sectionAction}
+                    >
+                      <Ionicons
+                        name={joining ? 'close' : 'add'}
+                        size={16}
+                        color={colors.accent}
+                      />
+                      <Text style={styles.sectionActionText}>
+                        {joining ? 'Cancel' : 'Join group'}
+                      </Text>
+                    </Pressable>
+                  ) : section.key === 'offline' &&
+                    query.trim() === '' &&
+                    live ? (
+                    <Pressable
+                      onPress={() => setShowOffline(!showOffline)}
+                      hitSlop={10}
+                      style={styles.sectionAction}
+                    >
+                      <Text style={styles.sectionActionText}>
+                        {showOffline ? 'Hide' : 'Show'}
+                      </Text>
+                      <Ionicons
+                        name={showOffline ? 'chevron-up' : 'chevron-down'}
+                        size={16}
+                        color={colors.accent}
+                      />
+                    </Pressable>
+                  ) : undefined
                 }
-                unread={unread[item.key] ?? 0}
-                onOpen={() => setChat(item.chat)}
               />
-            ) : (
-              <FriendRow
-                friend={item.friend}
-                inCall={
-                  target?.kind === 'friend' &&
-                  target.steamid === item.friend.steamid
-                }
-                unread={unread[item.key] ?? 0}
-                onOpen={() => setChat(item.chat)}
-                onCall={() =>
-                  startVoice((mic) =>
-                    voice.callFriend(item.friend.steamid, mic),
-                  ).catch(showError)
-                }
-              />
-            )
-          }
-        />
+            )}
+            renderSectionFooter={({ section }) =>
+              section.data.length === 0 && section.key !== 'offline' ? (
+                <Text style={styles.empty}>
+                  {query.trim() !== ''
+                    ? 'No matches'
+                    : section.key !== 'groups'
+                      ? live
+                        ? 'None of your friends are online right now.'
+                        : 'Who is online shows once connected.'
+                      : // with cached groups shown, the header tells about the connection
+                        cachedGroups === null && groupsError
+                        ? `Could not load groups: ${groupsError}`
+                        : 'No group chats yet. Join one with its invite link.'}
+                </Text>
+              ) : null
+            }
+            renderItem={({ item }) =>
+              item.kind === 'group' ? (
+                <GroupRow
+                  group={item.group}
+                  inVoice={item.group.rooms.flatMap((room) =>
+                    room.membersInVoice.map((id) => voice.connection.user(id)),
+                  )}
+                  connected={
+                    target?.kind === 'group' &&
+                    target.groupId === item.group.groupId
+                  }
+                  unread={unread[item.key] ?? 0}
+                  onOpen={() => setChat(item.chat)}
+                />
+              ) : (
+                <FriendRow
+                  friend={item.friend}
+                  inCall={
+                    target?.kind === 'friend' &&
+                    target.steamid === item.friend.steamid
+                  }
+                  unread={unread[item.key] ?? 0}
+                  onOpen={() => setChat(item.chat)}
+                  onCall={() =>
+                    startVoice((mic) =>
+                      voice.callFriend(item.friend.steamid, mic),
+                    ).catch(showError)
+                  }
+                />
+              )
+            }
+          />
+        </View>
         <TabBar
           tab={tab}
           onChange={setTab}

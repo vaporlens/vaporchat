@@ -1,6 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Ref } from 'react';
-import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  type TextInputProps,
+  View,
+} from 'react-native';
 import { colors } from '../theme';
 import type { IconName } from './RoundButton';
 
@@ -11,6 +18,11 @@ export function Field({
   ref,
   ...props
 }: TextInputProps & { icon?: IconName; ref?: Ref<TextInput> }) {
+  // iOS draws the clear button `clearButtonMode` asks for, Android has none of its own
+  const clearable =
+    Platform.OS === 'android' &&
+    (props.clearButtonMode ?? 'never') !== 'never' &&
+    !!props.value;
   return (
     <View style={styles.field}>
       {icon && <Ionicons name={icon} size={18} color={colors.muted} />}
@@ -22,6 +34,15 @@ export function Field({
         keyboardAppearance="dark"
         {...props}
       />
+      {clearable && (
+        <Pressable
+          onPress={() => props.onChangeText?.('')}
+          accessibilityLabel="Clear"
+          hitSlop={8}
+        >
+          <Ionicons name="close-circle" size={18} color={colors.muted} />
+        </Pressable>
+      )}
     </View>
   );
 }

@@ -2,7 +2,8 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
-import { setSpeakerOn } from './modules/audio-route';
+import { resetAudioRoute, setSpeakerOn } from './modules/audio-route';
+import { setCallActive } from './modules/call-service';
 
 // buzz, pause, repeated while a call rings
 const RING_PATTERN = [0, 800, 1200];
@@ -78,8 +79,12 @@ export function useVoice(voice: SteamVoice) {
       });
     };
     if (voice.session) wire(voice.session);
+    setCallActive(voice.session !== null);
     const offSession = voice.on('session', (session) => {
+      // null only once the last one ended, a session taking over another keeps voice going
+      setCallActive(session !== null);
       if (session) wire(session);
+      else resetAudioRoute();
       rerender();
     });
     const offIncoming = voice.on('incomingCalls', (calls) => {
@@ -91,6 +96,7 @@ export function useVoice(voice: SteamVoice) {
       offSession();
       offIncoming();
       Vibration.cancel();
+      setCallActive(false);
     };
   }, [voice]);
 

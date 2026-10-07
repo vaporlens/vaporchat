@@ -1,4 +1,4 @@
-import type { RichBlock, RichSpan } from '../protocol.ts';
+import type { RichBlock, RichSpan, RichVideo } from '../protocol.ts';
 import { attributes, size } from './bbcode.ts';
 import { ASSETS_URL, CLAN_IMAGES_URL } from './web.ts';
 
@@ -51,10 +51,15 @@ function parseAttributes(rest: string) {
   };
 }
 
-/** An animated picture also comes as a video, lighter to play. */
-function animation(attrs: Record<string, string>) {
-  const url = attrs.mp4 ?? attrs.webm;
-  return url ? { url, posterUrl: attrs.poster ?? null } : null;
+/** An animated picture also comes as a video, lighter to play. An empty attribute is no format. */
+function animation({
+  mp4,
+  webm,
+  poster,
+}: Record<string, string>): RichVideo | null {
+  const posterUrl = poster || null;
+  if (mp4) return { mp4, webm: webm || null, posterUrl };
+  return webm ? { mp4: null, webm, posterUrl } : null;
 }
 
 function youtube(value: string): RichBlock {

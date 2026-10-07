@@ -5,6 +5,7 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
 import { EmoticonPicker } from '../components/EmoticonPicker';
 import { ImageViewer } from '../components/ImageViewer';
+import { useBackHandler } from '../components/useBackHandler';
 import { colors } from '../theme';
 import { MessageBubble } from './MessageBubble';
 
@@ -129,6 +131,12 @@ export function Chat({
     setPicking(!picking);
   }
 
+  useBackHandler(() => {
+    if (!picking) return false;
+    setPicking(false);
+    return true;
+  });
+
   // the list is inverted so it starts at the newest message
   const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
   const nothingToSend = draft.trim() === '';
@@ -147,7 +155,8 @@ export function Chat({
         data={newestFirst}
         keyExtractor={(message) => message.id}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        // Android can't drag the keyboard down, it closes as the list is dragged instead
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={styles.messages}
         ListEmptyComponent={
           loading ? (
