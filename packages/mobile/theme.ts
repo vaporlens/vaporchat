@@ -38,3 +38,6 @@ export const gradients = {
 
 /** How long pictures take to fade in once loaded, rather than popping in. */
 export const imageFadeMs = 200;
+
+/** Half the space between grid cards, around each card and on both ends of its row. */
+export const gridGutter = 6;

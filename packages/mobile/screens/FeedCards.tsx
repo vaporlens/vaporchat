@@ -11,7 +11,14 @@ import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
 import { date, fullDate, timeAgo } from '../format';
 import { openLink } from '../links';
-import { colors, gradients, imageFadeMs } from '../theme';
+import { colors, gradients, gridGutter, imageFadeMs } from '../theme';
+
+/** Items two to a row, for lists that can't lay out columns themselves. */
+export function gridRows<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
+  return rows;
+}
 
 export function Price({ item }: { item: StoreItem }) {
   if (item.free) return <Text style={styles.price}>Free</Text>;
@@ -20,8 +27,10 @@ export function Price({ item }: { item: StoreItem }) {
     return <Text style={styles.price}>{item.price}</Text>;
   return (
     <View style={styles.priceRow}>
-      <Text style={styles.discount}>-{item.discountPercent}%</Text>
-      <View>
+      <View style={styles.discount}>
+        <Text style={styles.discountText}>-{item.discountPercent}%</Text>
+      </View>
+      <View style={styles.prices}>
         <Text style={styles.original}>{item.originalPrice}</Text>
         <Text style={styles.final}>{item.price}</Text>
       </View>
@@ -53,7 +62,10 @@ export function BuyHeader({ item }: { item: StoreItem }) {
   );
 }
 
-/** A game with its price. When it was or will be released, or when its discount ends. */
+/**
+ * A game with its price. When it was or will be released, or when its discount ends. Half a row
+ * of a two-column grid, the rows pad themselves by `gridGutter`.
+ */
 export function StoreItemCard({
   item,
   show,
@@ -71,24 +83,39 @@ export function StoreItemCard({
           : `Released ${date(item.releasedAt)}`)
       : item.discountEndsAt && `Offer ends ${date(item.discountEndsAt)}`;
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-    >
-      <Image
-        source={item.imageUrl}
-        transition={imageFadeMs}
-        style={styles.header}
-        contentFit="cover"
-      />
-      <View style={styles.grow}>
-        <Text style={styles.title} numberOfLines={2}>
-          {item.name}
-        </Text>
-        {detail ? <Text style={styles.sub}>{detail}</Text> : null}
-        <Price item={item} />
-      </View>
-    </Pressable>
+    <View style={styles.cell}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      >
+        <View>
+          <Image
+            source={item.imageUrl}
+            transition={imageFadeMs}
+            style={styles.header}
+            contentFit="cover"
+          />
+          <View style={styles.cardPrice}>
+            <Price item={item} />
+          </View>
+        </View>
+        <View style={styles.cardBody}>
+          <Text
+            style={styles.cardTitle}
+            numberOfLines={2}
+            // no lone word on the second line
+            lineBreakStrategyIOS="push-out"
+          >
+            {item.name}
+          </Text>
+          {detail ? (
+            <Text style={styles.sub} numberOfLines={1}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -225,13 +252,12 @@ export function ActivityRow({
 }
 
 const styles = StyleSheet.create({
+  cell: { width: '50%', padding: gridGutter },
+  // stretches to the row, so both cards in it end level
   card: {
-    flexDirection: 'row',
-    gap: 12,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    padding: 10,
+    flex: 1,
     borderRadius: 10,
+    overflow: 'hidden',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -240,24 +266,46 @@ const styles = StyleSheet.create({
   grow: { flex: 1, gap: 4 },
   // steam's 460x215 header pictures
   header: {
-    width: 128,
+    width: '100%',
     aspectRatio: 460 / 215,
-    borderRadius: 6,
     backgroundColor: colors.surfaceRaised,
   },
-  title: { color: colors.bright, fontSize: 15, fontWeight: '600' },
-  sub: { color: colors.muted, fontSize: 12 },
-  price: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  discount: {
-    color: colors.discount,
-    backgroundColor: colors.discountBackground,
+  cardBody: { gap: 6, padding: 12 },
+  // always two lines tall, so the dates under titles line up across a row
+  cardTitle: {
+    color: colors.bright,
     fontSize: 14,
     fontWeight: '700',
+    lineHeight: 18,
+    minHeight: 36,
+  },
+  // in the picture's corner, the way steam's store shows discounts
+  cardPrice: { position: 'absolute', right: 6, bottom: 6 },
+  title: { color: colors.bright, fontSize: 15, fontWeight: '600' },
+  sub: { color: colors.muted, fontSize: 12 },
+  price: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: 4,
     overflow: 'hidden',
+    backgroundColor: colors.surfaceRaised,
+  },
+  // steam's discount block: the percentage joined to the old and new price
+  priceRow: { flexDirection: 'row', borderRadius: 4, overflow: 'hidden' },
+  discount: {
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    backgroundColor: colors.discountBackground,
+  },
+  discountText: { color: colors.discount, fontSize: 16, fontWeight: '700' },
+  prices: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: colors.surfaceRaised,
   },
   original: {
     color: colors.muted,

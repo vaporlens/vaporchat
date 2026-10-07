@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import type { FeedPage } from 'vaporchat/protocol';
 import { readCache, writeCache } from '../cache';
-import { colors } from '../theme';
+import { colors, gridGutter } from '../theme';
 
 /**
  * A list loaded from Steam: last time's first page while it loads, pull to refresh, more as it
@@ -26,6 +26,7 @@ export function Feed<T>({
   cacheKey,
   load,
   keyOf,
+  columns = 1,
   renderItem,
   empty,
   header,
@@ -37,6 +38,8 @@ export function Feed<T>({
   /** a stable function, the feed loads again when it changes */
   load: (before: number | null) => Promise<FeedPage<T>>;
   keyOf: (item: T) => string;
+  /** rows of this many items, each padded by `gridGutter` */
+  columns?: number;
   renderItem: (item: T) => ReactElement;
   empty: string;
   /** over the rows, shown while they load too */
@@ -91,6 +94,8 @@ export function Feed<T>({
     <FlatList
       data={items ?? []}
       keyExtractor={keyOf}
+      numColumns={columns}
+      columnWrapperStyle={columns > 1 ? styles.row : undefined}
       renderItem={({ item }) => renderItem(item)}
       extraData={extraData}
       contentContainerStyle={styles.content}
@@ -152,6 +157,7 @@ const styles = StyleSheet.create({
   },
   // grows so the loading state centers in the space left
   content: { flexGrow: 1, paddingVertical: 12 },
+  row: { paddingHorizontal: gridGutter },
   message: {
     color: colors.muted,
     fontSize: 14,

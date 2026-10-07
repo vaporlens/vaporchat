@@ -4,7 +4,7 @@ import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { StoreItem } from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
-import { colors } from '../theme';
+import { colors, gridGutter } from '../theme';
 import { BuyHeader, StoreItemCard } from './FeedCards';
 
 /** A bundle: its picture and price, and the games in it. */
@@ -60,8 +60,12 @@ export function BundleScreen({
 }
 
 const styles = StyleSheet.create({
-  // the cards have their own margins, edge to edge inside the padded page
-  games: { marginHorizontal: -16 },
+  // a grid as wide as the page, its cards pad themselves by the gutter
+  games: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -16 + gridGutter,
+  },
   muted: { color: colors.muted, fontSize: 13 },
   loading: { marginTop: 24 },
 });

@@ -127,6 +127,7 @@ function StoreItems({
       cacheKey={`feed-${list.tab}`}
       load={load}
       keyOf={(item) => item.url}
+      columns={2}
       renderItem={(item) => (
         <StoreItemCard
           item={item}

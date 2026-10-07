@@ -17,10 +17,11 @@ import { useScrollWatch } from '../components/onScreen';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { fullDate } from '../format';
-import { colors, imageFadeMs } from '../theme';
-import { StoreItemCard } from './FeedCards';
+import { colors, gridGutter, imageFadeMs } from '../theme';
+import { gridRows, StoreItemCard } from './FeedCards';
 
-type Section = SaleSection & { key: string; data: StoreItem[] };
+// its games two to a row, a section list can't lay out columns
+type Section = SaleSection & { key: string; data: StoreItem[][] };
 
 const HERO_RATIO = 16 / 9;
 
@@ -54,7 +55,7 @@ export function SaleScreen({
         (section, index): Section => ({
           ...section,
           key: `${index}`,
-          data: section.items,
+          data: gridRows(section.items),
         }),
       ) ?? null,
     [page],
@@ -70,14 +71,14 @@ export function SaleScreen({
         titleShown={pastHero.past}
       />
       <scroll.Provider value={scroll.listeners}>
-        <SectionList<StoreItem, Section>
+        <SectionList<StoreItem[], Section>
           sections={sections ?? []}
           onScroll={(scrolled) => {
             scroll.onScroll();
             pastHero.onScroll(scrolled);
           }}
           scrollEventThrottle={100}
-          keyExtractor={(item, index) => `${item.url}-${index}`}
+          keyExtractor={(row, index) => `${row[0].url}-${index}`}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={
@@ -115,12 +116,17 @@ export function SaleScreen({
               </View>
             ) : null
           }
-          renderItem={({ item }) => (
-            <StoreItemCard
-              item={item}
-              show="discountEnds"
-              onPress={() => onOpenGame(item)}
-            />
+          renderItem={({ item: row }) => (
+            <View style={styles.row}>
+              {row.map((item) => (
+                <StoreItemCard
+                  key={item.url}
+                  item={item}
+                  show="discountEnds"
+                  onPress={() => onOpenGame(item)}
+                />
+              ))}
+            </View>
           )}
         />
       </scroll.Provider>
@@ -150,6 +156,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 24,
   },
+  row: { flexDirection: 'row', paddingHorizontal: gridGutter },
   sectionHeader: {
     gap: 10,
     paddingHorizontal: 16,
