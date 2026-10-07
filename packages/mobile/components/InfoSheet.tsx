@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ReactNode } from 'react';
 import {
   Modal,
   Pressable,
@@ -16,7 +17,8 @@ export interface Info {
   title: string;
   /** a line under the title, like a verdict */
   subtitle?: string;
-  body: string;
+  /** a text, or something laid out for it */
+  body: ReactNode;
 }
 
 /** A sheet from the bottom with a longer text, shown while `info` is set. Tap outside to close. */
@@ -54,7 +56,11 @@ export function InfoSheet({
           </Pressable>
         </View>
         <ScrollView>
-          <Text style={styles.body}>{shown?.body}</Text>
+          {typeof shown?.body === 'string' ? (
+            <Text style={styles.body}>{shown.body}</Text>
+          ) : (
+            shown?.body
+          )}
         </ScrollView>
       </Appear>
     </Modal>

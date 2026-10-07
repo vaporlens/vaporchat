@@ -75,27 +75,8 @@ function Details({
           {` · ${game.reviews.percentPositive}% of ${game.reviews.count.toLocaleString()} reviews`}
         </Text>
       )}
-      <View style={styles.facts}>
-        <Fact
-          label="Release date"
-          value={game.releasedAt ? fullDate(game.releasedAt) : ''}
-        />
-        <Fact label="Developer" value={game.developers.join(', ')} />
-        <Fact label="Publisher" value={game.publishers.join(', ')} />
-        <Fact label="Platforms" value={game.platforms.join(', ')} />
-        <Fact
-          label="Steam Deck"
-          value={game.steamDeck ? DECK[game.steamDeck] : ''}
-        />
-      </View>
-      {game.tags.length > 0 && (
-        <View style={styles.tags}>
-          {game.tags.map((tag) => (
-            <Text key={tag} style={styles.tag}>
-              {tag}
-            </Text>
-          ))}
-        </View>
+      {game.shortDescription !== '' && (
+        <Text style={styles.lead}>{game.shortDescription}</Text>
       )}
       {game.screenshots.length > 0 && (
         <FlatList
@@ -117,12 +98,30 @@ function Details({
           )}
         />
       )}
-      {game.shortDescription !== '' && (
-        <Text style={styles.lead}>{game.shortDescription}</Text>
+      <View style={styles.facts}>
+        <Fact
+          label="Release date"
+          value={game.releasedAt ? fullDate(game.releasedAt) : ''}
+        />
+        <Fact label="Developer" value={game.developers.join(', ')} />
+        <Fact label="Publisher" value={game.publishers.join(', ')} />
+        <Fact
+          label="Platforms"
+          value={[
+            game.platforms.join(', '),
+            game.steamDeck ? DECK[game.steamDeck] : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        />
+      </View>
+      {game.tags.length > 0 && (
+        <Text style={styles.tags}>{game.tags.join(' · ')}</Text>
       )}
       {report && (
         <VaporlensReport
           report={report}
+          originalPrice={game.originalPrice ?? game.price}
           onOpenFull={() => openLink(vaporlensUrl(appid))}
         />
       )}
@@ -198,27 +197,11 @@ const styles = StyleSheet.create({
   muted: { color: colors.muted, fontSize: 13 },
   loading: { marginTop: 24 },
   reviews: { color: colors.muted, fontSize: 14 },
-  facts: {
-    gap: 6,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  facts: { gap: 6 },
   fact: { flexDirection: 'row', gap: 12 },
   factLabel: { width: 90, color: colors.muted, fontSize: 13 },
   factValue: { flex: 1, color: colors.text, fontSize: 13 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: {
-    color: colors.online,
-    fontSize: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(103, 193, 245, 0.12)',
-  },
+  tags: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   screenshots: { gap: 8, paddingHorizontal: 16 },
   screenshot: { height: 124, aspectRatio: 16 / 9, borderRadius: 6 },
   lead: { color: colors.bright, fontSize: 15, lineHeight: 22 },

@@ -11,6 +11,7 @@ export interface ReviewPoint {
 
 /** Lower scores are better: 0 is no problem, 100 is all problems. */
 interface FeatureScan {
+  /** -1 when it couldn't tell */
   score: number;
   verdict: string;
   summary: string;
@@ -24,22 +25,45 @@ export interface HardwareSegment {
   note: string;
 }
 
+export interface Hardware {
+  summary: string;
+  /** reviews that told their hardware */
+  sampleSize: number;
+  /** of all reviews */
+  coveragePct: number;
+  audienceSkew: string;
+  segments: HardwareSegment[];
+  caveats: string[];
+}
+
 interface PlayerArchetype {
   archetypeName: string;
   playstyle: string;
-  recommendationStance: string;
+  recommendationStance: 'buy' | 'sale' | 'deep sale' | 'no buy';
+  experienceLevel: 'newcomer' | 'familiar' | 'veteran' | 'mixed';
+  primaryMotivation: string;
+  /** what these players call themselves */
+  selfIdentifyingLabels: string[];
+  /** other games they play */
+  referenceGames: string[];
+  /** why vaporlens sees them as a group */
+  reasoning: string;
 }
 
 /** What VaporLens found in a game's reviews, only what the app shows. */
 export interface VaporlensReport {
+  /** a few short takeaways */
+  summary?: string[];
   positives?: ReviewPoint[];
   negatives?: ReviewPoint[];
   gameplay?: ReviewPoint[];
   performance?: ReviewPoint[];
   recommendations?: ReviewPoint[];
   emotions?: ReviewPoint[];
-  hardware?: { summary?: string; segments?: HardwareSegment[] };
+  hardware?: Hardware;
   featureScans?: {
+    /** its score is the share of negative reviews */
+    reviewMix?: FeatureScan;
     steamDeckScan?: FeatureScan;
     protonLinuxScan?: FeatureScan;
     mtxScan?: FeatureScan;
@@ -47,20 +71,34 @@ export interface VaporlensReport {
     wikiScan?: FeatureScan;
   };
   featureExtractions?: {
-    priceExtraction?: { priceRangeUsd?: { min?: number; max?: number } };
+    priceExtraction?: {
+      reasoning: string;
+      priceRangeUsd: { min: number; max: number };
+    };
     playtimeExtraction?: {
-      playtimeHours?: {
-        storyCompletion?: number | null;
-        gameCompletion?: number | null;
-        sessionLength?: number | null;
+      reasoning: string;
+      playtimeHours: {
+        gameCompletion: number | null;
+        storyCompletion: number | null;
+        sessionLength: number | null;
+        endgame: number | null;
       };
     };
     timeToFunExtraction?: {
-      stance?: string;
-      summary?: string;
-      timeToAnchorMinutes?: number | null;
+      summary: string;
+      stance:
+        | 'fun immediately'
+        | 'clicks after'
+        | 'never clicks'
+        | 'fun then drops';
+      /** the moment it gets fun */
+      anchor: string | null;
+      timeToAnchorMinutes: number | null;
+      friction: string[];
+      unlockDrivers: string[];
+      conditions: string[];
     };
-    playerArchetypesExtraction?: { archetypes?: PlayerArchetype[] };
+    playerArchetypesExtraction?: { archetypes: PlayerArchetype[] };
   };
 }
 
