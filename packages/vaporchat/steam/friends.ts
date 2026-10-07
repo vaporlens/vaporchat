@@ -6,9 +6,12 @@ import { decodeProto } from './protos.ts';
 // EFriendRelationship.Friend, the rest are pending/blocked/ignored
 const RELATIONSHIP_FRIEND = 3;
 const RELATIONSHIP_NONE = 0;
-// EClientPersonaStateFlag: Status | PlayerName | Presence (avatar)
+// EClientPersonaStateFlag.Status
 const PERSONA_STATUS = 1;
-const PERSONA_FLAGS = PERSONA_STATUS | 2 | 16;
+// PlayerName | Presence (avatar). Never Status: steam sends the answer to all the account's sessions with everyone offline,
+// which signs the official clients out of friends & chat and empties their friends lists.
+// Steam pushes the status of online friends by itself.
+const PERSONA_FLAGS = 2 | 16;
 // EPersonaState.Offline
 const OFFLINE = 0;
 // steam sends all zeros for accounts that never set an avatar, this is its default picture
@@ -62,7 +65,6 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   #personas = new Map<string, Persona>();
   #requested = new Set<string>();
   #started = false;
-  #self = '';
 
   constructor(cm: SteamCM) {
     super();
@@ -78,7 +80,6 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   /** Once logged on: asks for the personas of everyone known so far, and of `self`. */
   start(self: string) {
     this.#started = true;
-    this.#self = self;
     this.#requestPersonas([self, ...this.#relationships.keys()]);
   }
 
@@ -154,18 +155,8 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   #requestPersonas(steamids: string[]) {
     if (steamids.length === 0) return;
     for (const id of steamids) this.#requested.add(id);
-    const others = steamids.filter((id) => id !== this.#self);
-    if (others.length > 0) this.#send(others, PERSONA_FLAGS);
-    // asking for the account's own status makes steam send all its sessions an offline
-    // status, which signs the official clients out of friends & chat
-    if (others.length < steamids.length) {
-      this.#send([this.#self], PERSONA_FLAGS & ~PERSONA_STATUS);
-    }
-  }
-
-  #send(steamids: string[], flags: number) {
     this.#cm.send(EMsg.ClientRequestFriendData, 'CMsgClientRequestFriendData', {
-      persona_state_requested: flags,
+      persona_state_requested: PERSONA_FLAGS,
       friends: steamids,
     });
   }

@@ -88,7 +88,7 @@ describe('FriendsList', () => {
       },
     ]);
 
-    expect(steam.requested).toEqual([[ALICE, BOB, BLOCKED], [ME]]);
+    expect(steam.requested).toEqual([[ME, ALICE, BOB, BLOCKED]]);
     expect(list.friends).toEqual([
       {
         steamid: BOB,
@@ -134,20 +134,21 @@ describe('FriendsList', () => {
     expect(steam.requested.at(-1)).toEqual([BOB]);
   });
 
-  it('never asks for the status of the logged on account', () => {
+  it('never asks for statuses', () => {
     const steam = fakeSteam();
     const list = new FriendsList(steam.cm);
     steam.friendsList(false, [[ALICE, FRIEND]]);
     list.start(ME);
-    list.lookUp([ME, BOB]);
+    steam.friendsList(true, [[BOB, FRIEND]]);
+    list.lookUp([BLOCKED]);
 
-    // steam would send every session of the account an offline status, and the
-    // official clients sign out of friends & chat on it
-    const askedForMe = steam.flags.filter((_, i) =>
-      steam.requested[i].includes(ME),
-    );
-    expect(askedForMe).toEqual([NAME | PRESENCE]);
-    expect(steam.requested.flat().sort()).toEqual([ME, ALICE, BOB]);
+    // steam would send every session of the account everyone as offline, the official
+    // clients then sign out of friends & chat and empty their friends lists
+    expect(steam.flags).toEqual([
+      NAME | PRESENCE,
+      NAME | PRESENCE,
+      NAME | PRESENCE,
+    ]);
   });
 
   it('looks up strangers once', () => {
