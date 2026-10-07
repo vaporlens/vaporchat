@@ -6,8 +6,8 @@ Builds are archived and uploaded from this Mac with Xcode's signed-in account. T
 ## Each new build
 
 1. In `packages/mobile/app.json`, raise `expo.ios.buildNumber` (a string: `"2"`, `"3"`, …).
-   App Store Connect rejects a build number it has seen for that version. Change `expo.version`
-   (now `0.1`) only for a new release; the build number can restart at `"1"` then.
+   App Store Connect rejects a build number it has seen for that version. Change `expo.version` only
+   for a new release; the build number can restart at `"1"` then.
 2. Regenerate the native project and its pods. Prebuild may clear `ios/`, so always run both:
 
    ```sh
