@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -12,11 +12,12 @@ import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { GameDetails, StoreItem } from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
+import { type MediaItem, MediaTile, mediaCount } from '../components/MediaTile';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { fullDate } from '../format';
 import { openLink } from '../links';
-import { colors, imageFadeMs } from '../theme';
+import { colors } from '../theme';
 import {
   getVaporlensReport,
   type VaporlensReport as Report,
@@ -53,13 +54,17 @@ function Details({
   game,
   report,
   onOpenImage,
+  onOpenMedia,
 }: {
   appid: number;
   game: GameDetails;
   /** null when VaporLens hasn't analyzed the game (or isn't reachable) */
   report: Report | null;
   onOpenImage: (url: string) => void;
+  onOpenMedia: (media: MediaItem[]) => void;
 }) {
+  // pages cached before trailers were loaded have none
+  const media = [...(game.trailers ?? []), ...game.screenshots];
   return (
     <>
       {game.reviews && (
@@ -78,25 +83,35 @@ function Details({
       {game.shortDescription !== '' && (
         <Text style={styles.lead}>{game.shortDescription}</Text>
       )}
-      {game.screenshots.length > 0 && (
-        <FlatList
-          horizontal
-          data={game.screenshots}
-          keyExtractor={(shot) => shot.url}
-          showsHorizontalScrollIndicator={false}
-          style={styles.bleed}
-          contentContainerStyle={styles.screenshots}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => onOpenImage(item.url)}>
-              <Image
-                source={item.thumbnailUrl}
-                transition={imageFadeMs}
+      {media.length > 0 && (
+        <View style={styles.media}>
+          <Pressable
+            onPress={() => onOpenMedia(media)}
+            style={({ pressed }) => [
+              styles.mediaHeader,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.mediaCount}>{mediaCount(media)}</Text>
+            <Text style={styles.seeAll}>See all</Text>
+            <Ionicons name="chevron-forward" size={13} color={colors.accent} />
+          </Pressable>
+          <FlatList
+            horizontal
+            data={media}
+            keyExtractor={(item) => item.url}
+            showsHorizontalScrollIndicator={false}
+            style={styles.bleed}
+            contentContainerStyle={styles.screenshots}
+            renderItem={({ item }) => (
+              <MediaTile
+                item={item}
                 style={styles.screenshot}
-                contentFit="cover"
+                onOpenImage={onOpenImage}
               />
-            </Pressable>
-          )}
-        />
+            )}
+          />
+        </View>
       )}
       <View style={styles.facts}>
         <Fact
@@ -135,18 +150,20 @@ function Details({
   );
 }
 
-/** A game's store page: price, reviews, facts, screenshots and its description. */
+/** A game's store page: price, reviews, facts, trailers, screenshots and its description. */
 export function GameScreen({
   voice,
   item,
   onBack,
   onOpenImage,
+  onOpenMedia,
 }: {
   voice: SteamVoice;
   /** shown right away, the rest of the page loads */
   item: StoreItem & { appid: number };
   onBack: () => void;
   onOpenImage: (url: string) => void;
+  onOpenMedia: (media: MediaItem[]) => void;
 }) {
   const loadGame = useCallback(
     () => voice.connection.feeds.getGame(item.appid),
@@ -181,6 +198,7 @@ export function GameScreen({
           game={game}
           report={report}
           onOpenImage={onOpenImage}
+          onOpenMedia={onOpenMedia}
         />
       ) : error ? (
         <Text style={styles.muted}>{error}</Text>
@@ -202,6 +220,11 @@ const styles = StyleSheet.create({
   factLabel: { width: 90, color: colors.muted, fontSize: 13 },
   factValue: { flex: 1, color: colors.text, fontSize: 13 },
   tags: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  media: { gap: 8 },
+  mediaHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pressed: { opacity: 0.6 },
+  mediaCount: { flex: 1, color: colors.muted, fontSize: 13 },
+  seeAll: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   screenshots: { gap: 8, paddingHorizontal: 16 },
   screenshot: { height: 124, aspectRatio: 16 / 9, borderRadius: 6 },
   lead: { color: colors.bright, fontSize: 15, lineHeight: 22 },

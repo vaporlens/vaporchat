@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { toGameDetails } from './gameDetails.ts';
 
+// biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
+const TRAILER_URL_FORMAT = 'steam/apps/${FILENAME}?t=7';
+
 describe('toGameDetails', () => {
-  it('names tags, sizes screenshots and says where the game runs', () => {
+  it('names tags, sizes screenshots, streams trailers and says where the game runs', () => {
     const game = toGameDetails(
       {
         success: 1,
@@ -23,6 +26,37 @@ describe('toGameDetails', () => {
         tags: [{ tagid: 2 }, { tagid: 99 }, { tagid: 1 }],
         screenshots: {
           all_ages_screenshots: [{ filename: 'steam/apps/10/ss_a.jpg?t=5' }],
+        },
+        trailers: {
+          highlights: [
+            {
+              trailer_url_format: TRAILER_URL_FORMAT,
+              screenshot_full: '20/movie_full.jpg',
+              adaptive_trailers: [
+                { cdn_path: '10/20/a/dash_h264.mpd', encoding: 'dash_h264' },
+                { cdn_path: '10/20/a/hls.m3u8', encoding: 'hls_h264' },
+              ],
+              all_ages: true,
+            },
+            {
+              trailer_url_format: TRAILER_URL_FORMAT,
+              screenshot_full: '21/movie_full.jpg',
+              adaptive_trailers: [
+                { cdn_path: '10/21/a/hls.m3u8', encoding: 'hls_h264' },
+              ],
+              all_ages: false,
+            },
+          ],
+          other_trailers: [
+            {
+              trailer_url_format: TRAILER_URL_FORMAT,
+              screenshot_full: '22/movie_full.jpg',
+              adaptive_trailers: [
+                { cdn_path: '10/22/a/hls.m3u8', encoding: 'hls_h264' },
+              ],
+              all_ages: true,
+            },
+          ],
         },
         platforms: {
           windows: true,
@@ -47,6 +81,18 @@ describe('toGameDetails', () => {
           url: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/10/ss_a.jpg?t=5',
           thumbnailUrl:
             'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/10/ss_a.600x338.jpg?t=5',
+        },
+      ],
+      trailers: [
+        {
+          url: 'https://video.fastly.steamstatic.com/store_trailers/10/20/a/hls.m3u8',
+          posterUrl:
+            'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/20/movie_full.jpg?t=7',
+        },
+        {
+          url: 'https://video.fastly.steamstatic.com/store_trailers/10/22/a/hls.m3u8',
+          posterUrl:
+            'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/22/movie_full.jpg?t=7',
         },
       ],
       platforms: ['Windows', 'Linux'],

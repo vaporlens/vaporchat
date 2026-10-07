@@ -330,6 +330,8 @@ export interface GameDetails extends StoreItem {
   reviews: { label: string; percentPositive: number; count: number } | null;
   tags: string[];
   screenshots: { url: string; thumbnailUrl: string }[];
+  /** `url` is an HLS stream */
+  trailers: { url: string; posterUrl: string }[];
   /** `Windows`, `macOS`, `Linux` */
   platforms: string[];
   steamDeck: 'verified' | 'playable' | 'unsupported' | null;

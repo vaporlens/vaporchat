@@ -7,6 +7,8 @@ export const API_URL = 'https://api.steampowered.com/';
 /** store pages' pictures, screenshots and description images */
 export const ASSETS_URL =
   'https://shared.fastly.steamstatic.com/store_item_assets/';
+/** store pages' trailers */
+export const VIDEO_URL = 'https://video.fastly.steamstatic.com/store_trailers/';
 /** pictures of group posts and sale pages, by the group's account id */
 export const CLAN_IMAGES_URL = 'https://clan.fastly.steamstatic.com/images/';
 

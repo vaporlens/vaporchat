@@ -291,6 +291,7 @@ export function Home({
         pages={pages}
         onBack={back}
         onOpenGame={openGame}
+        onOpenPage={push}
       />
       {/* hidden rather than unmounted, coming back keeps the scroll position and search */}
       <View style={[styles.grow, (chat || pages.length > 0) && styles.hidden]}>

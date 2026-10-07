@@ -1,7 +1,7 @@
 import type { GameDetails } from '../protocol.ts';
 import { parseRichText } from './richText.ts';
 import { type ApiStoreItem, callApi, context, toStoreItem } from './store.ts';
-import { ASSETS_URL } from './web.ts';
+import { ASSETS_URL, VIDEO_URL } from './web.ts';
 
 const SHOWN_TAGS = 12;
 // ESteamDeckCompatibilityCategory
@@ -10,6 +10,14 @@ const STEAM_DECK = {
   2: 'playable',
   3: 'verified',
 } as const;
+
+interface ApiTrailer {
+  /** like `steam/apps/${FILENAME}?t=1`, for the poster */
+  trailer_url_format?: string;
+  screenshot_full?: string;
+  adaptive_trailers?: { cdn_path?: string; encoding?: string }[];
+  all_ages?: boolean;
+}
 
 /** What GetItems says about a game's page, besides the store item itself. */
 interface ApiGameDetails extends ApiStoreItem {
@@ -28,6 +36,7 @@ interface ApiGameDetails extends ApiStoreItem {
   /** most voted first */
   tags?: { tagid: number }[];
   screenshots?: { all_ages_screenshots?: { filename?: string }[] };
+  trailers?: { highlights?: ApiTrailer[]; other_trailers?: ApiTrailer[] };
   platforms?: {
     windows?: boolean;
     mac?: boolean;
@@ -94,6 +103,27 @@ export function toGameDetails(
             ]
           : [],
     ),
+    trailers: [
+      ...(item.trailers?.highlights ?? []),
+      ...(item.trailers?.other_trailers ?? []),
+    ].flatMap((trailer) => {
+      // the stream both iOS and Android play
+      const hls = trailer.adaptive_trailers?.find(
+        ({ encoding }) => encoding === 'hls_h264',
+      );
+      const { trailer_url_format: format, screenshot_full: poster } = trailer;
+      return trailer.all_ages && hls?.cdn_path && format && poster
+        ? [
+            {
+              url: VIDEO_URL + hls.cdn_path,
+              posterUrl:
+                ASSETS_URL +
+                // biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
+                format.replace('${FILENAME}', poster),
+            },
+          ]
+        : [];
+    }),
     platforms: [
       ...(platforms.windows ? ['Windows'] : []),
       ...(platforms.mac ? ['macOS'] : []),
@@ -107,7 +137,7 @@ export function toGameDetails(
   };
 }
 
-/** A game's store page: descriptions, screenshots, reviews and tags. */
+/** A game's store page: descriptions, screenshots, trailers, reviews and tags. */
 export async function getGameDetails(appid: number, country: string) {
   const [{ store_items = [] }, tags] = await Promise.all([
     callApi<{ store_items?: ApiGameDetails[] }>(
@@ -120,6 +150,7 @@ export async function getGameDetails(appid: number, country: string) {
           include_release: true,
           include_platforms: true,
           include_screenshots: true,
+          include_trailers: true,
           include_reviews: true,
           include_tag_count: SHOWN_TAGS,
           include_basic_info: true,
