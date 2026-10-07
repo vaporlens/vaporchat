@@ -200,7 +200,8 @@ export async function logOnSteam(
   if (stored) {
     try {
       const cm = await logOnWithRefreshToken(stored, connectOptions);
-      await renewRefreshToken(cm, stored, store);
+      // nothing waits for it, the old token works until the new one is saved
+      void renewRefreshToken(cm, stored, store);
       return cm;
     } catch (err) {
       if (!hasEResult(err, REJECTED_TOKEN_ERESULTS)) throw err;
@@ -214,7 +215,10 @@ export async function logOnSteam(
     credentials.accountName,
     credentials.password,
     steamGuard,
-    { serverListUrl: connectOptions.serverListUrl },
+    {
+      serverListUrl: connectOptions.serverListUrl,
+      cache: connectOptions.cache,
+    },
   );
   await store.save(refreshToken);
   return logOnWithRefreshToken(refreshToken, connectOptions);

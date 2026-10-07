@@ -124,6 +124,7 @@ function StoreItems({
   );
   return (
     <Feed
+      cacheKey={`feed-${list.tab}`}
       load={load}
       keyOf={(item) => item.url}
       renderItem={(item) => (
@@ -184,6 +185,7 @@ function Events({
   );
   return (
     <Feed
+      cacheKey={`feed-${list.tab}`}
       load={load}
       keyOf={(event) => event.id}
       renderItem={(event) => (
@@ -215,6 +217,7 @@ function Activity({
   );
   return (
     <Feed<FriendActivity>
+      cacheKey="feed-activity"
       load={load}
       keyOf={(activity) => activity.id}
       renderItem={(activity) => (

@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   SectionList,
@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SaleSection, SteamEvent, StoreItem } from 'vaporchat/protocol';
+import { useCached } from '../cache';
 import { DetailHeader, useScrolledPast } from '../components/DetailHeader';
 import { useScrollWatch } from '../components/onScreen';
 import { RichText } from '../components/RichText';
@@ -42,27 +43,22 @@ export function SaleScreen({
   const scroll = useScrollWatch();
   // its title is under the picture, the header shows it once that scrolled away
   const pastHero = useScrolledPast(event.imageUrl ? width / HERO_RATIO : 0);
-  const [sections, setSections] = useState<Section[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let current = true;
-    voice.connection.feeds.getSalePage(event.id).then(
-      (page) =>
-        current &&
-        setSections(
-          page.map((section, index) => ({
-            ...section,
-            key: `${index}`,
-            data: section.items,
-          })),
-        ),
-      (err: Error) => current && setError(err.message),
-    );
-    return () => {
-      current = false;
-    };
-  }, [voice, event.id]);
+  const loadPage = useCallback(
+    () => voice.connection.feeds.getSalePage(event.id),
+    [voice, event.id],
+  );
+  const { data: page, error } = useCached(`sale-${event.id}`, loadPage);
+  const sections = useMemo(
+    () =>
+      page?.map(
+        (section, index): Section => ({
+          ...section,
+          key: `${index}`,
+          data: section.items,
+        }),
+      ) ?? null,
+    [page],
+  );
 
   return (
     <View style={styles.screen}>

@@ -14,6 +14,7 @@ import {
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { ChatMessage, ChatTarget, StickerPart } from 'vaporchat/protocol';
 import { chatKey, mergeMessages } from 'vaporchat/steam/messages';
+import { readCache, writeCache } from '../cache';
 import { pickImage } from '../chats';
 import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
@@ -21,6 +22,9 @@ import { EmoticonPicker } from '../components/EmoticonPicker';
 import { ImageViewer } from '../components/ImageViewer';
 import { colors } from '../theme';
 import { MessageBubble } from './MessageBubble';
+
+// as many as steam's recent history has
+const CACHED_MESSAGES = 50;
 
 /** A friend's or a room's text chat: recent history, new messages as they come, and sending. */
 export function Chat({
@@ -46,7 +50,11 @@ export function Chat({
   onBack: () => void;
   onError: (err: Error) => void;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const cacheKey = `messages-${chatKey(chat)}`;
+  // last time's until the history loads
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => readCache(cacheKey) ?? [],
+  );
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
   const [viewing, setViewing] = useState<string | null>(null);
@@ -79,6 +87,10 @@ export function Chat({
       off();
     };
   }, [voice, chat, onError]);
+
+  useEffect(() => {
+    if (!loading) writeCache(cacheKey, messages.slice(-CACHED_MESSAGES));
+  }, [cacheKey, messages, loading]);
 
   function deliver(content: string | StickerPart, onFailed?: () => void) {
     voice.connection.sendMessage(chat, content).then(
@@ -230,7 +242,6 @@ export function Chat({
       {picking && (
         <EmoticonPicker
           voice={voice}
-          onError={onError}
           bottomInset={bottomInset}
           // steam turns `:name:` into the emoticon when the message is sent
           onEmoticon={(emoticon) =>

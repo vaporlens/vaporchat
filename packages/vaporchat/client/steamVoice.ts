@@ -51,6 +51,11 @@ export class SteamVoice extends Emitter<SteamVoiceEvents> {
     return new SteamVoice(await VoiceConnection.logOn(store, options));
   }
 
+  /** Like `logOn` without waiting for Steam, see `VoiceConnection.start`. */
+  static async start(store: TokenStore, options?: VoiceLogOnOptions) {
+    return new SteamVoice(await VoiceConnection.start(store, options));
+  }
+
   /** The signed-in account. Its name and avatar arrive shortly after logon, see `friendsChanged`. */
   get me() {
     return this.connection.me;

@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { GameDetails, StoreItem } from 'vaporchat/protocol';
+import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
@@ -148,28 +149,20 @@ export function GameScreen({
   onBack: () => void;
   onOpenImage: (url: string) => void;
 }) {
-  const [game, setGame] = useState<GameDetails | null>(null);
-  const [report, setReport] = useState<Report | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let current = true;
-    setGame(null);
-    setReport(null);
-    setError(null);
-    voice.connection.feeds.getGame(item.appid).then(
-      (details) => current && setGame(details),
-      (err: Error) => current && setError(err.message),
-    );
-    // the page works without it, failing to get it just leaves it out
-    getVaporlensReport(item.appid).then(
-      (found) => current && setReport(found),
-      () => {},
-    );
-    return () => {
-      current = false;
-    };
-  }, [voice, item.appid]);
+  const loadGame = useCallback(
+    () => voice.connection.feeds.getGame(item.appid),
+    [voice, item.appid],
+  );
+  const { data: game, error } = useCached(`game-${item.appid}`, loadGame);
+  // the page works without it, failing to get it just leaves it out
+  const loadReport = useCallback(
+    () => getVaporlensReport(item.appid),
+    [item.appid],
+  );
+  const { data: report } = useCached<Report | null>(
+    `vaporlens-${item.appid}`,
+    loadReport,
+  );
 
   // the list's item until the page has loaded, its prices are the same
   const shown = game ?? item;

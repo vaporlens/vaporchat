@@ -1,6 +1,6 @@
 // react-native's Image shows only the first frame of animated stickers
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,11 +10,8 @@ import {
   View,
 } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
-import type {
-  EmoticonPart,
-  OwnedEmoticons,
-  StickerPart,
-} from 'vaporchat/protocol';
+import type { EmoticonPart, StickerPart } from 'vaporchat/protocol';
+import { useCached } from '../cache';
 import { colors } from '../theme';
 
 const HEIGHT = 260;
@@ -40,30 +37,16 @@ export function EmoticonPicker({
   bottomInset,
   onEmoticon,
   onSticker,
-  onError,
 }: {
   voice: SteamVoice;
   bottomInset: number;
   onEmoticon: (emoticon: EmoticonPart) => void;
   onSticker: (sticker: StickerPart) => void;
-  onError: (err: Error) => void;
 }) {
   const [tab, setTab] = useState<Tab>('emoticons');
-  // null while loading, the connection fetches them once
-  const [owned, setOwned] = useState<OwnedEmoticons | null>(null);
-
-  useEffect(() => {
-    let current = true;
-    voice.connection.getEmoticons().then(
-      (list) => current && setOwned(list),
-      (err: Error) =>
-        current &&
-        onError(new Error(`Could not load emoticons: ${err.message}`)),
-    );
-    return () => {
-      current = false;
-    };
-  }, [voice, onError]);
+  // the connection fetches them once, last time's show meanwhile
+  const loadOwned = useCallback(() => voice.connection.getEmoticons(), [voice]);
+  const { data: owned, error } = useCached('emoticons', loadOwned);
   const { columns, size, empty } = TABS[tab];
   const items: (EmoticonPart | StickerPart)[] = owned?.[tab] ?? [];
   return (
@@ -81,7 +64,11 @@ export function EmoticonPicker({
           </Pressable>
         ))}
       </View>
-      {owned === null ? (
+      {owned === null && error ? (
+        <Text style={[styles.message, styles.messageText]}>
+          Could not load emoticons: {error}
+        </Text>
+      ) : owned === null ? (
         <ActivityIndicator color={colors.muted} style={styles.message} />
       ) : (
         <FlatList

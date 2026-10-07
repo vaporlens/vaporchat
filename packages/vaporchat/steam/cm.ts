@@ -1,5 +1,6 @@
 import { gunzipSync } from 'fflate';
 import { Emitter } from '../client/emitter.ts';
+import { type CacheStore, loadCached, saveCached } from './cacheStore.ts';
 import { SteamError } from './eresult.ts';
 import { decodeProto, encodeProto } from './protos.ts';
 import { serviceTypeName } from './serviceTypes.ts';
@@ -30,6 +31,7 @@ const CONNECT_TIMEOUT_MS = 10_000;
 const CALL_TIMEOUT_MS = 15_000;
 const CM_LIST_URL =
   'https://api.steampowered.com/ISteamDirectory/GetCMListForConnect/v1/?cellid=0';
+const SERVERS_CACHE_KEY = 'steam-servers';
 
 export interface SteamConnectOptions {
   /**
@@ -38,6 +40,8 @@ export interface SteamConnectOptions {
    * the list from its own backend. React Native and Node fetch Steam's API directly.
    */
   serverListUrl?: string;
+  /** where Steam's server list is kept, it is then refreshed in the background instead of waited for */
+  cache?: CacheStore;
 }
 
 export interface ProtoHeader {
@@ -65,7 +69,7 @@ interface CMServer {
   realm: string;
 }
 
-async function pickWebSocketServer(serverListUrl = CM_LIST_URL) {
+async function fetchWebSocketServers(serverListUrl: string) {
   const response = await fetch(serverListUrl);
   if (!response.ok) {
     throw new Error(`Could not get Steam servers: HTTP ${response.status}`);
@@ -73,13 +77,36 @@ async function pickWebSocketServer(serverListUrl = CM_LIST_URL) {
   const { response: list } = (await response.json()) as {
     response: { serverlist?: CMServer[] };
   };
-  // the list comes sorted by load, spread clients over the best ones like steam-user does
+  // the list comes sorted by load
   const servers = (list.serverlist ?? []).filter(
     (server) => server.type === 'websockets' && server.realm === 'steamglobal',
   );
   if (servers.length === 0) throw new Error('Steam returned no servers');
-  const pick = Math.floor(Math.random() * Math.min(20, servers.length));
-  return servers[pick].endpoint;
+  return servers.map((server) => server.endpoint);
+}
+
+/**
+ * Steam's WebSocket servers, best first. A cached list is used right away and replaced for next
+ * time, a dead server in it only fails one attempt.
+ */
+async function getWebSocketServers({
+  serverListUrl = CM_LIST_URL,
+  cache,
+}: SteamConnectOptions = {}) {
+  const fresh = fetchWebSocketServers(serverListUrl);
+  if (!cache) return fresh;
+  // without a cached list, the caller waits for this one and gets its error
+  fresh.then(
+    (servers) => saveCached(cache, SERVERS_CACHE_KEY, servers),
+    () => {},
+  );
+  return (await loadCached<string[]>(cache, SERVERS_CACHE_KEY)) ?? fresh;
+}
+
+async function pickWebSocketServer(options: SteamConnectOptions) {
+  const servers = await getWebSocketServers(options);
+  // spread clients over the best ones like steam-user does
+  return servers[Math.floor(Math.random() * Math.min(20, servers.length))];
 }
 
 /**
@@ -111,8 +138,8 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
     });
   }
 
-  static async connect({ serverListUrl }: SteamConnectOptions = {}) {
-    const endpoint = await pickWebSocketServer(serverListUrl);
+  static async connect(options: SteamConnectOptions = {}) {
+    const endpoint = await pickWebSocketServer(options);
     const socket = new WebSocket(`wss://${endpoint}/cmsocket/`);
     socket.binaryType = 'arraybuffer';
     await new Promise<void>((resolve, reject) => {

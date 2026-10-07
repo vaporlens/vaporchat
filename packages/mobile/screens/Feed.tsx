@@ -15,13 +15,15 @@ import {
   View,
 } from 'react-native';
 import type { FeedPage } from 'vaporchat/protocol';
+import { readCache, writeCache } from '../cache';
 import { colors } from '../theme';
 
 /**
- * A list loaded from Steam: pull to refresh, more as it scrolls to the end (when `load`
- * pages), errors in place of an empty list.
+ * A list loaded from Steam: last time's first page while it loads, pull to refresh, more as it
+ * scrolls to the end (when `load` pages), errors in place of an empty list.
  */
 export function Feed<T>({
+  cacheKey,
   load,
   keyOf,
   renderItem,
@@ -30,6 +32,8 @@ export function Feed<T>({
   extraData,
   onError,
 }: {
+  /** where its first page is cached */
+  cacheKey: string;
   /** a stable function, the feed loads again when it changes */
   load: (before: number | null) => Promise<FeedPage<T>>;
   keyOf: (item: T) => string;
@@ -41,8 +45,9 @@ export function Feed<T>({
   extraData?: unknown;
   onError: (err: Error) => void;
 }) {
-  const [items, setItems] = useState<T[] | null>(null);
-  const [next, setNext] = useState<number | null>(null);
+  const [cached] = useState(() => readCache<FeedPage<T>>(cacheKey));
+  const [items, setItems] = useState<T[] | null>(cached?.items ?? null);
+  const [next, setNext] = useState<number | null>(cached?.next ?? null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -53,9 +58,10 @@ export function Feed<T>({
     const current = ++generation.current;
     const page = await load(null);
     if (current !== generation.current) return;
+    writeCache(cacheKey, page);
     setItems(page.items);
     setNext(page.next);
-  }, [load]);
+  }, [cacheKey, load]);
 
   // failing first shows in place of the list, later refreshes keep the list and toast
   const loadFirst = useCallback(() => {

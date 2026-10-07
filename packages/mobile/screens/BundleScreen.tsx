@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { StoreItem } from 'vaporchat/protocol';
+import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
 import { colors } from '../theme';
 import { BuyHeader, StoreItemCard } from './FeedCards';
@@ -18,19 +19,12 @@ export function BundleScreen({
   onBack: () => void;
   onOpenGame: (item: StoreItem) => void;
 }) {
-  const [games, setGames] = useState<StoreItem[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let current = true;
-    voice.connection.feeds.getStoreItems(item.includedAppids).then(
-      (found) => current && setGames(found),
-      (err: Error) => current && setError(err.message),
-    );
-    return () => {
-      current = false;
-    };
-  }, [voice, item.includedAppids]);
+  const loadGames = useCallback(
+    () => voice.connection.feeds.getStoreItems(item.includedAppids),
+    [voice, item.includedAppids],
+  );
+  // its store page names it, bundles have no appid
+  const { data: games, error } = useCached(`bundle-${item.url}`, loadGames);
 
   return (
     <DetailPage

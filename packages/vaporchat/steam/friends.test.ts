@@ -67,7 +67,8 @@ function fakeSteam() {
 describe('FriendsList', () => {
   it('asks for everyone once logged on and lists friends with online ones first', () => {
     const steam = fakeSteam();
-    const list = new FriendsList(steam.cm);
+    const list = new FriendsList();
+    list.attach(steam.cm);
     // arrives together with the logon response, before the session is usable
     steam.friendsList(false, [
       [ALICE, FRIEND],
@@ -105,7 +106,8 @@ describe('FriendsList', () => {
 
   it('keeps what an update leaves out', () => {
     const steam = fakeSteam();
-    const list = new FriendsList(steam.cm);
+    const list = new FriendsList();
+    list.attach(steam.cm);
     steam.friendsList(false, [[ALICE, FRIEND]]);
     steam.personas(STATUS | NAME, [
       { friendid: ALICE, persona_state: 1, player_name: 'Alice' },
@@ -121,7 +123,8 @@ describe('FriendsList', () => {
 
   it('follows friends being added and removed after logon', () => {
     const steam = fakeSteam();
-    const list = new FriendsList(steam.cm);
+    const list = new FriendsList();
+    list.attach(steam.cm);
     steam.friendsList(false, [[ALICE, FRIEND]]);
     list.start(ME);
 
@@ -136,7 +139,8 @@ describe('FriendsList', () => {
 
   it('never asks for statuses', () => {
     const steam = fakeSteam();
-    const list = new FriendsList(steam.cm);
+    const list = new FriendsList();
+    list.attach(steam.cm);
     steam.friendsList(false, [[ALICE, FRIEND]]);
     list.start(ME);
     steam.friendsList(true, [[BOB, FRIEND]]);
@@ -153,7 +157,8 @@ describe('FriendsList', () => {
 
   it('looks up strangers once', () => {
     const steam = fakeSteam();
-    const list = new FriendsList(steam.cm);
+    const list = new FriendsList();
+    list.attach(steam.cm);
     list.start(ME);
     steam.personas(STATUS | NAME, [{ friendid: ME, player_name: 'Me' }]);
 
@@ -161,5 +166,60 @@ describe('FriendsList', () => {
     list.lookUp([BLOCKED]);
 
     expect(steam.requested).toEqual([[ME], [BLOCKED]]);
+  });
+
+  it('shows the last snapshot, everyone offline, until Steam sends the list and personas', () => {
+    const before = fakeSteam();
+    const last = new FriendsList();
+    last.attach(before.cm);
+    before.friendsList(false, [
+      [ALICE, FRIEND],
+      [BOB, FRIEND],
+    ]);
+    last.start(ME);
+    before.personas(STATUS | NAME, [
+      { friendid: ME, persona_state: 1, player_name: 'Me' },
+      { friendid: ALICE, persona_state: 1, player_name: 'Alice' },
+      { friendid: BOB, player_name: 'Bob' },
+    ]);
+
+    const list = new FriendsList();
+    list.restore(last.snapshot());
+    expect(list.get(ME).name).toBe('Me');
+    // a status from last time may be long over
+    expect(list.friends.map((f) => [f.name, f.online])).toEqual([
+      ['Alice', false],
+      ['Bob', false],
+    ]);
+
+    // Bob unfriended meanwhile
+    const steam = fakeSteam();
+    list.attach(steam.cm);
+    steam.friendsList(false, [[ALICE, FRIEND]]);
+    expect(list.friends.map((f) => f.name)).toEqual(['Alice']);
+
+    // steam pushes that she is online before her name comes
+    list.start(ME);
+    steam.personas(STATUS, [{ friendid: ALICE, persona_state: 1 }]);
+    expect(list.friends).toEqual([
+      expect.objectContaining({ name: 'Alice', online: true }),
+    ]);
+
+    steam.personas(NAME, [{ friendid: ALICE, player_name: 'Alicia' }]);
+    expect(list.friends).toEqual([
+      expect.objectContaining({ name: 'Alicia', online: true }),
+    ]);
+  });
+
+  it('asks for people looked up before logon once logged on', () => {
+    const steam = fakeSteam();
+    const list = new FriendsList();
+    list.lookUp([BLOCKED]);
+    list.attach(steam.cm);
+    expect(steam.requested).toEqual([]);
+
+    list.start(ME);
+
+    expect(steam.requested).toEqual([[ME, BLOCKED]]);
   });
 });

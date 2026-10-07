@@ -32,6 +32,12 @@ interface PersonaStateMessage {
   }[];
 }
 
+/** What a `FriendsList` knew, to show on the next start until Steam sends it again. */
+export interface FriendsSnapshot {
+  friendIds: string[];
+  users: Friend[];
+}
+
 interface Persona {
   name?: string;
   avatarHash?: string;
@@ -60,14 +66,16 @@ export function avatarUrl(hash: string) {
  * from what Steam pushes. Attach it before logging on, Steam sends the list right away.
  */
 export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
-  #cm: SteamCM;
+  #cm: SteamCM | null = null;
   #relationships = new Map<string, number>();
   #personas = new Map<string, Persona>();
+  /** from `restore`, fills in what steam hasn't sent (again) yet */
+  #restored = new Map<string, Friend>();
   #requested = new Set<string>();
   #started = false;
 
-  constructor(cm: SteamCM) {
-    super();
+  /** Listens to a connection that is about to log on. */
+  attach(cm: SteamCM) {
     this.#cm = cm;
     cm.onMessage(EMsg.ClientFriendsList, (_header, body) =>
       this.#receiveList(decodeProto('CMsgClientFriendsList', body)),
@@ -77,10 +85,32 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     );
   }
 
-  /** Once logged on: asks for the personas of everyone known so far, and of `self`. */
+  /** Once logged on: asks for the personas of everyone known or looked up so far, and of `self`. */
   start(self: string) {
     this.#started = true;
-    this.#requestPersonas([self, ...this.#relationships.keys()]);
+    this.#requestPersonas([
+      ...new Set([self, ...this.#relationships.keys(), ...this.#requested]),
+    ]);
+  }
+
+  /** Shows what a `snapshot` had until Steam sends the list. Before `attach`, Steam's list replaces it. */
+  restore({ friendIds, users }: FriendsSnapshot) {
+    for (const id of friendIds)
+      this.#relationships.set(id, RELATIONSHIP_FRIEND);
+    // an old status is stale, steam pushes who is online now
+    for (const user of users) {
+      this.#restored.set(user.steamid, { ...user, online: false });
+    }
+  }
+
+  /** Friends and everyone seen this time, strangers from older snapshots are left out. */
+  snapshot(): FriendsSnapshot {
+    const friendIds = this.friends.map((friend) => friend.steamid);
+    const known = new Set([...friendIds, ...this.#personas.keys()]);
+    return {
+      friendIds,
+      users: [...known].map((steamid) => this.get(steamid)),
+    };
   }
 
   /** Friends, online ones first, then by name. */
@@ -106,10 +136,13 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   /** What is known about any account, friend or not. */
   get(steamid: string): Friend {
     const persona = this.#personas.get(steamid);
+    const restored = this.#restored.get(steamid);
     return {
       steamid,
-      name: persona?.name ?? steamid,
-      avatarUrl: persona?.avatarHash ? avatarUrl(persona.avatarHash) : null,
+      name: persona?.name ?? restored?.name ?? steamid,
+      avatarUrl: persona?.avatarHash
+        ? avatarUrl(persona.avatarHash)
+        : (restored?.avatarUrl ?? null),
       online: (persona?.state ?? OFFLINE) !== OFFLINE,
     };
   }
@@ -153,8 +186,9 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   }
 
   #requestPersonas(steamids: string[]) {
-    if (steamids.length === 0) return;
     for (const id of steamids) this.#requested.add(id);
+    // until logged on they are only noted, start() asks for them
+    if (steamids.length === 0 || !this.#started || !this.#cm) return;
     this.#cm.send(EMsg.ClientRequestFriendData, 'CMsgClientRequestFriendData', {
       persona_state_requested: PERSONA_FLAGS,
       friends: steamids,

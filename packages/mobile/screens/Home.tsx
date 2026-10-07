@@ -20,6 +20,7 @@ import type {
 } from 'vaporchat/protocol';
 import { groupTitle } from 'vaporchat/steam/groups';
 import { chatKey } from 'vaporchat/steam/messages';
+import { useCached } from '../cache';
 import { useUnread } from '../chats';
 import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
@@ -36,6 +37,19 @@ import { JoinGroup } from './JoinGroup';
 import { type Page, PageStack } from './PageStack';
 import { FriendRow, GroupRow, SectionHeader } from './Rows';
 import { VoiceChannels } from './VoiceChannels';
+
+/** How the app is connected to Steam, Home shows what was cached until it is online. */
+export type Link =
+  | { kind: 'connecting' }
+  | { kind: 'online' }
+  /** retried on its own, with backoff after `failures` failed attempts */
+  | { kind: 'lost'; reason: string; failures: number };
+
+const LINK_STATUS: Record<Link['kind'], { text: string; color: string }> = {
+  connecting: { text: 'Connecting…', color: colors.muted },
+  online: { text: 'Online', color: colors.online },
+  lost: { text: 'Offline', color: colors.offline },
+};
 
 type Row = { key: string; chat: ChatTarget } & (
   | { kind: 'group'; group: ChatGroup }
@@ -66,12 +80,17 @@ function sessionTitle(
   return `${group?.name ?? 'Group'} › ${room?.name ?? 'voice'}`;
 }
 
-function chatHeader(voice: SteamVoice, chat: ChatTarget, groups: ChatGroup[]) {
+function chatHeader(
+  voice: SteamVoice,
+  chat: ChatTarget,
+  groups: ChatGroup[],
+  live: boolean,
+) {
   if (chat.kind === 'friend') {
     const friend = voice.connection.user(chat.steamid);
     return {
       title: friend.name,
-      subtitle: friend.online ? 'Online' : 'Offline',
+      subtitle: live && friend.online ? 'Online' : 'Offline',
       avatarUrl: friend.avatarUrl,
     };
   }
@@ -96,15 +115,18 @@ const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
  */
 export function Home({
   voice,
+  link,
+  onReconnect,
   onSignOut,
 }: {
   voice: SteamVoice;
+  link: Link;
+  onReconnect: () => void;
   onSignOut: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const [me, setMe] = useState(voice.me);
   const [friends, setFriends] = useState(voice.connection.friends);
-  const [fetchedGroups, setGroups] = useState<ChatGroup[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [joining, setJoining] = useState(false);
@@ -119,19 +141,26 @@ export function Home({
   const showError = useCallback((err: Error) => setError(err.message), []);
   const dismissError = useCallback(() => setError(null), []);
 
+  const loadGroups = useCallback(() => voice.connection.getGroups(), [voice]);
+  const {
+    data: cachedGroups,
+    error: groupsError,
+    reload: reloadGroups,
+  } = useCached('groups', loadGroups);
   const refreshGroups = useCallback(
     () =>
-      voice.connection
-        .getGroups()
-        .then(setGroups, (err: Error) =>
-          setError(`Could not load groups: ${err.message}`),
-        ),
-    [voice],
+      reloadGroups().catch((err: Error) =>
+        setError(`Could not load groups: ${err.message}`),
+      ),
+    [reloadGroups],
   );
+  const fetchedGroups = cachedGroups ?? [];
 
   useEffect(() => {
     const { connection } = voice;
-    void refreshGroups();
+    // a reconnect is a new connection
+    setFriends(connection.friends);
+    setMe(voice.me);
     const offGroups = connection.on('groupsChanged', refreshGroups);
     // voice membership changes don't come as group changes
     const offJoined = connection.on(
@@ -154,10 +183,15 @@ export function Home({
     };
   }, [voice, refreshGroups]);
 
+  // who is online or in voice is only known while connected
+  const live = link.kind === 'online';
   // unnamed groups go by their members' names, which come in as `friendsChanged`
   const groups = fetchedGroups.map((group) => ({
     ...group,
     name: groupTitle(group, me.steamid, (id) => voice.connection.user(id).name),
+    rooms: live
+      ? group.rooms
+      : group.rooms.map((room) => ({ ...room, membersInVoice: [] })),
   }));
   const target = session?.target;
   const groupRows: Row[] = groups.flatMap((group): Row[] => {
@@ -172,18 +206,27 @@ export function Home({
     } as const;
     return [{ kind: 'group', key: chatKey(chat), chat, group }];
   });
-  const shown = friends.filter((f) => matches(query, f.name)).sort(byName);
+  const shown = friends
+    .filter((f) => matches(query, f.name))
+    .map((f) => (live ? f : { ...f, online: false }))
+    .sort(byName);
   const friendRow = (friend: Friend): Row => {
     const chat = { kind: 'friend', steamid: friend.steamid } as const;
     return { kind: 'friend', key: chatKey(chat), chat, friend };
   };
   const online = shown.filter((f) => f.online).map(friendRow);
   const offline = shown.filter((f) => !f.online).map(friendRow);
-  // searching shows matching offline friends without having to expand them
-  const offlineOpen = showOffline || query.trim() !== '';
+  // searching shows matching offline friends without having to expand them, and so does
+  // not knowing who is online
+  const offlineOpen = showOffline || query.trim() !== '' || !live;
   const sections: Section[] = [
     { key: 'groups', title: 'GROUP CHATS', data: groupRows },
-    { key: 'online', title: 'ONLINE', count: online.length, data: online },
+    {
+      key: 'online',
+      title: 'ONLINE',
+      count: live ? online.length : undefined,
+      data: online,
+    },
     {
       key: 'offline',
       title: 'OFFLINE',
@@ -226,7 +269,7 @@ export function Home({
           <Chat
             voice={voice}
             chat={chat}
-            {...chatHeader(voice, chat, groups)}
+            {...chatHeader(voice, chat, groups, live)}
             top={
               chatGroup && (
                 <VoiceChannels
@@ -256,14 +299,34 @@ export function Home({
             url={me.avatarUrl}
             name={me.name}
             size={44}
-            frame={colors.online}
+            frame={LINK_STATUS[link.kind].color}
           />
           <View style={styles.grow}>
             <Text style={styles.myName} numberOfLines={1}>
               {me.name}
             </Text>
-            <Text style={styles.myStatus}>Online</Text>
+            <Text
+              style={[styles.myStatus, { color: LINK_STATUS[link.kind].color }]}
+              numberOfLines={1}
+            >
+              {link.kind === 'lost'
+                ? `${LINK_STATUS.lost.text}: ${link.reason}`
+                : LINK_STATUS[link.kind].text}
+            </Text>
           </View>
+          {link.kind === 'lost' && (
+            <Pressable
+              onPress={onReconnect}
+              accessibilityLabel="Reconnect now"
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name="refresh" size={22} color={colors.muted} />
+            </Pressable>
+          )}
           <Pressable
             onPress={confirmSignOut}
             accessibilityLabel="Sign out"
@@ -349,7 +412,7 @@ export function Home({
                       {joining ? 'Cancel' : 'Join group'}
                     </Text>
                   </Pressable>
-                ) : section.key === 'offline' && query.trim() === '' ? (
+                ) : section.key === 'offline' && query.trim() === '' && live ? (
                   <Pressable
                     onPress={() => setShowOffline(!showOffline)}
                     hitSlop={10}
@@ -373,9 +436,14 @@ export function Home({
               <Text style={styles.empty}>
                 {query.trim() !== ''
                   ? 'No matches'
-                  : section.key === 'groups'
-                    ? 'No group chats yet. Join one with its invite link.'
-                    : 'None of your friends are online right now.'}
+                  : section.key !== 'groups'
+                    ? live
+                      ? 'None of your friends are online right now.'
+                      : 'Who is online shows once connected.'
+                    : // with cached groups shown, the header tells about the connection
+                      cachedGroups === null && groupsError
+                      ? `Could not load groups: ${groupsError}`
+                      : 'No group chats yet. Join one with its invite link.'}
               </Text>
             ) : null
           }
@@ -449,7 +517,7 @@ const styles = StyleSheet.create({
   hidden: { display: 'none' },
   listEnd: { paddingBottom: 16 },
   myName: { color: colors.bright, fontSize: 18, fontWeight: '700' },
-  myStatus: { color: colors.online, fontSize: 13, marginTop: 1 },
+  myStatus: { fontSize: 13, marginTop: 1 },
   headerButton: {
     width: 40,
     height: 40,

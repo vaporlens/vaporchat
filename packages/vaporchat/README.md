@@ -83,6 +83,10 @@ await feeds.getFriendsActivity(); // achievements, purchases, screenshots; pages
 
 - `logOn` saves fresh tokens to the `TokenStore` (keychain on phones, localStorage on web) and
   swaps the stored token for a renewed one when Steam offers it. Tokens last about 200 days.
+- `SteamVoice.start` takes the same options but returns before Steam answers when there is a
+  stored token: requests wait for the logon, `voice.connection.ready` settles with it. Pass a
+  `cache` (a `CacheStore`, any string storage) and the friends list starts out as last time's,
+  and Steam's server list is fetched in the background instead of waited for.
 - Steam Guard: email codes, authenticator codes, and approving the login in the Steam mobile app
   all work. With approval, the prompt has `canApproveOnDevice: true` (or `codeType: null` when
   approval is the only option) and the login finishes without the handler's promise resolving.
