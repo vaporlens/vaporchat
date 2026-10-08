@@ -282,7 +282,7 @@ export interface FriendActivity {
   url: string;
 }
 
-/** Part of a feed, newest first. Older entries come with `before: next`, which is null at the end. */
+/** Part of a list, in the list's order. The rest comes by passing `next`, which is null at the end. */
 export interface FeedPage<T> {
   items: T[];
   next: number | null;

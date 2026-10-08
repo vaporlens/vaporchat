@@ -18,6 +18,17 @@ import type { FeedPage } from 'vaporchat/protocol';
 import { readCache, writeCache } from '../cache';
 import { colors, gridGutter } from '../theme';
 
+/** `added` that aren't in `shown`, each once: steam sends some items again. */
+function unique<T>(shown: T[], added: T[], keyOf: (item: T) => string) {
+  const keys = new Set(shown.map(keyOf));
+  return added.filter((item) => {
+    const key = keyOf(item);
+    if (keys.has(key)) return false;
+    keys.add(key);
+    return true;
+  });
+}
+
 /**
  * A list loaded from Steam: last time's first page while it loads, pull to refresh, more as it
  * scrolls to the end (when `load` pages), errors in place of an empty list.
@@ -36,7 +47,8 @@ export function Feed<T>({
   /** where its first page is cached */
   cacheKey: string;
   /** a stable function, the feed loads again when it changes */
-  load: (before: number | null) => Promise<FeedPage<T>>;
+  load: (next: number | null) => Promise<FeedPage<T>>;
+  /** a stable function, telling items apart */
   keyOf: (item: T) => string;
   /** rows of this many items, each padded by `gridGutter` */
   columns?: number;
@@ -61,10 +73,11 @@ export function Feed<T>({
     const current = ++generation.current;
     const page = await load(null);
     if (current !== generation.current) return;
-    writeCache(cacheKey, page);
-    setItems(page.items);
-    setNext(page.next);
-  }, [cacheKey, load]);
+    const first = { items: unique([], page.items, keyOf), next: page.next };
+    writeCache(cacheKey, first);
+    setItems(first.items);
+    setNext(first.next);
+  }, [cacheKey, load, keyOf]);
 
   // failing first shows in place of the list, later refreshes keep the list and toast
   const loadFirst = useCallback(() => {
@@ -81,8 +94,11 @@ export function Feed<T>({
     try {
       const page = await load(next);
       if (current !== generation.current) return;
-      setItems((shown) => [...(shown ?? []), ...page.items]);
-      setNext(page.next);
+      const shown = items ?? [];
+      const added = unique(shown, page.items, keyOf);
+      setItems([...shown, ...added]);
+      // a page of nothing new is the end, steam would keep sending the same
+      setNext(added.length > 0 ? page.next : null);
     } catch (err) {
       onError(err as Error);
     } finally {
@@ -141,6 +157,8 @@ export function Feed<T>({
       ListFooterComponent={
         loadingMore ? (
           <ActivityIndicator color={colors.muted} style={styles.more} />
+        ) : next === null && (items?.length ?? 0) > 0 ? (
+          <Text style={styles.message}>That's all.</Text>
         ) : null
       }
     />

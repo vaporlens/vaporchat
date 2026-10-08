@@ -28,7 +28,10 @@ import { MessageBubble } from './MessageBubble';
 // as many as steam's recent history has
 const CACHED_MESSAGES = 50;
 
-/** A friend's or a room's text chat: recent history, new messages as they come, and sending. */
+/**
+ * A friend's or a room's text chat: recent history, older as it scrolls up, new messages as they
+ * come, and sending.
+ */
 export function Chat({
   voice,
   chat,
@@ -58,6 +61,9 @@ export function Chat({
     () => readCache(cacheKey) ?? [],
   );
   const [loading, setLoading] = useState(true);
+  // where older history starts, null when there's none
+  const [older, setOlder] = useState<number | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [draft, setDraft] = useState('');
   const [viewing, setViewing] = useState<string | null>(null);
   // the emoticon and sticker picker, in place of the keyboard
@@ -77,7 +83,9 @@ export function Chat({
       .getRecentMessages(chat)
       .then(
         (history) => {
-          if (current) setMessages((list) => mergeMessages(list, history));
+          if (!current) return;
+          setMessages((list) => mergeMessages(list, history.items));
+          setOlder(history.next);
         },
         (err: Error) =>
           current &&
@@ -93,6 +101,20 @@ export function Chat({
   useEffect(() => {
     if (!loading) writeCache(cacheKey, messages.slice(-CACHED_MESSAGES));
   }, [cacheKey, messages, loading]);
+
+  async function loadOlder() {
+    if (older === null || loading || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const history = await voice.connection.getRecentMessages(chat, older);
+      setMessages((list) => mergeMessages(list, history.items));
+      setOlder(history.next);
+    } catch (err) {
+      onError(new Error(`Could not load messages: ${(err as Error).message}`));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   function deliver(content: string | StickerPart, onFailed?: () => void) {
     voice.connection.sendMessage(chat, content).then(
@@ -158,6 +180,14 @@ export function Chat({
         // Android can't drag the keyboard down, it closes as the list is dragged instead
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={styles.messages}
+        // inverted, its end is the oldest message
+        onEndReached={() => void loadOlder()}
+        onEndReachedThreshold={1}
+        ListFooterComponent={
+          loadingOlder ? (
+            <ActivityIndicator color={colors.muted} style={styles.older} />
+          ) : null
+        }
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator color={colors.muted} style={styles.empty} />
@@ -270,6 +300,7 @@ const styles = StyleSheet.create({
   messages: { padding: 12, gap: 6, flexGrow: 1 },
   empty: { marginVertical: 24 },
   emptyText: { color: colors.muted, fontSize: 14, textAlign: 'center' },
+  older: { padding: 12 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

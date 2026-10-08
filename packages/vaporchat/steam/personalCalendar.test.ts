@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { type CalendarApp, releasesByDay } from './personalCalendar.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  type CalendarApp,
+  getPersonalCalendar,
+  releasesByDay,
+} from './personalCalendar.ts';
 
 function app(
   nAppID: number,
@@ -38,5 +42,61 @@ describe('releasesByDay', () => {
     expect(releasesByDay(apps, now, 3).map((a) => a.nAppID)).toEqual([
       3, 4, 2, 1,
     ]);
+  });
+});
+
+describe('getPersonalCalendar', () => {
+  const SESSION = {
+    sessionid: 'abc',
+    cookie: 'sessionid=abc',
+    accessToken: 'x',
+  };
+
+  /** The calendar has `apps` whatever days are asked, like its answer has days around them. */
+  function stubCalendar(apps: CalendarApp[]) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 6, 15));
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.includes('personalcalendardata')) {
+        return Response.json({ arrAppInfos: apps });
+      }
+      const input = JSON.parse(
+        new URL(url).searchParams.get('input_json') ?? '{}',
+      );
+      return Response.json({
+        response: {
+          store_items: input.ids.map(({ appid }: { appid: number }) => ({
+            appid,
+            success: 1,
+          })),
+        },
+      });
+    });
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('pages a few days at a time from where the last page ended', async () => {
+    stubCalendar([
+      app(1, new Date(2026, 9, 7, 12), 1),
+      app(2, new Date(2026, 9, 9, 12), 1),
+      app(3, new Date(2026, 9, 11, 12), 1),
+      app(4, new Date(2026, 9, 12, 12), 1),
+    ]);
+    const first = await getPersonalCalendar(SESSION, 'US', null);
+    const second = await getPersonalCalendar(SESSION, 'US', first.next);
+    expect(first.items.map((game) => game.appid)).toEqual([1]);
+    expect(second.items.map((game) => game.appid)).toEqual([2, 3]);
+  });
+
+  it('ends at days without releases', async () => {
+    stubCalendar([app(1, new Date(2026, 9, 7, 12), 1)]);
+    const first = await getPersonalCalendar(SESSION, 'US', null);
+    const second = await getPersonalCalendar(SESSION, 'US', first.next);
+    expect(second.items).toEqual([]);
+    expect(second.next).toBeNull();
   });
 });

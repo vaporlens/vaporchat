@@ -1,11 +1,10 @@
-import type { StoreItem } from '../protocol.ts';
+import type { FeedPage, StoreItem } from '../protocol.ts';
 import { API_URL, ASSETS_URL, getJson, inBatches, STORE_URL } from './web.ts';
 
 // the store's own JSON APIs work without logging in, `callApi` can call them as the user too
 // GetItems takes up to this many ids per request
 const BATCH_SIZE = 100;
-const SPECIALS_COUNT = 50;
-const SEARCH_COUNT = 50;
+const PAGE_SIZE = 50;
 
 /** A store item as the IStore*Service APIs describe it, only what we use. */
 export interface ApiStoreItem {
@@ -128,16 +127,31 @@ export async function getStoreItems(
   return items.map(toStoreItem);
 }
 
-/** The store's top discounts right now, like the Discounts & Events page. */
-export async function getSpecials(country: string) {
+/**
+ * A page of the store's top discounts right now, like the Discounts & Events page. `start` is
+ * the `next` of the previous page.
+ */
+export async function getSpecials(
+  country: string,
+  start: number | null,
+): Promise<FeedPage<StoreItem>> {
+  // it has no offset, a page is the end of a longer list, up to about a thousand. Its order
+  // shifts a little with the length asked, so pages can repeat or skip an item
+  const from = start ?? 0;
+  const to = from + PAGE_SIZE;
   const { specials = [] } = await callApi<{
     specials?: { item?: ApiStoreItem }[];
   }>('IStoreMarketingService/GetItemsToFeature', {
     context: context(country),
     data_request: DATA_REQUEST,
-    include_top_specials_count: SPECIALS_COUNT,
+    include_top_specials_count: to,
   });
-  return specials.flatMap(({ item }) => (item ? [toStoreItem(item)] : []));
+  return {
+    items: specials
+      .slice(from)
+      .flatMap(({ item }) => (item ? [toStoreItem(item)] : [])),
+    next: specials.length >= to ? to : null,
+  };
 }
 
 /** The app ids in a store search result, which only has them in its picture URLs. */
@@ -148,26 +162,38 @@ export function appidsFromSearch(items: { logo?: string }[]) {
   });
 }
 
-/** Games of a store search, `filter=topsellers` say, in the order the store gives. */
-async function searchStore(query: string, country: string) {
+/**
+ * A page of games of a store search, `filter=topsellers` say, in the order the store gives.
+ * `start` is the `next` of the previous page.
+ */
+async function searchStore(
+  query: string,
+  country: string,
+  start: number | null,
+): Promise<FeedPage<StoreItem>> {
+  const from = start ?? 0;
+  const to = from + PAGE_SIZE;
   const { items = [] } = await getJson<{ items?: { logo?: string }[] }>(
-    `${STORE_URL}search/results/?${query}&start=0&count=${SEARCH_COUNT}` +
+    `${STORE_URL}search/results/?${query}&start=${from}&count=${PAGE_SIZE}` +
       `&cc=${country}&l=english&json=1`,
   );
-  return getStoreItems(appidsFromSearch(items), country);
+  return {
+    items: await getStoreItems(appidsFromSearch(items), country),
+    next: items.length >= PAGE_SIZE ? to : null,
+  };
 }
 
 /** Popular new releases, newest first, like the store's New Releases page. */
-export function getNewReleases(country: string) {
-  return searchStore('filter=popularnew&sort_by=Released_DESC', country);
+export function getNewReleases(country: string, start: number | null) {
+  return searchStore('filter=popularnew&sort_by=Released_DESC', country, start);
 }
 
 /** Popular games coming soon, like the store's Upcoming page. */
-export function getUpcoming(country: string) {
-  return searchStore('filter=popularcomingsoon', country);
+export function getUpcoming(country: string, start: number | null) {
+  return searchStore('filter=popularcomingsoon', country, start);
 }
 
 /** The store's top sellers right now, best selling first. */
-export function getTopSellers(country: string) {
-  return searchStore('filter=topsellers', country);
+export function getTopSellers(country: string, start: number | null) {
+  return searchStore('filter=topsellers', country, start);
 }

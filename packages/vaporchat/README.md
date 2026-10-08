@@ -57,7 +57,8 @@ voice.on('session', (session) => {
 
 // text chat, with a friend or in a group chat room
 const chat = { kind: 'friend', steamid } as const; // or { kind: 'room', groupId, chatId }
-await voice.connection.getRecentMessages(chat); // last 50, oldest first
+const history = await voice.connection.getRecentMessages(chat); // last 50, oldest first
+await voice.connection.getRecentMessages(chat, history.next); // older ones, `next` is null at the end
 voice.connection.on('message', ({ chat, message }) => show(chat, message)); // every chat
 await voice.connection.sendMessage(chat, 'hi :steamhappy:'); // resolves with the stored message
 const { emoticons, stickers } = await voice.connection.getEmoticons(); // what the account owns
@@ -67,12 +68,12 @@ await voice.connection.sendImage(chat, { bytes, type: 'image/jpeg', width, heigh
 // what Steam's store and client show
 const { feeds } = voice.connection;
 await feeds.getSaleEvents(); // sales running now
-await feeds.getSpecials(); // the store's top discounts
-await feeds.getTopSellers(); // best selling first
+await feeds.getSpecials(); // the store's top discounts; pages like news
+await feeds.getTopSellers(); // best selling first; pages like news
 const wishlist = await feeds.getWishlist(); // the user's, biggest discounts first; pages like news
-await feeds.getNewReleases(); // popular new releases, newest first
-await feeds.getUpcoming(); // popular games coming soon
-await feeds.getPersonalCalendar(); // releases of the next 3 days Steam picked for the user
+await feeds.getNewReleases(); // popular new releases, newest first; pages like news
+await feeds.getUpcoming(); // popular games coming soon; pages like news
+await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days to a page
 await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
 await feeds.getStoreItems(bundle.includedAppids); // a bundle's games
 await feeds.getSalePage(event.id); // a sale event's sections: texts and their games

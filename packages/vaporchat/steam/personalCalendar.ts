@@ -1,8 +1,9 @@
+import type { FeedPage, StoreItem } from '../protocol.ts';
 import type { WebSession } from './logOn.ts';
 import { getStoreItems } from './store.ts';
 import { getJson, STORE_URL } from './web.ts';
 
-// today and the next two
+// days to a page, the first is today and the next two
 const DAYS = 3;
 
 /** A release in the store's Personal Calendar, only what we use. */
@@ -42,17 +43,24 @@ export function releasesByDay(apps: CalendarApp[], now: number, days: number) {
     );
 }
 
-/** The user's Personal Calendar of the next few days: releases Steam picked for them. */
+/**
+ * A few days of the user's Personal Calendar: releases Steam picked for them. `start` is the
+ * `next` of the previous page, days from today. It ends at the first days without any.
+ */
 export async function getPersonalCalendar(
   { cookie }: WebSession,
   country: string,
-) {
-  // its answer has releases of days around the ones asked too
+  start: number | null,
+): Promise<FeedPage<StoreItem>> {
+  const from = start ?? 0;
+  const first = new Date();
+  first.setDate(first.getDate() + from);
+  // its answer has releases of days around the ones asked too, a negative backward starts later
   const { arrAppInfos = [] } = await getJson<{ arrAppInfos?: CalendarApp[] }>(
-    `${STORE_URL}personalcalendardata?tag=0&days_backward=0&days_forward=${DAYS}`,
+    `${STORE_URL}personalcalendardata?tag=0&days_backward=${1 - from}&days_forward=${from + DAYS + 1}`,
     cookie,
   );
-  const apps = releasesByDay(arrAppInfos, Date.now(), DAYS);
+  const apps = releasesByDay(arrAppInfos, first.getTime(), DAYS);
   const items = await getStoreItems(
     apps.map((app) => app.nAppID),
     country,
@@ -61,8 +69,11 @@ export async function getPersonalCalendar(
   const releases = new Map(
     apps.map((app) => [app.nAppID, app.nReleaseDate * 1000]),
   );
-  return items.map((item) => ({
-    ...item,
-    releasedAt: releases.get(item.appid ?? 0) ?? item.releasedAt,
-  }));
+  return {
+    items: items.map((item) => ({
+      ...item,
+      releasedAt: releases.get(item.appid ?? 0) ?? item.releasedAt,
+    })),
+    next: apps.length > 0 ? from + DAYS : null,
+  };
 }

@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { appidsFromSearch, toStoreItem } from './store.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  appidsFromSearch,
+  getSpecials,
+  getTopSellers,
+  toStoreItem,
+} from './store.ts';
 
 const ASSETS = {
   // biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
@@ -97,5 +102,86 @@ describe('appidsFromSearch', () => {
         logo('apps/10'),
       ]),
     ).toEqual([30, 10]);
+  });
+});
+
+/**
+ * Answers like the store would for a list of `total` games, appids 1 to `total` in order.
+ * Search results of `bundleEvery`th place are bundles, which have no appid in their picture.
+ */
+function stubStore(total: number, bundleEvery = 0) {
+  const appids = Array.from({ length: total }, (_, i) => i + 1);
+  const item = (appid: number) => ({
+    appid,
+    success: 1,
+    name: `Game ${appid}`,
+  });
+  vi.stubGlobal('fetch', async (url: string) => {
+    const { searchParams } = new URL(url);
+    const input = JSON.parse(searchParams.get('input_json') ?? '{}');
+    if (url.includes('GetItemsToFeature')) {
+      const count: number = input.include_top_specials_count;
+      return Response.json({
+        response: {
+          specials: appids.slice(0, count).map((id) => ({ item: item(id) })),
+        },
+      });
+    }
+    if (url.includes('GetItems')) {
+      return Response.json({
+        response: {
+          store_items: input.ids.map(({ appid }: { appid: number }) =>
+            item(appid),
+          ),
+        },
+      });
+    }
+    const start = Number(searchParams.get('start'));
+    const count = Number(searchParams.get('count'));
+    return Response.json({
+      items: appids.slice(start, start + count).map((appid) => ({
+        logo:
+          bundleEvery && appid % bundleEvery === 0
+            ? `https://example.com/steam/bundles/${appid}/capsule.jpg`
+            : `https://example.com/steam/apps/${appid}/capsule.jpg`,
+      })),
+    });
+  });
+}
+
+describe('getSpecials', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('pages on from where the last page ended, until the store has no more', async () => {
+    stubStore(120);
+    const first = await getSpecials('US', null);
+    const second = await getSpecials('US', first.next);
+    const third = await getSpecials('US', second.next);
+    expect([first, second, third].map((page) => page.items.length)).toEqual([
+      50, 50, 20,
+    ]);
+    expect(second.items[0].appid).toBe(51);
+    expect(third.next).toBeNull();
+  });
+});
+
+describe('store search lists', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('pages on from where the last page ended, until a page comes short', async () => {
+    stubStore(70);
+    const first = await getTopSellers('US', null);
+    const second = await getTopSellers('US', first.next);
+    expect(second.items.map((game) => game.appid)).toEqual(
+      Array.from({ length: 20 }, (_, i) => i + 51),
+    );
+    expect(second.next).toBeNull();
+  });
+
+  it('keeps paging when bundles left out make a full page look short', async () => {
+    stubStore(120, 10);
+    const first = await getTopSellers('US', null);
+    expect(first.items).toHaveLength(45);
+    expect(first.next).not.toBeNull();
   });
 });

@@ -179,11 +179,11 @@ describe('getRecentMessages', () => {
         ],
       },
     });
-    const messages = await getRecentMessages(steam.cm, {
+    const { items } = await getRecentMessages(steam.cm, {
       kind: 'friend',
       steamid: ALICE,
     });
-    expect(messages.map((m) => [m.sender, m.parts])).toEqual([
+    expect(items.map((m) => [m.sender, m.parts])).toEqual([
       [ALICE, [{ kind: 'text', text: 'first' }]],
       [ME, [{ kind: 'text', text: 'second' }]],
     ]);
@@ -199,14 +199,44 @@ describe('getRecentMessages', () => {
         ],
       },
     });
-    const messages = await getRecentMessages(steam.cm, {
+    const { items } = await getRecentMessages(steam.cm, {
       kind: 'room',
       groupId: '7',
       chatId: '8',
     });
-    expect(messages.map((m) => m.parts)).toEqual([
+    expect(items.map((m) => m.parts)).toEqual([
       [{ kind: 'text', text: 'kept' }],
     ]);
+  });
+
+  it('continues before the oldest message, server messages included', async () => {
+    const room = { kind: 'room', groupId: '7', chatId: '8' } as const;
+    const steam = fakeSteam({
+      'ChatRoom.GetMessageHistory#1': {
+        messages: [
+          { sender: 2, server_timestamp: 9, ordinal: 0, message: 'newest' },
+          { sender: 2, server_timestamp: 5, ordinal: 2, server_message: {} },
+        ],
+        more_available: true,
+      },
+    });
+    const { next } = await getRecentMessages(steam.cm, room);
+    await getRecentMessages(steam.cm, room, next);
+    expect(steam.sent[1]).toMatchObject({ last_time: 5, last_ordinal: 2 });
+  });
+
+  it('has nothing older when Steam has no more', async () => {
+    const steam = fakeSteam({
+      'FriendMessages.GetRecentMessages#1': {
+        messages: [{ accountid: 2, timestamp: 1, message: 'only' }],
+        more_available: false,
+      },
+    });
+    const page = await getRecentMessages(steam.cm, {
+      kind: 'friend',
+      steamid: ALICE,
+    });
+    expect(page.next).toBeNull();
   });
 });
 

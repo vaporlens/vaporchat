@@ -39,6 +39,11 @@ interface List<T> {
   load: (feeds: SteamFeeds, next: number | null) => Promise<FeedPage<T>>;
 }
 
+// the feeds' `keyOf`, stable so they don't load again on every render
+const storeItemKey = (item: StoreItem) => item.url;
+const eventKey = (event: SteamEvent) => event.id;
+const activityKey = (activity: FriendActivity) => activity.id;
+
 /** Loads a list Steam gives all at once. */
 function whole<T>(get: (feeds: SteamFeeds) => Promise<T[]>) {
   return async (feeds: SteamFeeds) => ({ items: await get(feeds), next: null });
@@ -49,13 +54,13 @@ const STORE_LISTS: List<StoreItem>[] = [
     tab: 'discounted',
     title: 'Discounted',
     empty: 'No deals right now.',
-    load: whole((feeds) => feeds.getSpecials()),
+    load: (feeds, next) => feeds.getSpecials(next),
   },
   {
     tab: 'topSellers',
     title: 'Top sellers',
     empty: 'No top sellers right now.',
-    load: whole((feeds) => feeds.getTopSellers()),
+    load: (feeds, next) => feeds.getTopSellers(next),
   },
   {
     tab: 'wishlist',
@@ -70,19 +75,19 @@ const RELEASE_LISTS: List<StoreItem>[] = [
     tab: 'new',
     title: 'Popular new',
     empty: 'No new releases.',
-    load: whole((feeds) => feeds.getNewReleases()),
+    load: (feeds, next) => feeds.getNewReleases(next),
   },
   {
     tab: 'upcoming',
     title: 'Popular upcoming',
     empty: 'No upcoming releases.',
-    load: whole((feeds) => feeds.getUpcoming()),
+    load: (feeds, next) => feeds.getUpcoming(next),
   },
   {
     tab: 'calendar',
     title: 'For you',
     empty: 'Nothing for you releasing in the next few days.',
-    load: whole((feeds) => feeds.getPersonalCalendar()),
+    load: (feeds, next) => feeds.getPersonalCalendar(next),
   },
 ];
 
@@ -126,7 +131,7 @@ function StoreItems({
     <Feed
       cacheKey={`feed-${list.tab}`}
       load={load}
-      keyOf={(item) => item.url}
+      keyOf={storeItemKey}
       columns={2}
       renderItem={(item) => (
         <StoreItemCard
@@ -188,7 +193,7 @@ function Events({
     <Feed
       cacheKey={`feed-${list.tab}`}
       load={load}
-      keyOf={(event) => event.id}
+      keyOf={eventKey}
       renderItem={(event) => (
         <EventCard
           event={event}
@@ -220,7 +225,7 @@ function Activity({
     <Feed<FriendActivity>
       cacheKey="feed-activity"
       load={load}
-      keyOf={(activity) => activity.id}
+      keyOf={activityKey}
       renderItem={(activity) => (
         <ActivityRow
           activity={activity}

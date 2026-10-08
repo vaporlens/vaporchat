@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   ChatTarget,
+  FeedPage,
   IncomingChatMessage,
   StickerPart,
 } from '../protocol.ts';
@@ -50,6 +51,15 @@ interface SentMessage {
   ordinal?: number;
 }
 
+// steam's times are whole seconds, the ordinal as milliseconds keeps their order
+function messageTime(timestamp = 0, ordinal = 0) {
+  return timestamp * 1000 + ordinal;
+}
+
+function fromMessageTime(time: number) {
+  return { timestamp: Math.floor(time / 1000), ordinal: time % 1000 };
+}
+
 // a message is identified by its server timestamp, and its ordinal among those of the same second
 function chatMessage(
   sender: string,
@@ -61,8 +71,7 @@ function chatMessage(
     id: `${timestamp}:${ordinal}`,
     sender,
     parts: parseBBCode(bbcode),
-    // steam's times are whole seconds, the ordinal as milliseconds keeps their order
-    time: timestamp * 1000 + ordinal,
+    time: messageTime(timestamp, ordinal),
   };
 }
 
@@ -160,43 +169,66 @@ export async function sendMessage(
   );
 }
 
-/** The latest messages of a chat, oldest first. */
+/**
+ * The latest messages of a chat, oldest first. Older ones come with `before: next`, which is
+ * null when there are none.
+ */
 export async function getRecentMessages(
   cm: SteamCM,
   chat: ChatTarget,
-): Promise<ChatMessage[]> {
-  const history = await getHistory(cm, chat);
-  return mergeMessages(
-    [],
-    history.map((entry) =>
-      chatMessage(
-        steamIdFromAccountId(entry.accountId),
-        entry.message ?? '',
-        entry.timestamp,
-        entry.ordinal,
+  before: number | null = null,
+): Promise<FeedPage<ChatMessage>> {
+  const { entries, next } = await getHistory(cm, chat, before);
+  return {
+    items: mergeMessages(
+      [],
+      entries.map((entry) =>
+        chatMessage(
+          steamIdFromAccountId(entry.accountId),
+          entry.message ?? '',
+          entry.timestamp,
+          entry.ordinal,
+        ),
       ),
     ),
-  );
+    next,
+  };
 }
 
+/** Where history older than Steam's page of it starts, its last message is the oldest. */
+function olderThan(
+  more: boolean | undefined,
+  oldest: { timestamp?: number; ordinal?: number } | undefined,
+) {
+  return more && oldest ? messageTime(oldest.timestamp, oldest.ordinal) : null;
+}
+
+/** A chat's history before `before`, a message's `time`. */
 async function getHistory(
   cm: SteamCM,
   chat: ChatTarget,
-): Promise<HistoryEntry[]> {
+  before: number | null,
+): Promise<{ entries: HistoryEntry[]; next: number | null }> {
+  const last = before === null ? null : fromMessageTime(before);
   if (chat.kind === 'friend') {
-    const { messages = [] } = await cm.call<{
+    const { messages = [], more_available } = await cm.call<{
       messages?: (Omit<HistoryEntry, 'accountId'> & { accountid: number })[];
+      more_available?: boolean;
     }>('FriendMessages.GetRecentMessages#1', {
       steamid1: cm.steamid,
       steamid2: chat.steamid,
       count: HISTORY_COUNT,
       most_recent_conversation: false,
       bbcode_format: true,
-      time_last: LATEST,
+      time_last: last?.timestamp ?? LATEST,
+      ordinal_last: last?.ordinal,
     });
-    return messages.map((m) => ({ ...m, accountId: m.accountid }));
+    return {
+      entries: messages.map((m) => ({ ...m, accountId: m.accountid })),
+      next: olderThan(more_available, messages.at(-1)),
+    };
   }
-  const { messages = [] } = await cm.call<{
+  const { messages = [], more_available } = await cm.call<{
     messages?: {
       sender: number;
       server_timestamp?: number;
@@ -205,17 +237,31 @@ async function getHistory(
       server_message?: object;
       deleted?: boolean;
     }[];
+    more_available?: boolean;
   }>('ChatRoom.GetMessageHistory#1', {
     chat_group_id: chat.groupId,
     chat_id: chat.chatId,
     max_count: HISTORY_COUNT,
+    last_time: last?.timestamp,
+    last_ordinal: last?.ordinal,
   });
-  return messages
-    .filter((m) => !m.server_message && !m.deleted)
-    .map((m) => ({
-      accountId: m.sender,
-      message: m.message,
-      timestamp: m.server_timestamp,
-      ordinal: m.ordinal,
-    }));
+  const oldest = messages.at(-1);
+  return {
+    entries: messages
+      .filter((m) => !m.server_message && !m.deleted)
+      .map((m) => ({
+        accountId: m.sender,
+        message: m.message,
+        timestamp: m.server_timestamp,
+        ordinal: m.ordinal,
+      })),
+    // server and deleted messages too, older history starts before them
+    next: olderThan(
+      more_available,
+      oldest && {
+        timestamp: oldest.server_timestamp,
+        ordinal: oldest.ordinal,
+      },
+    ),
+  };
 }

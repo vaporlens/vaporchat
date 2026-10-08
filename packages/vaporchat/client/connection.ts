@@ -312,9 +312,12 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     return this.#emoticons;
   }
 
-  /** The latest messages of a chat, oldest first. New ones come as `message`. */
-  async getRecentMessages(chat: ChatTarget) {
-    return getRecentMessages(await this.#cm, chat);
+  /**
+   * The latest messages of a chat, oldest first. Older ones come with `before: next` of the
+   * page before. New ones come as `message`.
+   */
+  async getRecentMessages(chat: ChatTarget, before: number | null = null) {
+    return getRecentMessages(await this.#cm, chat, before);
   }
 
   #saveFriendsSoon() {

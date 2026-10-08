@@ -48,14 +48,14 @@ export class SteamFeeds {
     return getLiveSaleEvents(this.#language);
   }
 
-  /** The store's top discounts. */
-  async getSpecials() {
-    return getSpecials(await this.#country());
+  /** A page of the store's top discounts. */
+  async getSpecials(start: number | null = null) {
+    return getSpecials(await this.#country(), start);
   }
 
-  /** The store's top sellers, best selling first. */
-  async getTopSellers() {
-    return getTopSellers(await this.#country());
+  /** A page of the store's top sellers, best selling first. */
+  async getTopSellers(start: number | null = null) {
+    return getTopSellers(await this.#country(), start);
   }
 
   /** A page of the user's wishlist, biggest discounts first. */
@@ -64,19 +64,23 @@ export class SteamFeeds {
     return getWishlist(cm.steamid, await this.#webSession(), cm.country, start);
   }
 
-  /** Popular new releases, newest first. */
-  async getNewReleases() {
-    return getNewReleases(await this.#country());
+  /** A page of popular new releases, newest first. */
+  async getNewReleases(start: number | null = null) {
+    return getNewReleases(await this.#country(), start);
   }
 
-  /** Popular games coming soon. */
-  async getUpcoming() {
-    return getUpcoming(await this.#country());
+  /** A page of popular games coming soon. */
+  async getUpcoming(start: number | null = null) {
+    return getUpcoming(await this.#country(), start);
   }
 
-  /** Releases of the next few days Steam picked for the user, like the store's Personal Calendar. */
-  async getPersonalCalendar() {
-    return getPersonalCalendar(await this.#webSession(), await this.#country());
+  /** A few days of releases Steam picked for the user, like the store's Personal Calendar. */
+  async getPersonalCalendar(start: number | null = null) {
+    return getPersonalCalendar(
+      await this.#webSession(),
+      await this.#country(),
+      start,
+    );
   }
 
   /** Games by appid, in the order asked, a bundle's `includedAppids` say. */
