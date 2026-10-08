@@ -2,9 +2,9 @@ import { memo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SteamEvent, StoreItem } from 'vaporchat/protocol';
-import { Appear } from '../components/Appear';
 import { ImageViewer } from '../components/ImageViewer';
 import type { MediaItem } from '../components/MediaTile';
+import { isCovered, SwipeBack } from '../components/SwipeBack';
 import { ArticleScreen } from './ArticleScreen';
 import { BundleScreen } from './BundleScreen';
 import { GameScreen } from './GameScreen';
@@ -41,12 +41,12 @@ export const PageStack = memo(function PageStack({
   return (
     <>
       {pages.map((page, index) => (
-        <Appear
+        <SwipeBack
           // a stack only changes at its top, the position is a stable key
           // biome-ignore lint/suspicious/noArrayIndexKey: see above
           key={index}
-          from="right"
-          style={[styles.page, index < pages.length - 1 && styles.hidden]}
+          onBack={onBack}
+          style={isCovered(pages.length - 1 - index) && styles.hidden}
         >
           {page.kind === 'game' ? (
             <GameScreen
@@ -87,7 +87,7 @@ export const PageStack = memo(function PageStack({
               onOpenImage={setViewing}
             />
           )}
-        </Appear>
+        </SwipeBack>
       ))}
       <ImageViewer url={viewing} onClose={() => setViewing(null)} />
     </>
@@ -95,6 +95,5 @@ export const PageStack = memo(function PageStack({
 });
 
 const styles = StyleSheet.create({
-  page: { flex: 1 },
   hidden: { display: 'none' },
 });

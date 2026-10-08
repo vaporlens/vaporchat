@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { LoopingVideo } from './LoopingVideo';
+import { SwipeBack, swipesBack } from './SwipeBack';
 import { useLastShown } from './useLastShown';
 import { Zoomable } from './Zoomable';
 
@@ -33,13 +34,15 @@ export function ImageViewer({
   const shown = useLastShown(url);
   const onError = () => setFailedUrl(shown);
   return (
+    // see-through, a swipe back shows the page it was opened from
     <Modal
       visible={url !== null}
+      transparent={swipesBack}
       animationType="fade"
       onRequestClose={onClose}
       supportedOrientations={['portrait', 'landscape']}
     >
-      <View style={styles.screen}>
+      <SwipeBack onBack={onClose} style={styles.screen}>
         {/* each one opens unzoomed */}
         <Zoomable key={shown}>
           {/* behind the media, moving with it, covered once it shows */}
@@ -84,7 +87,7 @@ export function ImageViewer({
         >
           <Ionicons name="close" size={24} color={colors.bright} />
         </Pressable>
-      </View>
+      </SwipeBack>
     </Modal>
   );
 }
