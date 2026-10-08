@@ -1,6 +1,6 @@
 # Running on Android
 
-The Android app is `com.yamalight.vaporchat`. It's an Expo dev build like the iOS one (Expo Go can't
+The Android app is `org.vaporlens.Vaporlens`. It's an Expo dev build like the iOS one (Expo Go can't
 load `react-native-webrtc`), built locally with Gradle. There is no EAS. Release builds are covered
 under [Release builds](#release-builds).
 
@@ -57,7 +57,7 @@ To open the app against a running Metro yourself:
 ```sh
 adb reverse tcp:8081 tcp:8081
 adb shell am start -a android.intent.action.VIEW \
-  -d "exp+vaporchat://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081" com.yamalight.vaporchat
+  -d "exp+vaporchat://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081" org.vaporlens.Vaporlens
 ```
 
 ## Gotchas
