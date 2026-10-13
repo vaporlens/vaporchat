@@ -1,4 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import {
+  DarkTheme,
+  NavigationContainer,
+  type NavigationState,
+  StackActions,
+  useNavigationContainerRef,
+} from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -25,10 +33,8 @@ import { useUnread } from '../chats';
 import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
 import { Field } from '../components/Field';
-import { isCovered, SwipeBack } from '../components/SwipeBack';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
-import { useBackHandler } from '../components/useBackHandler';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
@@ -36,7 +42,7 @@ import { Chat } from './Chat';
 import { FeedTabs } from './FeedTabs';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
-import { type Page, PageStack } from './PageStack';
+import { type Page, PageScreen } from './PageScreen';
 import { FriendRow, GroupRow, SectionHeader } from './Rows';
 import { VoiceChannels } from './VoiceChannels';
 
@@ -111,6 +117,28 @@ function matches(query: string, ...names: string[]) {
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
 
+/** The tabs, and the native screens pushed over them: a chat or pages. */
+type Routes = {
+  tabs: undefined;
+  chat: { chat: ChatTarget };
+  page: { page: Page };
+};
+
+const Stack = createNativeStackNavigator<Routes>();
+
+// pushed screens are dark while they come in, not the default white
+const navigationTheme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: colors.background },
+};
+
+/** The chat on the stack, its messages aren't unread. */
+function stackedChat(state: NavigationState | undefined) {
+  const route = state?.routes.find((r) => r.name === 'chat');
+  // a route named `chat` has its params
+  return route ? (route.params as Routes['chat']).chat : null;
+}
+
 /**
  * Who you are and the tabs: Steam's deals, new releases, news and friends' activity, and chat
  * with your group chats and friends. Tap one to chat, join a room's voice, call a friend.
@@ -127,6 +155,7 @@ export function Home({
   onSignOut: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigationContainerRef<Routes>();
   const [me, setMe] = useState(voice.me);
   const [friends, setFriends] = useState(voice.connection.friends);
   const [error, setError] = useState<string | null>(null);
@@ -134,9 +163,9 @@ export function Home({
   const [joining, setJoining] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // follows the navigation, see `stackedChat`
   const [chat, setChat] = useState<ChatTarget | null>(null);
   const [tab, setTab] = useState<Tab>('store');
-  const [pages, setPages] = useState<Page[]>([]);
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
   const unread = useUnread(voice, chat);
   // stable, the open chat reloads when it changes
@@ -238,8 +267,8 @@ export function Home({
   ];
 
   const push = useCallback(
-    (page: Page) => setPages((stack) => [...stack, page]),
-    [],
+    (page: Page) => navigation.dispatch(StackActions.push('page', { page })),
+    [navigation],
   );
   const openGame = useCallback(
     (item: StoreItem) =>
@@ -250,19 +279,14 @@ export function Home({
       ),
     [push],
   );
-  const back = useCallback(() => setPages((stack) => stack.slice(0, -1)), []);
-  // pages open over the chat
-  useBackHandler(() => {
-    if (pages.length > 0) back();
-    else if (chat) setChat(null);
-    else return false;
-    return true;
-  });
+  // Android's back button and gesture go back by themselves
+  const back = useCallback(() => navigation.goBack(), [navigation]);
 
-  const chatGroup =
-    chat?.kind === 'room'
-      ? groups.find((group) => group.groupId === chat.groupId)
-      : undefined;
+  // set along with navigating, in one render, `onStateChange` would only catch up after it
+  function openChat(chat: ChatTarget) {
+    setChat(chat);
+    navigation.navigate('chat', { chat });
+  }
 
   function confirmSignOut() {
     Alert.alert('Sign out?', 'You will need your password to sign in again.', [
@@ -271,247 +295,260 @@ export function Home({
     ]);
   }
 
-  return (
-    <View style={styles.screen}>
-      {/* the chat and pages are pushed over it */}
-      <View style={styles.grow}>
-        {/* hidden rather than unmounted, coming back keeps the scroll position and search */}
-        <View
-          style={[
-            styles.grow,
-            isCovered(Number(chat !== null) + pages.length) && styles.hidden,
+  // the chat and pages are pushed over them
+  const tabs = (
+    <View style={styles.grow}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Avatar
+          url={me.avatarUrl}
+          name={me.name}
+          size={44}
+          frame={LINK_STATUS[link.kind].color}
+        />
+        <View style={styles.grow}>
+          <Text style={styles.myName} numberOfLines={1}>
+            {me.name}
+          </Text>
+          <Text
+            style={[styles.myStatus, { color: LINK_STATUS[link.kind].color }]}
+            numberOfLines={1}
+          >
+            {link.kind === 'lost'
+              ? `${LINK_STATUS.lost.text}: ${link.reason}`
+              : LINK_STATUS[link.kind].text}
+          </Text>
+        </View>
+        {link.kind === 'lost' && (
+          <Pressable
+            onPress={onReconnect}
+            accessibilityLabel="Reconnect now"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="refresh" size={22} color={colors.muted} />
+          </Pressable>
+        )}
+        <Pressable
+          onPress={confirmSignOut}
+          accessibilityLabel="Sign out"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && styles.pressed,
           ]}
         >
-          <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-            <Avatar
-              url={me.avatarUrl}
-              name={me.name}
-              size={44}
-              frame={LINK_STATUS[link.kind].color}
+          <Ionicons name="log-out-outline" size={22} color={colors.muted} />
+        </Pressable>
+      </View>
+      <FeedTabs
+        voice={voice}
+        tab={tab}
+        onOpenGame={openGame}
+        onOpenPage={push}
+        onError={showError}
+      />
+      {/* hidden by a View, Android wraps a list that can refresh in a view it doesn't hide */}
+      <View style={[styles.grow, tab !== 'chat' && styles.hidden]}>
+        <SectionList<Row, Section>
+          sections={sections}
+          keyExtractor={(row) => row.key}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={styles.listEnd}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor={colors.muted}
+              onRefresh={() => {
+                setRefreshing(true);
+                void refreshGroups().finally(() => setRefreshing(false));
+              }}
             />
-            <View style={styles.grow}>
-              <Text style={styles.myName} numberOfLines={1}>
-                {me.name}
-              </Text>
-              <Text
-                style={[
-                  styles.myStatus,
-                  { color: LINK_STATUS[link.kind].color },
-                ]}
-                numberOfLines={1}
-              >
-                {link.kind === 'lost'
-                  ? `${LINK_STATUS.lost.text}: ${link.reason}`
-                  : LINK_STATUS[link.kind].text}
-              </Text>
-            </View>
-            {link.kind === 'lost' && (
-              <Pressable
-                onPress={onReconnect}
-                accessibilityLabel="Reconnect now"
-                hitSlop={8}
-                style={({ pressed }) => [
-                  styles.headerButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="refresh" size={22} color={colors.muted} />
-              </Pressable>
-            )}
-            <Pressable
-              onPress={confirmSignOut}
-              accessibilityLabel="Sign out"
-              hitSlop={8}
-              style={({ pressed }) => [
-                styles.headerButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons name="log-out-outline" size={22} color={colors.muted} />
-            </Pressable>
-          </View>
-          <FeedTabs
-            voice={voice}
-            tab={tab}
-            onOpenGame={openGame}
-            onOpenPage={push}
-            onError={showError}
-          />
-          {/* hidden by a View, Android wraps a list that can refresh in a view it doesn't hide */}
-          <View style={[styles.grow, tab !== 'chat' && styles.hidden]}>
-            <SectionList<Row, Section>
-              sections={sections}
-              keyExtractor={(row) => row.key}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              contentContainerStyle={styles.listEnd}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  tintColor={colors.muted}
-                  onRefresh={() => {
-                    setRefreshing(true);
-                    void refreshGroups().finally(() => setRefreshing(false));
-                  }}
+          }
+          ListHeaderComponent={
+            <>
+              <View style={styles.search}>
+                <Field
+                  icon="search"
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search friends and groups"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  clearButtonMode="while-editing"
+                  returnKeyType="search"
                 />
-              }
-              ListHeaderComponent={
-                <>
-                  <View style={styles.search}>
-                    <Field
-                      icon="search"
-                      value={query}
-                      onChangeText={setQuery}
-                      placeholder="Search friends and groups"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      clearButtonMode="while-editing"
-                      returnKeyType="search"
-                    />
-                  </View>
-                  {joining && (
-                    <Appear>
-                      <JoinGroup
-                        voice={voice}
-                        onJoined={() => {
-                          setJoining(false);
-                          void refreshGroups();
-                        }}
-                        onError={showError}
-                      />
-                    </Appear>
-                  )}
-                </>
-              }
-              renderSectionHeader={({ section }) => (
-                <SectionHeader
-                  title={section.title}
-                  count={section.count}
-                  action={
-                    section.key === 'groups' ? (
-                      <Pressable
-                        onPress={() => setJoining(!joining)}
-                        hitSlop={10}
-                        accessibilityLabel="Join a group chat"
-                        style={styles.sectionAction}
-                      >
-                        <Ionicons
-                          name={joining ? 'close' : 'add'}
-                          size={16}
-                          color={colors.accent}
-                        />
-                        <Text style={styles.sectionActionText}>
-                          {joining ? 'Cancel' : 'Join group'}
-                        </Text>
-                      </Pressable>
-                    ) : section.key === 'offline' &&
-                      query.trim() === '' &&
-                      live ? (
-                      <Pressable
-                        onPress={() => setShowOffline(!showOffline)}
-                        hitSlop={10}
-                        style={styles.sectionAction}
-                      >
-                        <Text style={styles.sectionActionText}>
-                          {showOffline ? 'Hide' : 'Show'}
-                        </Text>
-                        <Ionicons
-                          name={showOffline ? 'chevron-up' : 'chevron-down'}
-                          size={16}
-                          color={colors.accent}
-                        />
-                      </Pressable>
-                    ) : undefined
-                  }
-                />
-              )}
-              renderSectionFooter={({ section }) =>
-                section.data.length === 0 && section.key !== 'offline' ? (
-                  <Text style={styles.empty}>
-                    {query.trim() !== ''
-                      ? 'No matches'
-                      : section.key !== 'groups'
-                        ? live
-                          ? 'None of your friends are online right now.'
-                          : 'Who is online shows once connected.'
-                        : // with cached groups shown, the header tells about the connection
-                          cachedGroups === null && groupsError
-                          ? `Could not load groups: ${groupsError}`
-                          : 'No group chats yet. Join one with its invite link.'}
-                  </Text>
-                ) : null
-              }
-              renderItem={({ item }) =>
-                item.kind === 'group' ? (
-                  <GroupRow
-                    group={item.group}
-                    inVoice={item.group.rooms.flatMap((room) =>
-                      room.membersInVoice.map((id) =>
-                        voice.connection.user(id),
-                      ),
-                    )}
-                    connected={
-                      target?.kind === 'group' &&
-                      target.groupId === item.group.groupId
-                    }
-                    unread={unread[item.key] ?? 0}
-                    onOpen={() => setChat(item.chat)}
-                  />
-                ) : (
-                  <FriendRow
-                    friend={item.friend}
-                    inCall={
-                      target?.kind === 'friend' &&
-                      target.steamid === item.friend.steamid
-                    }
-                    unread={unread[item.key] ?? 0}
-                    onOpen={() => setChat(item.chat)}
-                    onCall={() =>
-                      startVoice((mic) =>
-                        voice.callFriend(item.friend.steamid, mic),
-                      ).catch(showError)
-                    }
-                  />
-                )
-              }
-            />
-          </View>
-          <TabBar
-            tab={tab}
-            onChange={setTab}
-            bottomInset={session ? 0 : insets.bottom}
-          />
-        </View>
-        {chat && (
-          <SwipeBack onBack={() => setChat(null)}>
-            <Chat
-              voice={voice}
-              chat={chat}
-              {...chatHeader(voice, chat, groups, live)}
-              top={
-                chatGroup && (
-                  <VoiceChannels
+              </View>
+              {joining && (
+                <Appear>
+                  <JoinGroup
                     voice={voice}
-                    group={chatGroup}
-                    target={target}
+                    onJoined={() => {
+                      setJoining(false);
+                      void refreshGroups();
+                    }}
                     onError={showError}
                   />
-                )
+                </Appear>
+              )}
+            </>
+          }
+          renderSectionHeader={({ section }) => (
+            <SectionHeader
+              title={section.title}
+              count={section.count}
+              action={
+                section.key === 'groups' ? (
+                  <Pressable
+                    onPress={() => setJoining(!joining)}
+                    hitSlop={10}
+                    accessibilityLabel="Join a group chat"
+                    style={styles.sectionAction}
+                  >
+                    <Ionicons
+                      name={joining ? 'close' : 'add'}
+                      size={16}
+                      color={colors.accent}
+                    />
+                    <Text style={styles.sectionActionText}>
+                      {joining ? 'Cancel' : 'Join group'}
+                    </Text>
+                  </Pressable>
+                ) : section.key === 'offline' && query.trim() === '' && live ? (
+                  <Pressable
+                    onPress={() => setShowOffline(!showOffline)}
+                    hitSlop={10}
+                    style={styles.sectionAction}
+                  >
+                    <Text style={styles.sectionActionText}>
+                      {showOffline ? 'Hide' : 'Show'}
+                    </Text>
+                    <Ionicons
+                      name={showOffline ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.accent}
+                    />
+                  </Pressable>
+                ) : undefined
               }
-              bottomInset={session ? 0 : insets.bottom}
-              onBack={() => setChat(null)}
-              onError={showError}
             />
-          </SwipeBack>
-        )}
-        <PageStack
-          voice={voice}
-          pages={pages}
-          onBack={back}
-          onOpenGame={openGame}
-          onOpenPage={push}
+          )}
+          renderSectionFooter={({ section }) =>
+            section.data.length === 0 && section.key !== 'offline' ? (
+              <Text style={styles.empty}>
+                {query.trim() !== ''
+                  ? 'No matches'
+                  : section.key !== 'groups'
+                    ? live
+                      ? 'None of your friends are online right now.'
+                      : 'Who is online shows once connected.'
+                    : // with cached groups shown, the header tells about the connection
+                      cachedGroups === null && groupsError
+                      ? `Could not load groups: ${groupsError}`
+                      : 'No group chats yet. Join one with its invite link.'}
+              </Text>
+            ) : null
+          }
+          renderItem={({ item }) =>
+            item.kind === 'group' ? (
+              <GroupRow
+                group={item.group}
+                inVoice={item.group.rooms.flatMap((room) =>
+                  room.membersInVoice.map((id) => voice.connection.user(id)),
+                )}
+                connected={
+                  target?.kind === 'group' &&
+                  target.groupId === item.group.groupId
+                }
+                unread={unread[item.key] ?? 0}
+                onOpen={() => openChat(item.chat)}
+              />
+            ) : (
+              <FriendRow
+                friend={item.friend}
+                inCall={
+                  target?.kind === 'friend' &&
+                  target.steamid === item.friend.steamid
+                }
+                unread={unread[item.key] ?? 0}
+                onOpen={() => openChat(item.chat)}
+                onCall={() =>
+                  startVoice((mic) =>
+                    voice.callFriend(item.friend.steamid, mic),
+                  ).catch(showError)
+                }
+              />
+            )
+          }
         />
       </View>
+      <TabBar
+        tab={tab}
+        onChange={setTab}
+        bottomInset={session ? 0 : insets.bottom}
+      />
+    </View>
+  );
+
+  return (
+    <View style={styles.screen}>
+      <NavigationContainer
+        ref={navigation}
+        theme={navigationTheme}
+        onStateChange={(state) => setChat(stackedChat(state))}
+      >
+        <Stack.Navigator
+          // covered screens skip renders until they show again
+          screenOptions={{ headerShown: false, freezeOnBlur: true }}
+        >
+          {/* render callbacks, the screens show what Home has now */}
+          <Stack.Screen name="tabs">{() => tabs}</Stack.Screen>
+          <Stack.Screen name="chat">
+            {({ route }) => {
+              // from the route, it still shows while it is swiped away
+              const routeChat = route.params.chat;
+              const chatGroup =
+                routeChat.kind === 'room'
+                  ? groups.find((group) => group.groupId === routeChat.groupId)
+                  : undefined;
+              return (
+                <Chat
+                  voice={voice}
+                  chat={routeChat}
+                  {...chatHeader(voice, routeChat, groups, live)}
+                  top={
+                    chatGroup && (
+                      <VoiceChannels
+                        voice={voice}
+                        group={chatGroup}
+                        target={target}
+                        onError={showError}
+                      />
+                    )
+                  }
+                  bottomInset={session ? 0 : insets.bottom}
+                  onBack={back}
+                  onError={showError}
+                />
+              );
+            }}
+          </Stack.Screen>
+          <Stack.Screen name="page">
+            {({ route }) => (
+              <PageScreen
+                voice={voice}
+                page={route.params.page}
+                onBack={back}
+                onOpenGame={openGame}
+                onOpenPage={push}
+              />
+            )}
+          </Stack.Screen>
+        </Stack.Navigator>
+      </NavigationContainer>
       {session && (
         <CallDock
           voice={voice}

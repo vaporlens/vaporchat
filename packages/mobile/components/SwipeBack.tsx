@@ -12,7 +12,7 @@ import {
 import { colors } from '../theme';
 import { Appear } from './Appear';
 
-// Android has its own back gesture, `useBackHandler`
+// Android has its own back gesture
 export const swipesBack = Platform.OS === 'ios';
 // how far from the left edge a swipe starts, short of the header's back button
 const EDGE = 20;
@@ -20,14 +20,8 @@ const EDGE = 20;
 const FLING = 0.5;
 
 /**
- * Whether a screen with `above` screens pushed over it is hidden. The one right under the top
- * stays rendered where a swipe back shows it.
- */
-export const isCovered = (above: number) => above > (swipesBack ? 1 : 0);
-
-/**
  * A screen pushed over another, coming in from the right and swiped away from the left edge to
- * go back like iOS does. It covers the screen under it, see `isCovered`.
+ * go back like iOS does.
  */
 export function SwipeBack({
   onBack,

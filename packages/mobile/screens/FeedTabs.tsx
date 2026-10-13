@@ -20,7 +20,7 @@ import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
 import { Feed } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
-import type { Page } from './PageStack';
+import type { Page } from './PageScreen';
 
 type FeedTab = Exclude<Tab, 'chat'>;
 
