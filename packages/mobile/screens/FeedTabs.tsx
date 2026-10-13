@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
@@ -20,7 +21,7 @@ import { SignInPrompt } from '../components/SignInPrompt';
 import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
-import { Feed } from './Feed';
+import { Feed, type Search } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
 import type { Page } from './PageScreen';
 
@@ -45,12 +46,16 @@ interface List<T> {
   load: (feeds: SteamFeeds, next: number | null) => Promise<FeedPage<T>>;
   /** the user's own: why to sign in, shown in its place signed out */
   signInMessage?: string;
+  /** the user's own: its search bar's text, the bar filters it instead of searching the store */
+  filterPlaceholder?: string;
 }
 
 // the feeds' `keyOf`, stable so they don't load again on every render
 const storeItemKey = (item: StoreItem) => item.url;
 const eventKey = (event: SteamEvent) => event.id;
 const activityKey = (activity: FriendActivity) => activity.id;
+// what the user's own lists filter by
+const storeItemName = (item: StoreItem) => item.name;
 
 /** Loads a list Steam gives all at once. */
 function whole<T>(get: (feeds: SteamFeeds) => Promise<T[]>) {
@@ -76,6 +81,7 @@ const STORE_LISTS: List<StoreItem>[] = [
     empty: 'Your wishlist is empty.',
     load: (feeds, next) => feeds.getWishlist(next),
     signInMessage: 'Sign in with Steam to see your wishlist.',
+    filterPlaceholder: 'Search your wishlist',
   },
   {
     tab: 'library',
@@ -83,6 +89,7 @@ const STORE_LISTS: List<StoreItem>[] = [
     empty: 'You have no games yet.',
     load: whole((feeds) => feeds.getLibrary()),
     signInMessage: 'Sign in with Steam to see your games.',
+    filterPlaceholder: 'Search your games',
   },
 ];
 
@@ -159,11 +166,22 @@ function StoreItems({
     (next: number | null) => list.load(feeds, next),
     [feeds, list],
   );
+  const search = useMemo<Search<StoreItem>>(
+    () =>
+      list.filterPlaceholder
+        ? { placeholder: list.filterPlaceholder, textOf: storeItemName }
+        : {
+            placeholder: 'Search the store',
+            find: (query, next) => feeds.searchGames(query, next),
+          },
+    [feeds, list],
+  );
   return (
     <Feed
       cacheKey={`feed-${list.tab}`}
       load={load}
       keyOf={storeItemKey}
+      search={search}
       columns={2}
       renderItem={(item) => (
         <StoreItemCard

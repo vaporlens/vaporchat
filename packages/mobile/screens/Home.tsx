@@ -24,9 +24,10 @@ import { useCached } from '../cache';
 import { useUnread } from '../chats';
 import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
-import { Field } from '../components/Field';
+import { SearchField } from '../components/Field';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
+import { matches } from '../search';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
@@ -101,11 +102,6 @@ function chatHeader(
     subtitle: room?.name ?? '',
     avatarUrl: group?.avatarUrl ?? null,
   };
-}
-
-function matches(query: string, ...names: string[]) {
-  const q = query.trim().toLowerCase();
-  return q === '' || names.some((name) => name.toLowerCase().includes(q));
 }
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
@@ -336,15 +332,10 @@ export function Home({
           ListHeaderComponent={
             <>
               <View style={styles.search}>
-                <Field
-                  icon="search"
+                <SearchField
                   value={query}
                   onChangeText={setQuery}
                   placeholder="Search friends and groups"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  clearButtonMode="while-editing"
-                  returnKeyType="search"
                 />
               </View>
               {joining && (

@@ -2,7 +2,7 @@ import {
   type ReactElement,
   useCallback,
   useEffect,
-  useRef,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -15,23 +15,34 @@ import {
   View,
 } from 'react-native';
 import type { FeedPage } from 'vaporchat/protocol';
-import { readCache, writeCache } from '../cache';
+import { SearchField } from '../components/Field';
+import { matches } from '../search';
 import { colors, gridGutter } from '../theme';
+import { useHidingBar } from './useHidingBar';
+import { type Load, usePaging } from './usePaging';
 
-/** `added` that aren't in `shown`, each once: steam sends some items again. */
-function unique<T>(shown: T[], added: T[], keyOf: (item: T) => string) {
-  const keys = new Set(shown.map(keyOf));
-  return added.filter((item) => {
-    const key = keyOf(item);
-    if (keys.has(key)) return false;
-    keys.add(key);
-    return true;
-  });
-}
+/** What a feed's search bar looks for. */
+export type Search<T> = { placeholder: string } & (
+  | {
+      /** a stable function: Steam's results, shown in place of the list */
+      find: (query: string, next: number | null) => Promise<FeedPage<T>>;
+    }
+  | {
+      /** the list's items with the query in their text, the whole list loads for it */
+      textOf: (item: T) => string;
+    }
+);
+
+// the bar's height, the list keeps scrolled past it when it's not used
+const SEARCH_HEIGHT = 60;
+// steam is asked once typing stops for a while, not for every letter
+const TYPING_MS = 3500;
 
 /**
  * A list loaded from Steam: last time's first page while it loads, pull to refresh, more as it
- * scrolls to the end (when `load` pages), errors in place of an empty list.
+ * scrolls to the end (when `load` pages), errors in place of an empty list. With `search`, a
+ * search bar over it that pulling down shows first, pulling further refreshes. Unused, a scroll
+ * or a tap elsewhere hides it again.
  */
 export function Feed<T>({
   cacheKey,
@@ -41,13 +52,14 @@ export function Feed<T>({
   renderItem,
   empty,
   header,
+  search,
   extraData,
   onError,
 }: {
   /** where its first page is cached */
   cacheKey: string;
   /** a stable function, the feed loads again when it changes */
-  load: (next: number | null) => Promise<FeedPage<T>>;
+  load: Load<T>;
   /** a stable function, telling items apart */
   keyOf: (item: T) => string;
   /** rows of this many items, each padded by `gridGutter` */
@@ -56,92 +68,113 @@ export function Feed<T>({
   empty: string;
   /** over the rows, shown while they load too */
   header?: ReactElement;
+  search?: Search<T>;
   /** rows render again when it changes */
   extraData?: unknown;
   onError: (err: Error) => void;
 }) {
-  const [cached] = useState(() => readCache<FeedPage<T>>(cacheKey));
-  const [items, setItems] = useState<T[] | null>(cached?.items ?? null);
-  const [next, setNext] = useState<number | null>(cached?.next ?? null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  // a refresh outdates pages still loading
-  const generation = useRef(0);
+  const [query, setQuery] = useState('');
+  // what steam is asked for, once typing stops or the keyboard's search key is pressed
+  const [sentQuery, setSentQuery] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setSentQuery(query.trim()), TYPING_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
 
-  const refresh = useCallback(async () => {
-    const current = ++generation.current;
-    const page = await load(null);
-    if (current !== generation.current) return;
-    const first = { items: unique([], page.items, keyOf), next: page.next };
-    writeCache(cacheKey, first);
-    setItems(first.items);
-    setNext(first.next);
-  }, [cacheKey, load, keyOf]);
+  const searching = query.trim() !== '';
+  const find = search && 'find' in search ? search.find : null;
+  const textOf = search && 'textOf' in search ? search.textOf : null;
+  const findSent = useMemo(
+    () =>
+      find && sentQuery !== ''
+        ? (next: number | null) => find(sentQuery, next)
+        : null,
+    [find, sentQuery],
+  );
+  const list = usePaging(load, keyOf, cacheKey, onError);
+  const found = usePaging(findSent, keyOf, null, onError);
+  const shown = find && searching ? found : list;
+  const filtering = textOf !== null && searching;
+  const items = useMemo(
+    () =>
+      filtering
+        ? shown.items?.filter((item) => matches(query, textOf(item)))
+        : shown.items,
+    [filtering, query, textOf, shown.items],
+  );
 
-  // failing first shows in place of the list, later refreshes keep the list and toast
-  const loadFirst = useCallback(() => {
-    setError(null);
-    refresh().catch((err: Error) => setError(err.message));
-  }, [refresh]);
+  // a filter goes through the whole list, it loads the rest a page at a time. Failing stops it
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per page loaded
+  useEffect(() => {
+    if (filtering) void list.loadMore();
+  }, [filtering, list.next]);
 
-  useEffect(loadFirst, [loadFirst]);
-
-  async function loadMore() {
-    if (next === null || loadingMore || refreshing) return;
-    const current = generation.current;
-    setLoadingMore(true);
-    try {
-      const page = await load(next);
-      if (current !== generation.current) return;
-      const shown = items ?? [];
-      const added = unique(shown, page.items, keyOf);
-      setItems([...shown, ...added]);
-      // a page of nothing new is the end, steam would keep sending the same
-      setNext(added.length > 0 ? page.next : null);
-    } catch (err) {
-      onError(err as Error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  const bar = useHidingBar<T>(SEARCH_HEIGHT, searching);
+  // stable, rows don't render again on every letter typed
+  const renderRow = useCallback(
+    ({ item }: { item: T }) => renderItem(item),
+    [renderItem],
+  );
 
   return (
     <FlatList
+      ref={bar.ref}
       data={items ?? []}
       keyExtractor={keyOf}
       numColumns={columns}
       columnWrapperStyle={columns > 1 ? styles.row : undefined}
-      renderItem={({ item }) => renderItem(item)}
+      renderItem={renderRow}
       extraData={extraData}
-      contentContainerStyle={styles.content}
-      onEndReached={() => void loadMore()}
+      contentContainerStyle={[
+        styles.content,
+        // tall enough to scroll the bar away when there are few rows
+        search && { minHeight: bar.minHeight },
+      ]}
+      {...(search && bar.list)}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      onEndReached={() => void shown.loadMore()}
       onEndReachedThreshold={1}
       refreshControl={
         <RefreshControl
-          refreshing={refreshing}
+          refreshing={shown.refreshing}
           tintColor={colors.muted}
-          onRefresh={() => {
-            setRefreshing(true);
-            refresh()
-              .catch(onError)
-              .finally(() => setRefreshing(false));
-          }}
+          onRefresh={shown.pull}
         />
       }
-      ListHeaderComponent={header}
+      ListHeaderComponent={
+        <>
+          {search && (
+            <View style={styles.search} {...bar.barView}>
+              <SearchField
+                ref={bar.input}
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={() => setSentQuery(query.trim())}
+                placeholder={search.placeholder}
+              />
+            </View>
+          )}
+          {header}
+        </>
+      }
       ListEmptyComponent={
-        items !== null ? (
-          <Text style={styles.message}>{empty}</Text>
+        items ? (
+          // the rest of the list may still match
+          shown.loadingMore ? null : (
+            <Text style={styles.message}>
+              {searching ? 'No matches.' : empty}
+            </Text>
+          )
         ) : (
           <View style={styles.center}>
-            {error === null ? (
+            {shown.error === null ? (
               <ActivityIndicator color={colors.muted} />
             ) : (
               <>
-                <Text style={styles.message}>{error}</Text>
+                <Text style={styles.message}>{shown.error}</Text>
                 <Pressable
-                  onPress={loadFirst}
+                  onPress={shown.loadFirst}
                   style={({ pressed }) => [
                     styles.retry,
                     pressed && styles.pressed,
@@ -155,9 +188,9 @@ export function Feed<T>({
         )
       }
       ListFooterComponent={
-        loadingMore ? (
+        shown.loadingMore ? (
           <ActivityIndicator color={colors.muted} style={styles.more} />
-        ) : next === null && (items?.length ?? 0) > 0 ? (
+        ) : shown.next === null && (items?.length ?? 0) > 0 ? (
           <Text style={styles.message}>That's all.</Text>
         ) : null
       }
@@ -176,6 +209,11 @@ const styles = StyleSheet.create({
   // grows so the loading state centers in the space left
   // the header's pills have their own space over them
   content: { flexGrow: 1, paddingBottom: 12 },
+  search: {
+    height: SEARCH_HEIGHT,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+  },
   row: { paddingHorizontal: gridGutter },
   message: {
     color: colors.muted,

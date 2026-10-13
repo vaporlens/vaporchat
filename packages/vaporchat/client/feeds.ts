@@ -15,6 +15,7 @@ import {
   getStoreItems,
   getTopSellers,
   getUpcoming,
+  searchGames,
 } from '../steam/store.ts';
 import { getWishlist } from '../steam/wishlist.ts';
 
@@ -108,6 +109,11 @@ export class SteamFeeds {
   /** A page of popular new releases, newest first. */
   async getNewReleases(start: number | null = null) {
     return getNewReleases(await this.#country(), start);
+  }
+
+  /** A page of what the store finds for `term`, best matches first. */
+  async searchGames(term: string, start: number | null = null) {
+    return searchGames(term, await this.#country(), start);
   }
 
   /** A page of popular games coming soon. */

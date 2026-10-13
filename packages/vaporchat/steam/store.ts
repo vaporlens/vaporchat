@@ -219,3 +219,12 @@ export function getUpcoming(country: string, start: number | null) {
 export function getTopSellers(country: string, start: number | null) {
   return searchStore('filter=topsellers', country, start);
 }
+
+/** What the store finds for `term`, best matches first, like its search page. */
+export function searchGames(
+  term: string,
+  country: string,
+  start: number | null,
+) {
+  return searchStore(`term=${encodeURIComponent(term)}`, country, start);
+}

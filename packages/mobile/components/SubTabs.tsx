@@ -15,6 +15,8 @@ export function SubTabs<K extends string>({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      // a pill switches with the keyboard up, not only closes it
+      keyboardShouldPersistTaps="handled"
       style={styles.scroll}
       contentContainerStyle={styles.bar}
     >

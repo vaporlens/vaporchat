@@ -76,6 +76,7 @@ await feeds.getLibrary(); // the games the user owns, recently played first
 await feeds.getUserApps(); // appids the user owns and wishlisted, to mark games with
 await feeds.getNewReleases(); // popular new releases, newest first; pages like news
 await feeds.getUpcoming(); // popular games coming soon; pages like news
+await feeds.searchGames('term'); // what the store finds, best matches first; pages like news
 await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days to a page
 await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
 await feeds.getStoreItems(bundle.includedAppids); // a bundle's games

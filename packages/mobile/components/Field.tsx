@@ -47,6 +47,20 @@ export function Field({
   );
 }
 
+/** A field searching as the user types: a search icon, no autocorrect, a clear button. */
+export function SearchField(props: TextInputProps & { ref?: Ref<TextInput> }) {
+  return (
+    <Field
+      icon="search"
+      autoCapitalize="none"
+      autoCorrect={false}
+      clearButtonMode="while-editing"
+      returnKeyType="search"
+      {...props}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   field: {
     flexDirection: 'row',

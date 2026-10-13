@@ -14,6 +14,7 @@ import { Logo } from './components/Logo';
 import { GuestHome } from './screens/GuestHome';
 import { Home, type Link } from './screens/Home';
 import { SignIn } from './screens/SignIn';
+import { barTouches } from './screens/useHidingBar';
 import { colors, gradients } from './theme';
 import { tokenStore } from './tokenStore';
 import { UserAppsProvider } from './userApps';
@@ -154,7 +155,7 @@ export default function App() {
   }, [failures]);
 
   return (
-    <SafeAreaProvider style={styles.container}>
+    <SafeAreaProvider style={styles.container} {...barTouches}>
       {state.kind === 'starting' && (
         <View style={styles.center}>
           <Logo />
