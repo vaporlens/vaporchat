@@ -68,6 +68,12 @@ const STORE_LISTS: List<StoreItem>[] = [
     empty: 'Your wishlist is empty.',
     load: (feeds, next) => feeds.getWishlist(next),
   },
+  {
+    tab: 'library',
+    title: 'My games',
+    empty: 'You have no games yet.',
+    load: whole((feeds) => feeds.getLibrary()),
+  },
 ];
 
 const RELEASE_LISTS: List<StoreItem>[] = [

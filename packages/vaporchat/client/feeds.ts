@@ -2,6 +2,7 @@ import type { SteamCM } from '../steam/cm.ts';
 import { getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails } from '../steam/gameDetails.ts';
+import { getLibrary } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
 import { getPersonalCalendar } from '../steam/personalCalendar.ts';
@@ -16,10 +17,10 @@ import {
 import { getWishlist } from '../steam/wishlist.ts';
 
 /**
- * What Steam's store and client show: sale events, deals, top sellers, the user's wishlist, new
- * and upcoming games, personal release calendar, game and sale pages, news and friends'
- * activity. Store pages go through store.steampowered.com, which browsers can't reach without a
- * proxy (no CORS). Prices are in the currency of where Steam located us at logon.
+ * What Steam's store and client show: sale events, deals, top sellers, the user's wishlist and
+ * library, new and upcoming games, personal release calendar, game and sale pages, news and
+ * friends' activity. Store pages go through store.steampowered.com, which browsers can't reach
+ * without a proxy (no CORS). Prices are in the currency of where Steam located us at logon.
  */
 export class SteamFeeds {
   /** waited for, the feeds can be asked for while logging on */
@@ -62,6 +63,12 @@ export class SteamFeeds {
   async getWishlist(start: number | null = null) {
     const cm = await this.#cm;
     return getWishlist(cm.steamid, await this.#webSession(), cm.country, start);
+  }
+
+  /** The games the user owns, recently played first. */
+  async getLibrary() {
+    const cm = await this.#cm;
+    return getLibrary(cm.steamid, await this.#webSession());
   }
 
   /** A page of popular new releases, newest first. */

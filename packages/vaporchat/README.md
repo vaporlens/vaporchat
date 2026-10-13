@@ -71,6 +71,7 @@ await feeds.getSaleEvents(); // sales running now
 await feeds.getSpecials(); // the store's top discounts; pages like news
 await feeds.getTopSellers(); // best selling first; pages like news
 const wishlist = await feeds.getWishlist(); // the user's, biggest discounts first; pages like news
+await feeds.getLibrary(); // the games the user owns, recently played first
 await feeds.getNewReleases(); // popular new releases, newest first; pages like news
 await feeds.getUpcoming(); // popular games coming soon; pages like news
 await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days to a page
@@ -100,7 +101,7 @@ await feeds.getFriendsActivity(); // achievements, purchases, screenshots; pages
 - The feeds use the endpoints Steam's own store, News Hub and client use, none of them documented.
   Store prices follow the country Steam located the connection in at logon. Friends' activity
   comes over the Steam connection (`UserNews.GetUserNews`, its protobuf is in
-  `scripts/userNews.proto`), news, the wishlist and the personal calendar use a web session like
+  `scripts/userNews.proto`), news, the wishlist, the library and the personal calendar use a web session like
   `sendImage`, and the other store lists need no login.
 - Messages come as `parts` to render: text, emoticons, stickers and images with their URLs (other
   BBCode such as links and quotes reads as its text). Our own messages sent from other devices come
@@ -168,7 +169,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |
-| Store feeds: top sellers, upcoming, wishlist (private too), personal calendar | live (Bun), wishlist paging not tried (bot's fits one page) |
+| Store feeds: top sellers, upcoming, wishlist (private too), personal calendar, library | live (Bun), wishlist paging not tried (bot's fits one page) |
 | Game pages; store descriptions and news posts as rich text | live (Bun) |
 | Sale event pages with their games, bundles included | live (Bun) |
 | iOS app: Store, Releases, Feed tabs and their lists | installed on the phone, not tried yet |
