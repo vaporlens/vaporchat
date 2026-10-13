@@ -12,6 +12,7 @@ import { GradientButton } from '../components/GradientButton';
 import { date, fullDate, timeAgo } from '../format';
 import { openLink } from '../links';
 import { colors, gradients, gridGutter, imageFadeMs } from '../theme';
+import { useOwnership } from '../userApps';
 
 /** Items two to a row, for lists that can't lay out columns themselves. */
 export function gridRows<T>(items: T[]): T[][] {
@@ -62,9 +63,16 @@ export function BuyHeader({ item }: { item: StoreItem }) {
   );
 }
 
+// how a card shows a game the user has, steam's store marks them like this
+const OWNERSHIP = {
+  owned: { label: 'In library', color: colors.accept },
+  wishlisted: { label: 'Wishlisted', color: colors.accent },
+};
+
 /**
- * A game with its price. When it was or will be released, or when its discount ends. Half a row
- * of a two-column grid, the rows pad themselves by `gridGutter`.
+ * A game with its price. When it was or will be released, or when its discount ends, and
+ * whether the user owns or wishlisted it. Half a row of a two-column grid, the rows pad
+ * themselves by `gridGutter`.
  */
 export function StoreItemCard({
   item,
@@ -82,11 +90,17 @@ export function StoreItemCard({
           ? `Releases ${fullDate(item.releasedAt)}`
           : `Released ${date(item.releasedAt)}`)
       : item.discountEndsAt && `Offer ends ${date(item.discountEndsAt)}`;
+  const ownership = useOwnership(item.appid);
+  const mark = ownership && OWNERSHIP[ownership];
   return (
     <View style={styles.cell}>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.card,
+          mark && { borderColor: mark.color },
+          pressed && styles.pressed,
+        ]}
       >
         <View>
           <Image
@@ -98,6 +112,11 @@ export function StoreItemCard({
           <View style={styles.cardPrice}>
             <Price item={item} />
           </View>
+          {mark && (
+            <Text style={[styles.mark, { backgroundColor: mark.color }]}>
+              {mark.label}
+            </Text>
+          )}
         </View>
         <View style={styles.cardBody}>
           <Text
@@ -281,6 +300,18 @@ const styles = StyleSheet.create({
   },
   // in the picture's corner, the way steam's store shows discounts
   cardPrice: { position: 'absolute', right: 6, bottom: 6 },
+  mark: {
+    position: 'absolute',
+    left: 6,
+    top: 6,
+    color: colors.bright,
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
   title: { color: colors.bright, fontSize: 15, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 12 },
   price: {

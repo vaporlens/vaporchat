@@ -1,7 +1,7 @@
-import type { StoreItem } from '../protocol.ts';
+import type { StoreItem, UserApps } from '../protocol.ts';
 import type { WebSession } from './logOn.ts';
 import { callApi } from './store.ts';
-import { ASSETS_URL, STORE_URL } from './web.ts';
+import { ASSETS_URL, getJson, STORE_URL } from './web.ts';
 
 /** A game of the user's library as GetOwnedGames describes it, only what we use. */
 export interface OwnedGame {
@@ -49,4 +49,17 @@ export async function getLibrary(
     accessToken,
   );
   return libraryItems(games);
+}
+
+/** The apps the user owns and wishlisted, from what the store's pages mark games with. */
+export async function getUserApps({ cookie }: WebSession): Promise<UserApps> {
+  const { rgOwnedApps = [], rgWishlist = [] } = await getJson<{
+    rgOwnedApps?: number[];
+    rgWishlist?: number[];
+  }>(`${STORE_URL}dynamicstore/userdata/`, cookie);
+  // it answers a session it doesn't know with empty lists, not an error
+  if (rgOwnedApps.length === 0 && rgWishlist.length === 0) {
+    throw new Error('Steam gave no owned or wishlisted apps');
+  }
+  return { owned: rgOwnedApps, wishlisted: rgWishlist };
 }

@@ -14,6 +14,7 @@ import { Home, type Link } from './screens/Home';
 import { SignIn } from './screens/SignIn';
 import { colors, gradients } from './theme';
 import { tokenStore } from './tokenStore';
+import { UserAppsProvider } from './userApps';
 
 type State =
   /** reading the stored token */
@@ -160,14 +161,16 @@ export default function App() {
       )}
       {state.kind === 'signedIn' && (
         <Appear style={styles.screen}>
-          <Home
-            voice={state.voice}
-            link={state.link}
-            onReconnect={() =>
-              state.link.kind === 'lost' && connect(state.link.failures)
-            }
-            onSignOut={() => signOut(state.voice)}
-          />
+          <UserAppsProvider voice={state.voice}>
+            <Home
+              voice={state.voice}
+              link={state.link}
+              onReconnect={() =>
+                state.link.kind === 'lost' && connect(state.link.failures)
+              }
+              onSignOut={() => signOut(state.voice)}
+            />
+          </UserAppsProvider>
         </Appear>
       )}
       <StatusBar style="light" />

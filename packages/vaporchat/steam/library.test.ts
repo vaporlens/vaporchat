@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { libraryItems } from './library.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getUserApps, libraryItems } from './library.ts';
 
 describe('libraryItems', () => {
   it('has recently played games first, then never played ones by name', () => {
@@ -15,5 +15,24 @@ describe('libraryItems', () => {
       'Alpha',
       'Zeta',
     ]);
+  });
+});
+
+describe('getUserApps', () => {
+  const SESSION = {
+    sessionid: 'abc',
+    cookie: 'sessionid=abc',
+    accessToken: 'x',
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("fails on the empty lists steam answers a session it doesn't know with", async () => {
+    vi.stubGlobal('fetch', async () =>
+      Response.json({ rgOwnedApps: [], rgWishlist: [] }),
+    );
+    await expect(getUserApps(SESSION)).rejects.toThrow();
   });
 });

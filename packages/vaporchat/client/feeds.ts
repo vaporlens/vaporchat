@@ -2,7 +2,7 @@ import type { SteamCM } from '../steam/cm.ts';
 import { getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails } from '../steam/gameDetails.ts';
-import { getLibrary } from '../steam/library.ts';
+import { getLibrary, getUserApps } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
 import { getPersonalCalendar } from '../steam/personalCalendar.ts';
@@ -69,6 +69,11 @@ export class SteamFeeds {
   async getLibrary() {
     const cm = await this.#cm;
     return getLibrary(cm.steamid, await this.#webSession());
+  }
+
+  /** The apps the user owns and wishlisted, to mark them in other lists. */
+  async getUserApps() {
+    return getUserApps(await this.#webSession());
   }
 
   /** A page of popular new releases, newest first. */

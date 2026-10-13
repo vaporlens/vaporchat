@@ -221,6 +221,12 @@ export interface StoreItem {
   free: boolean;
 }
 
+/** The apps the user owns and the ones on their wishlist, by appid, like the store marks them. */
+export interface UserApps {
+  owned: number[];
+  wishlisted: number[];
+}
+
 /** A sale, update or announcement posted on Steam by a game or group. Times are milliseconds. */
 export interface SteamEvent {
   id: string;
