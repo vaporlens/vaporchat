@@ -61,10 +61,11 @@ export function yourDocuments({
 
 /**
  * News, updates and events of the games the user owns, wishlisted or follows, like the
- * News Hub's "Your News". `before` is the `next` of the previous page.
+ * News Hub's "Your News". Without a session, the news Steam features for everyone. `before`
+ * is the `next` of the previous page.
  */
 export async function getYourNews(
-  { cookie }: WebSession,
+  session: WebSession | null,
   country: string,
   before: number | null,
 ): Promise<FeedPage<SteamEvent>> {
@@ -80,7 +81,7 @@ export async function getYourNews(
     const calendar = await getJson<Calendar>(
       `${CALENDAR_URL}?minTime=0&maxTime=${next}&ascending=false&maxResults=${PAGE_SIZE}` +
         `&populateEvents=0&eventTypes=${EVENT_TYPES}&l=english`,
-      cookie,
+      session?.cookie,
     );
     documents.push(...yourDocuments(calendar));
     const times = (calendar.documents ?? []).map((doc) => doc.start_time);

@@ -2,6 +2,7 @@ import type { SteamCM } from '../steam/cm.ts';
 import { getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails } from '../steam/gameDetails.ts';
+import { steamLanguage } from '../steam/language.ts';
 import { getLibrary, getUserApps } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
@@ -10,38 +11,66 @@ import { getSalePage } from '../steam/salePage.ts';
 import {
   getNewReleases,
   getSpecials,
+  getStoreCountry,
   getStoreItems,
   getTopSellers,
   getUpcoming,
 } from '../steam/store.ts';
 import { getWishlist } from '../steam/wishlist.ts';
 
+/** Who the feeds load the user's own lists for, see `SteamFeeds.anonymous` for no one. */
+interface FeedsUser {
+  /** waited for, the feeds can be asked for while logging on */
+  cm: Promise<SteamCM>;
+  webSession: () => Promise<WebSession>;
+}
+
 /**
  * What Steam's store and client show: sale events, deals, top sellers, the user's wishlist and
  * library, new and upcoming games, personal release calendar, game and sale pages, news and
  * friends' activity. Store pages go through store.steampowered.com, which browsers can't reach
- * without a proxy (no CORS). Prices are in the currency of where Steam located us at logon.
+ * without a proxy (no CORS). Prices are in the currency of where Steam located us.
  */
 export class SteamFeeds {
-  /** waited for, the feeds can be asked for while logging on */
-  #cm: Promise<SteamCM>;
-  #webSession: () => Promise<WebSession>;
   /** steam's language id that sale events are in */
   #language: number;
+  #user: FeedsUser | null;
+  /** without a user, where the store located us */
+  #located: Promise<string> | null = null;
 
-  constructor(
-    cm: Promise<SteamCM>,
-    webSession: () => Promise<WebSession>,
-    language: number,
-  ) {
-    this.#cm = cm;
-    this.#webSession = webSession;
+  constructor(language: number, user: FeedsUser | null) {
     this.#language = language;
+    this.#user = user;
   }
 
-  /** where Steam located us at logon, the store's prices follow it */
+  /**
+   * The feeds anyone sees, without logging on: the store's lists, game and sale pages and sale
+   * events, and the news Steam features for everyone. The user's own lists and friends'
+   * activity reject.
+   */
+  static anonymous(locale = 'en') {
+    return new SteamFeeds(steamLanguage(locale), null);
+  }
+
+  /** where Steam located us (at logon with a user), the store's prices follow it */
   async #country() {
-    return (await this.#cm).country;
+    if (this.#user) return (await this.#user.cm).country;
+    this.#located ??= getStoreCountry().catch((err: Error) => {
+      // asked again next time
+      this.#located = null;
+      throw err;
+    });
+    return this.#located;
+  }
+
+  /** for the user's own lists */
+  #requireUser() {
+    if (!this.#user) throw new Error('Sign in to Steam to see this');
+    return this.#user;
+  }
+
+  #webSession() {
+    return this.#requireUser().webSession();
   }
 
   /** The sale events running now. */
@@ -61,13 +90,13 @@ export class SteamFeeds {
 
   /** A page of the user's wishlist, biggest discounts first. */
   async getWishlist(start: number | null = null) {
-    const cm = await this.#cm;
+    const cm = await this.#requireUser().cm;
     return getWishlist(cm.steamid, await this.#webSession(), cm.country, start);
   }
 
   /** The games the user owns, recently played first. */
   async getLibrary() {
-    const cm = await this.#cm;
+    const cm = await this.#requireUser().cm;
     return getLibrary(cm.steamid, await this.#webSession());
   }
 
@@ -110,14 +139,18 @@ export class SteamFeeds {
     return getSalePage(eventId, await this.#country(), this.#language);
   }
 
-  /** News of the user's games (owned, wishlisted, followed), like the News Hub's "Your News". */
+  /**
+   * News of the user's games (owned, wishlisted, followed), like the News Hub's "Your News".
+   * Without a user, the news Steam features for everyone.
+   */
   async getNews(before: number | null = null) {
-    return getYourNews(await this.#webSession(), await this.#country(), before);
+    const session = this.#user ? await this.#webSession() : null;
+    return getYourNews(session, await this.#country(), before);
   }
 
   /** What friends did lately: achievements, purchases, screenshots, reviews. */
   async getFriendsActivity(before: number | null = null) {
-    const cm = await this.#cm;
+    const cm = await this.#requireUser().cm;
     return getFriendsActivity(cm, cm.country, before);
   }
 }

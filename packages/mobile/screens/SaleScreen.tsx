@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { SteamVoice } from 'vaporchat/client/steamVoice';
+import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { SaleSection, SteamEvent, StoreItem } from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailHeader, useScrolledPast } from '../components/DetailHeader';
@@ -27,13 +27,13 @@ const HERO_RATIO = 16 / 9;
 
 /** A sale event: its picture and texts, and the games of each of its sections. */
 export function SaleScreen({
-  voice,
+  feeds,
   event,
   onBack,
   onOpenGame,
   onOpenImage,
 }: {
-  voice: SteamVoice;
+  feeds: SteamFeeds;
   event: SteamEvent;
   onBack: () => void;
   onOpenGame: (item: StoreItem) => void;
@@ -45,8 +45,8 @@ export function SaleScreen({
   // its title is under the picture, the header shows it once that scrolled away
   const pastHero = useScrolledPast(event.imageUrl ? width / HERO_RATIO : 0);
   const loadPage = useCallback(
-    () => voice.connection.feeds.getSalePage(event.id),
-    [voice, event.id],
+    () => feeds.getSalePage(event.id),
+    [feeds, event.id],
   );
   const { data: page, error } = useCached(`sale-${event.id}`, loadPage);
   const sections = useMemo(

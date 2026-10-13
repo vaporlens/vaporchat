@@ -1,5 +1,12 @@
 import type { FeedPage, StoreItem } from '../protocol.ts';
-import { API_URL, ASSETS_URL, getJson, inBatches, STORE_URL } from './web.ts';
+import {
+  API_URL,
+  ASSETS_URL,
+  getJson,
+  getText,
+  inBatches,
+  STORE_URL,
+} from './web.ts';
 
 // the store's own JSON APIs work without logging in, `callApi` can call them as the user too
 // GetItems takes up to this many ids per request
@@ -52,6 +59,21 @@ export function callApi<T>(
 // without a country the store APIs answer with nothing at all
 export function context(country: string) {
   return { language: 'english', country_code: country };
+}
+
+/** The country in a store page's config, where Steam located who loaded it. */
+export function countryFromPage(html: string) {
+  const country = html.match(/&quot;COUNTRY&quot;:&quot;([A-Z]{2})&quot;/)?.[1];
+  if (!country) throw new Error('Steam gave no country');
+  return country;
+}
+
+/**
+ * Where Steam locates us without logging on, the store's prices follow it. No JSON API tells,
+ * its smallest page does.
+ */
+export async function getStoreCountry() {
+  return countryFromPage(await getText(`${STORE_URL}login/`));
 }
 
 const DATA_REQUEST = { include_assets: true, include_release: true };

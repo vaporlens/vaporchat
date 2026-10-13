@@ -26,8 +26,7 @@ export function fetchWithCookie(
   });
 }
 
-/** GETs JSON, logged in to the website when given a web session's cookie. */
-export async function getJson<T>(url: string, cookie?: string) {
+async function get(url: string, cookie?: string) {
   const response = await (cookie ? fetchWithCookie(url, cookie) : fetch(url));
   if (!response.ok) {
     // without the query, it can have an access token
@@ -35,7 +34,17 @@ export async function getJson<T>(url: string, cookie?: string) {
       `Steam answered HTTP ${response.status} for ${url.split('?')[0]}`,
     );
   }
-  return (await response.json()) as T;
+  return response;
+}
+
+/** GETs JSON, logged in to the website when given a web session's cookie. */
+export async function getJson<T>(url: string, cookie?: string) {
+  return (await (await get(url, cookie)).json()) as T;
+}
+
+/** GETs a page's HTML. */
+export async function getText(url: string) {
+  return (await get(url)).text();
 }
 
 /** Looks a list up in batches of `size` at once, results in the list's order. */

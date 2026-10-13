@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { SteamVoice } from 'vaporchat/client/steamVoice';
+import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { GameDetails, StoreItem } from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
@@ -152,13 +152,13 @@ function Details({
 
 /** A game's store page: price, reviews, facts, trailers, screenshots and its description. */
 export function GameScreen({
-  voice,
+  feeds,
   item,
   onBack,
   onOpenImage,
   onOpenMedia,
 }: {
-  voice: SteamVoice;
+  feeds: SteamFeeds;
   /** shown right away, the rest of the page loads */
   item: StoreItem & { appid: number };
   onBack: () => void;
@@ -166,8 +166,8 @@ export function GameScreen({
   onOpenMedia: (media: MediaItem[]) => void;
 }) {
   const loadGame = useCallback(
-    () => voice.connection.feeds.getGame(item.appid),
-    [voice, item.appid],
+    () => feeds.getGame(item.appid),
+    [feeds, item.appid],
   );
   const { data: game, error } = useCached(`game-${item.appid}`, loadGame);
   // the page works without it, failing to get it just leaves it out

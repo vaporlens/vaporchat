@@ -112,12 +112,15 @@ function SteamGuard({ guard }: { guard: GuardRequest }) {
 export function SignIn({
   error,
   onSignIn,
+  onCancel,
 }: {
   error: string | null;
   onSignIn: (
     credentials: SteamCredentials,
     steamGuard: SteamGuardHandler,
   ) => Promise<void>;
+  /** back to the store, not while signing in, it would sign in anyway */
+  onCancel: () => void;
 }) {
   const [accountName, setAccountName] = useState('');
   const [password, setPassword] = useState('');
@@ -126,6 +129,10 @@ export function SignIn({
   const passwordRef = useRef<TextInput>(null);
   const guardCount = useRef(0);
   const ready = accountName.trim() !== '' && password !== '';
+  useBackHandler(() => {
+    if (!busy) onCancel();
+    return true;
+  });
 
   const steamGuard: SteamGuardHandler = (prompt) =>
     new Promise((resolve, reject) => {
@@ -202,6 +209,11 @@ export function SignIn({
               You sign in to Steam directly, your password goes to Steam and
               nowhere else.
             </Text>
+            {!busy && (
+              <Pressable onPress={onCancel} style={styles.link}>
+                <Text style={styles.linkText}>Not now</Text>
+              </Pressable>
+            )}
           </View>
         )}
       </ScrollView>

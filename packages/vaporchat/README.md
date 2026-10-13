@@ -33,6 +33,7 @@ app uses `expo-crypto`); logging on with a stored refresh token doesn't need it.
 ## Client
 
 ```ts
+import { SteamFeeds } from 'vaporchat/client/feeds';
 import { SteamVoice } from 'vaporchat/client/steamVoice';
 
 // stored refresh token first, credentials only when there is none or Steam rejected it
@@ -79,9 +80,10 @@ await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days
 await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
 await feeds.getStoreItems(bundle.includedAppids); // a bundle's games
 await feeds.getSalePage(event.id); // a sale event's sections: texts and their games
-const news = await feeds.getNews(); // the News Hub's "Your News", newest first
+const news = await feeds.getNews(); // the News Hub's "Your News", newest first; featured ones signed out
 await feeds.getNews(news.next); // older ones, `next` is null at the end
 await feeds.getFriendsActivity(); // achievements, purchases, screenshots; pages like news
+const guest = SteamFeeds.anonymous(locale); // without an account, the user's own lists reject
 ```
 
 - `logOn` saves fresh tokens to the `TokenStore` (keychain on phones, localStorage on web) and
@@ -100,10 +102,11 @@ await feeds.getFriendsActivity(); // achievements, purchases, screenshots; pages
 - Store descriptions and news posts come as `RichBlock`s to render (paragraphs, headings, lists,
   pictures, videos, links), parsed from Steam's BBCode by `steam/richText.ts`.
 - The feeds use the endpoints Steam's own store, News Hub and client use, none of them documented.
-  Store prices follow the country Steam located the connection in at logon. Friends' activity
+  Store prices follow the country Steam located the connection in at logon, or without one
+  (`SteamFeeds.anonymous`) the country a store page says Steam located us in. Friends' activity
   comes over the Steam connection (`UserNews.GetUserNews`, its protobuf is in
   `scripts/userNews.proto`), news, the wishlist, the library and the personal calendar use a web session like
-  `sendImage`, and the other store lists need no login.
+  `sendImage`, and the other store lists need no login. Without one, news is what Steam features for everyone.
 - Messages come as `parts` to render: text, emoticons, stickers and images with their URLs (other
   BBCode such as links and quotes reads as its text). Our own messages sent from other devices come
   as `message` too, with the same `id` as the one `sendMessage` returned: `mergeMessages` and
@@ -173,6 +176,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Store feeds: top sellers, upcoming, wishlist (private too), personal calendar, library, owned and wishlisted appids | live (Bun), wishlist paging not tried (bot's fits one page) |
 | Game pages; store descriptions and news posts as rich text | live (Bun) |
 | Sale event pages with their games, bundles included | live (Bun) |
+| Store feeds, game and sale pages without an account (`SteamFeeds.anonymous`) | live (Bun) |
 | iOS app: Store, Releases, Feed tabs and their lists | installed on the phone, not tried yet |
 | iOS app: game and article screens | iOS simulator (rendering only) |
 | iOS app: bundle screens with their games | not tried yet (bundle games live in Bun) |

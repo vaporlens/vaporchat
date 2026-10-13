@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   appidsFromSearch,
+  countryFromPage,
   getSpecials,
   getTopSellers,
   toStoreItem,
@@ -11,6 +12,20 @@ const ASSETS = {
   asset_url_format: 'steam/apps/10/${FILENAME}?t=1',
   header: 'abc/header.jpg',
 };
+
+describe('countryFromPage', () => {
+  it("reads the country from the page's config", () => {
+    expect(
+      countryFromPage(
+        '<div id="application_config" data-config="{&quot;LANGUAGE&quot;:&quot;english&quot;,&quot;COUNTRY&quot;:&quot;FR&quot;,&quot;CDN_URL&quot;:&quot;x&quot;}">',
+      ),
+    ).toBe('FR');
+  });
+
+  it('fails on a page without one', () => {
+    expect(() => countryFromPage('<html></html>')).toThrow();
+  });
+});
 
 describe('toStoreItem', () => {
   it('has the discount, its end and the header picture of a discounted game', () => {

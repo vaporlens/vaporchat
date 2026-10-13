@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   // grows so the loading state centers in the space left
-  content: { flexGrow: 1, paddingVertical: 12 },
+  // the header's pills have their own space over them
+  content: { flexGrow: 1, paddingBottom: 12 },
   row: { paddingHorizontal: gridGutter },
   message: {
     color: colors.muted,

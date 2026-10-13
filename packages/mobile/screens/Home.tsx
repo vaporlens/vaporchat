@@ -1,12 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  DarkTheme,
   NavigationContainer,
   type NavigationState,
-  StackActions,
   useNavigationContainerRef,
 } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -20,12 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
-import type {
-  ChatGroup,
-  ChatTarget,
-  Friend,
-  StoreItem,
-} from 'vaporchat/protocol';
+import type { ChatGroup, ChatTarget, Friend } from 'vaporchat/protocol';
 import { groupTitle } from 'vaporchat/steam/groups';
 import { chatKey } from 'vaporchat/steam/messages';
 import { useCached } from '../cache';
@@ -42,8 +34,9 @@ import { Chat } from './Chat';
 import { FeedTabs } from './FeedTabs';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
-import { type Page, PageScreen } from './PageScreen';
+import { PageScreen } from './PageScreen';
 import { FriendRow, GroupRow, SectionHeader } from './Rows';
+import { navigationTheme, type Routes, Stack, usePages } from './stack';
 import { VoiceChannels } from './VoiceChannels';
 
 /** How the app is connected to Steam, Home shows what was cached until it is online. */
@@ -116,21 +109,6 @@ function matches(query: string, ...names: string[]) {
 }
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
-
-/** The tabs, and the native screens pushed over them: a chat or pages. */
-type Routes = {
-  tabs: undefined;
-  chat: { chat: ChatTarget };
-  page: { page: Page };
-};
-
-const Stack = createNativeStackNavigator<Routes>();
-
-// pushed screens are dark while they come in, not the default white
-const navigationTheme = {
-  ...DarkTheme,
-  colors: { ...DarkTheme.colors, background: colors.background },
-};
 
 /** The chat on the stack, its messages aren't unread. */
 function stackedChat(state: NavigationState | undefined) {
@@ -266,21 +244,7 @@ export function Home({
     },
   ];
 
-  const push = useCallback(
-    (page: Page) => navigation.dispatch(StackActions.push('page', { page })),
-    [navigation],
-  );
-  const openGame = useCallback(
-    (item: StoreItem) =>
-      push(
-        item.appid === null
-          ? { kind: 'bundle', item }
-          : { kind: 'game', item: { ...item, appid: item.appid } },
-      ),
-    [push],
-  );
-  // Android's back button and gesture go back by themselves
-  const back = useCallback(() => navigation.goBack(), [navigation]);
+  const { push, openGame, back } = usePages(navigation);
 
   // set along with navigating, in one render, `onStateChange` would only catch up after it
   function openChat(chat: ChatTarget) {
@@ -344,6 +308,7 @@ export function Home({
         </Pressable>
       </View>
       <FeedTabs
+        feeds={voice.connection.feeds}
         voice={voice}
         tab={tab}
         onOpenGame={openGame}
@@ -539,7 +504,7 @@ export function Home({
           <Stack.Screen name="page">
             {({ route }) => (
               <PageScreen
-                voice={voice}
+                feeds={voice.connection.feeds}
                 page={route.params.page}
                 onBack={back}
                 onOpenGame={openGame}

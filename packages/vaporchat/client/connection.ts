@@ -147,7 +147,10 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     this.#friends = friends;
     this.#store = store;
     this.#cache = cache;
-    this.feeds = new SteamFeeds(cm, () => this.#webSession(), language);
+    this.feeds = new SteamFeeds(language, {
+      cm,
+      webSession: () => this.#webSession(),
+    });
     friends.on('changed', () => {
       this.emit('friendsChanged', friends.friends);
       this.#saveFriendsSoon();

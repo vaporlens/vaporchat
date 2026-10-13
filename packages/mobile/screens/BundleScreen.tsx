@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import type { SteamVoice } from 'vaporchat/client/steamVoice';
+import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { StoreItem } from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
@@ -9,19 +9,19 @@ import { BuyHeader, StoreItemCard } from './FeedCards';
 
 /** A bundle: its picture and price, and the games in it. */
 export function BundleScreen({
-  voice,
+  feeds,
   item,
   onBack,
   onOpenGame,
 }: {
-  voice: SteamVoice;
+  feeds: SteamFeeds;
   item: StoreItem;
   onBack: () => void;
   onOpenGame: (item: StoreItem) => void;
 }) {
   const loadGames = useCallback(
-    () => voice.connection.feeds.getStoreItems(item.includedAppids),
-    [voice, item.includedAppids],
+    () => feeds.getStoreItems(item.includedAppids),
+    [feeds, item.includedAppids],
   );
   // its store page names it, bundles have no appid
   const { data: games, error } = useCached(`bundle-${item.url}`, loadGames);

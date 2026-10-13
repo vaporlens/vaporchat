@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 /**
@@ -10,7 +10,7 @@ export function KeepOpened<K extends string>({
   render,
 }: {
   tab: K | null;
-  render: (tab: K) => ReactElement;
+  render: (tab: K) => ReactNode;
 }) {
   const [opened, setOpened] = useState<K[]>([]);
   if (tab !== null && !opened.includes(tab)) setOpened([...opened, tab]);

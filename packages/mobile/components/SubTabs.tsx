@@ -15,6 +15,7 @@ export function SubTabs<K extends string>({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
       contentContainerStyle={styles.bar}
     >
       {tabs.map((item) => {
@@ -42,6 +43,8 @@ export function SubTabs<K extends string>({
 }
 
 const styles = StyleSheet.create({
+  // scroll views grow by default, over a sign-in prompt they'd take its height
+  scroll: { flexGrow: 0 },
   bar: {
     gap: 8,
     paddingHorizontal: 16,
