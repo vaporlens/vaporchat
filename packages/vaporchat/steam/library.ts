@@ -1,6 +1,6 @@
 import type { StoreItem, UserApps } from '../protocol.ts';
 import type { WebSession } from './logOn.ts';
-import { callApi } from './store.ts';
+import { callApi, getGames } from './store.ts';
 import { ASSETS_URL, getJson, STORE_URL } from './web.ts';
 
 /** A game of the user's library as GetOwnedGames describes it, only what we use. */
@@ -13,9 +13,12 @@ export interface OwnedGame {
 
 /**
  * The games as store items without prices, they're the user's already. Recently played first,
- * then the never played ones by name.
+ * then the never played ones by name. Pictures from the games' store items, see `getGames`.
  */
-export function libraryItems(games: OwnedGame[]): StoreItem[] {
+export function libraryItems(
+  games: OwnedGame[],
+  store: Map<number | null, StoreItem>,
+): StoreItem[] {
   return [...games]
     .sort(
       (a, b) =>
@@ -27,8 +30,11 @@ export function libraryItems(games: OwnedGame[]): StoreItem[] {
       includedAppids: [],
       name: game.name ?? '',
       url: `${STORE_URL}app/${game.appid}`,
-      // every app has one at this path, delisted ones too
-      imageUrl: `${ASSETS_URL}steam/apps/${game.appid}/header.jpg`,
+      // newer apps keep theirs under a hashed folder only the store knows, older and delisted
+      // ones (which the store doesn't show) have one at this path
+      imageUrl:
+        store.get(game.appid)?.imageUrl ??
+        `${ASSETS_URL}steam/apps/${game.appid}/header.jpg`,
       price: null,
       originalPrice: null,
       discountPercent: 0,
@@ -42,13 +48,18 @@ export function libraryItems(games: OwnedGame[]): StoreItem[] {
 export async function getLibrary(
   steamid: string,
   { accessToken }: WebSession,
+  country: string,
 ): Promise<StoreItem[]> {
   const { games = [] } = await callApi<{ games?: OwnedGame[] }>(
     'IPlayerService/GetOwnedGames',
     { steamid, include_appinfo: true, include_played_free_games: true },
     accessToken,
   );
-  return libraryItems(games);
+  const store = await getGames(
+    games.map((game) => game.appid),
+    country,
+  );
+  return libraryItems(games, store);
 }
 
 /** The apps the user owns and wishlisted, from what the store's pages mark games with. */

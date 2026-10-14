@@ -98,7 +98,7 @@ export class SteamFeeds {
   /** The games the user owns, recently played first. */
   async getLibrary() {
     const cm = await this.#requireUser().cm;
-    return getLibrary(cm.steamid, await this.#webSession());
+    return getLibrary(cm.steamid, await this.#webSession(), cm.country);
   }
 
   /** The apps the user owns and wishlisted, to mark them in other lists. */
