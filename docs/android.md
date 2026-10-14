@@ -100,7 +100,8 @@ signed with the debug key.
 ### Each new build
 
 1. In `packages/mobile/app.json`, raise `expo.android.versionCode` (a number: `2`, `3`, …). Google Play
-   rejects a version code it has seen. `expo.version` is the version users see, shared with iOS.
+   rejects a version code it has seen. Set `expo.ios.buildNumber` to the same number, so both
+   platforms share one build number. `expo.version` is the version users see, shared with iOS.
 2. Regenerate the native project and build:
 
    ```sh

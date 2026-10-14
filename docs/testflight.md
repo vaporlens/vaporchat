@@ -7,7 +7,8 @@ Builds are archived and uploaded from this Mac with Xcode's signed-in account. T
 
 1. In `packages/mobile/app.json`, raise `expo.ios.buildNumber` (a string: `"2"`, `"3"`, …).
    App Store Connect rejects a build number it has seen for that version. Change `expo.version` only
-   for a new release; the build number can restart at `"1"` then.
+   for a new release. Set `expo.android.versionCode` to the same number, so both platforms share one
+   build number; since Google Play never accepts a lower version code, don't restart it at `"1"`.
 2. Regenerate the native project and its pods. Prebuild may clear `ios/`, so always run both:
 
    ```sh

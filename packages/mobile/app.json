@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "org.vaporlens.Vaporlens",
-      "versionCode": 1,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#2D73FF",
         "foregroundImage": "./assets/android-icon-foreground.png",
