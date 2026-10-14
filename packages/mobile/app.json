@@ -2,13 +2,13 @@
   "expo": {
     "name": "Vaporlens",
     "slug": "vaporchat",
-    "version": "0.4",
+    "version": "0.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "org.vaporlens.Vaporlens",
-      "buildNumber": "1",
+      "buildNumber": "5",
       "appleTeamId": "EA3F6PEEAV",
       "supportsTablet": true,
       "config": {
