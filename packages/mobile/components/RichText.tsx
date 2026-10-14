@@ -12,7 +12,7 @@ import {
 import type { RichBlock, RichSpan, RichVideo } from 'vaporchat/protocol';
 import { openLink } from '../links';
 import { colors, imageFadeMs } from '../theme';
-import { LoopingVideo, type LoopingVideoControls } from './LoopingVideo';
+import { LoopingVideo } from './LoopingVideo';
 import { useOnScreen } from './onScreen';
 
 function spanStyle(span: RichSpan): TextStyle {
@@ -61,7 +61,7 @@ function Spans({ spans }: { spans: RichSpan[] }) {
   });
 }
 
-/** Android's WebView plays VP9 on every phone, HEVC only where the phone decodes it. */
+/** Android plays VP9 on every phone, HEVC only where the phone decodes it. */
 function videoUrl(video: RichVideo) {
   if (video.mp4 === null) return video.webm;
   return Platform.OS === 'android' ? (video.webm ?? video.mp4) : video.mp4;
@@ -80,20 +80,18 @@ function RichImage({
   );
   const box = useRef<View>(null);
   const image = useRef<Image>(null);
-  const videoControls = useRef<LoopingVideoControls>(null);
   // animations decode every frame as they play, the ones scrolled away stop
   const playing = useRef(true);
-  const play = useCallback((onScreen: boolean) => {
-    if (onScreen === playing.current) return;
-    playing.current = onScreen;
+  // videos wait for the first check, a page full of them doesn't start them all. On Android they
+  // start and stop once scrolling pauses: making or releasing a player holds up the UI thread
+  const [onScreen, setOnScreen] = useState(false);
+  const play = useCallback((visible: boolean, settled: boolean) => {
+    if (settled || Platform.OS !== 'android') setOnScreen(visible);
+    if (visible === playing.current) return;
+    playing.current = visible;
     // nothing to start or stop when its view is already gone
-    if (onScreen) {
-      image.current?.startAnimating().catch(() => {});
-      videoControls.current?.play();
-    } else {
-      image.current?.stopAnimating().catch(() => {});
-      videoControls.current?.pause();
-    }
+    if (visible) image.current?.startAnimating().catch(() => {});
+    else image.current?.stopAnimating().catch(() => {});
   }, []);
   const check = useOnScreen(box, play);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -106,10 +104,11 @@ function RichImage({
     >
       {video ? (
         <LoopingVideo
-          ref={videoControls}
           url={videoUrl(video)}
           posterUrl={video.posterUrl}
           style={[styles.image, { aspectRatio: ratio }]}
+          // outside a watched scroll view nothing tells, it plays then
+          playing={onScreen || !check}
           onError={() => setVideoFailed(true)}
         />
       ) : (

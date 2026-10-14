@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ChatGroup, Friend } from 'vaporchat/protocol';
+import type { ChatGroup, ChatTarget, Friend } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { colors } from '../theme';
 
@@ -87,25 +87,31 @@ export function VoicePill({
   );
 }
 
-/** A group chat: opens its chat, which has its voice channels on top. */
-export function GroupRow({
+/**
+ * A group chat: opens its chat, which has its voice channels on top. Memoized, the list
+ * renders again for every unread message.
+ */
+export const GroupRow = memo(function GroupRow({
   group,
+  chat,
   inVoice,
   connected,
   unread,
   onOpen,
 }: {
   group: ChatGroup;
+  /** what opening it opens */
+  chat: ChatTarget;
   /** the people in its voice channels */
   inVoice: Friend[];
   connected: boolean;
   unread: number;
-  onOpen: () => void;
+  onOpen: (chat: ChatTarget) => void;
 }) {
   const hasVoice = group.rooms.some((room) => room.voiceAllowed);
   return (
     <Pressable
-      onPress={onOpen}
+      onPress={() => onOpen(chat)}
       style={({ pressed }) => [
         styles.card,
         connected && styles.cardConnected,
@@ -123,9 +129,10 @@ export function GroupRow({
       {connected && <VoicePill connected />}
     </Pressable>
   );
-}
+});
 
-export function FriendRow({
+/** A friend: opens their chat, calls them while online. Memoized like `GroupRow`. */
+export const FriendRow = memo(function FriendRow({
   friend,
   inCall,
   unread,
@@ -135,13 +142,13 @@ export function FriendRow({
   friend: Friend;
   inCall: boolean;
   unread: number;
-  onOpen: () => void;
-  onCall: () => void;
+  onOpen: (chat: ChatTarget) => void;
+  onCall: (friend: Friend) => void;
 }) {
   const status = friend.online ? colors.online : colors.offline;
   return (
     <Pressable
-      onPress={onOpen}
+      onPress={() => onOpen({ kind: 'friend', steamid: friend.steamid })}
       style={({ pressed }) => [
         styles.row,
         !friend.online && styles.offline,
@@ -168,7 +175,7 @@ export function FriendRow({
       <UnreadBadge count={unread} />
       {friend.online && !inCall && (
         <Pressable
-          onPress={onCall}
+          onPress={() => onCall(friend)}
           accessibilityLabel={`Call ${friend.name}`}
           hitSlop={8}
           style={({ pressed }) => [styles.call, pressed && styles.pressed]}
@@ -178,7 +185,7 @@ export function FriendRow({
       )}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   sectionHeader: {

@@ -122,6 +122,8 @@ export function Feed<T>({
       data={items ?? []}
       keyExtractor={keyOf}
       numColumns={columns}
+      // the default keeps 10 screens of rows on either side, for each list kept open
+      windowSize={7}
       columnWrapperStyle={columns > 1 ? styles.row : undefined}
       renderItem={renderRow}
       extraData={extraData}

@@ -32,6 +32,8 @@ interface VoiceSessionEvents {
   participants: Participant[];
   /** steamids of everyone currently speaking, us included */
   speaking: string[];
+  /** our own mute and deafen, as set with `setMicMuted` and `setOutputMuted` */
+  muted: { micMuted: boolean; outputMuted: boolean };
   ended: { reason: string };
   log: string;
 }
@@ -182,12 +184,21 @@ export class VoiceSession extends Emitter<VoiceSessionEvents> {
     }
     this.#onSpeaking(this.#speakingTrackIds);
     this.#sendVoiceStatus();
+    this.#emitMuted();
   }
 
   /** Only announces deafen to others, silencing playback is up to the caller. */
   setOutputMuted(muted: boolean) {
     this.#outputMuted = muted;
     this.#sendVoiceStatus();
+    this.#emitMuted();
+  }
+
+  #emitMuted() {
+    this.emit('muted', {
+      micMuted: this.#micMuted,
+      outputMuted: this.#outputMuted,
+    });
   }
 
   #log(message: string) {

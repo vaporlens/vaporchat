@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
@@ -12,7 +12,7 @@ import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
 import { type IconName, RoundButton } from '../components/RoundButton';
 import { colors, gradients } from '../theme';
-import { setDeafened } from '../voice';
+import { setDeafened, useSessionChanges } from '../voice';
 
 const STATE_LABELS: Record<VoiceSessionState, string> = {
   connecting: 'Connecting…',
@@ -110,8 +110,11 @@ function badgeFor(muted: boolean, deafened: boolean, noMic: boolean) {
   return null;
 }
 
-/** The voice chat you are in: who is talking and the call controls, pinned to the bottom. */
-export function CallDock({
+/**
+ * The voice chat you are in: who is talking and the call controls, pinned to the bottom.
+ * Memoized, it renders for the session's own changes, not for Home's.
+ */
+export const CallDock = memo(function CallDock({
   voice,
   session,
   title,
@@ -125,6 +128,7 @@ export function CallDock({
   setSpeaker: (on: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
+  useSessionChanges(session);
   const elapsed = useElapsed(session.state === 'connected');
   const connected = session.state === 'connected';
   return (
@@ -201,7 +205,7 @@ export function CallDock({
       </View>
     </Appear>
   );
-}
+});
 
 const styles = StyleSheet.create({
   dock: {

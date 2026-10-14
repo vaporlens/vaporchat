@@ -77,6 +77,8 @@ const WEB_SESSION_MS = 60 * 60 * 1000;
 const FAIL = new Set<number>([EResult.Fail]);
 // friends' updates come in bursts, the cached list is saved once they settle
 const SAVE_FRIENDS_DELAY_MS = 5000;
+// and told about once per burst, steam sends each friend's status as its own message
+const FRIENDS_CHANGED_DELAY_MS = 100;
 
 // steam answers these with Fail even though they took effect, the official client ignores it too
 function failIsExpected<M extends keyof SteamMethods>(
@@ -123,6 +125,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   #store: TokenStore;
   #cache: CacheStore | undefined;
   #saveFriendsTimer: ReturnType<typeof setTimeout> | null = null;
+  #friendsChangedTimer: ReturnType<typeof setTimeout> | null = null;
   /** what was last saved, status updates often leave the list as it was */
   #savedFriends = '';
   #emoticons: Promise<OwnedEmoticons> | null = null;
@@ -152,7 +155,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
       webSession: () => this.#webSession(),
     });
     friends.on('changed', () => {
-      this.emit('friendsChanged', friends.friends);
+      this.#friendsChangedSoon();
       this.#saveFriendsSoon();
     });
     this.ready = cm.then((logged) => this.#listen(logged));
@@ -323,6 +326,14 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     return getRecentMessages(await this.#cm, chat, before);
   }
 
+  #friendsChangedSoon() {
+    if (this.#friendsChangedTimer) return;
+    this.#friendsChangedTimer = setTimeout(() => {
+      this.#friendsChangedTimer = null;
+      this.emit('friendsChanged', this.#friends.friends);
+    }, FRIENDS_CHANGED_DELAY_MS);
+  }
+
   #saveFriendsSoon() {
     const cache = this.#cache;
     if (!cache || this.#saveFriendsTimer) return;
@@ -339,6 +350,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   /** A logon still going on is closed once done. Unsaved friends' changes are dropped. */
   close() {
     if (this.#saveFriendsTimer) clearTimeout(this.#saveFriendsTimer);
+    if (this.#friendsChangedTimer) clearTimeout(this.#friendsChangedTimer);
     this.#cm.then(
       (cm) => cm.close(),
       () => {},

@@ -54,6 +54,7 @@ voice.on('session', (session) => {
   session?.on('participants', (people) => play(people)); // each has a MediaStream + mute status
   session?.on('speaking', (steamids) => highlight(steamids)); // us included
   session?.on('state', (state) => render(state)); // connecting | ringing | connected | reconnecting | ended
+  session?.on('muted', ({ micMuted, outputMuted }) => renderControls(micMuted, outputMuted)); // ours
 });
 
 // text chat, with a friend or in a group chat room

@@ -72,6 +72,8 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   /** from `restore`, fills in what steam hasn't sent (again) yet */
   #restored = new Map<string, Friend>();
   #requested = new Set<string>();
+  /** what `get` gave out last, the same object until something it shows changes */
+  #shown = new Map<string, Friend>();
   #started = false;
 
   /** Listens to a connection that is about to log on. */
@@ -133,11 +135,11 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     );
   }
 
-  /** What is known about any account, friend or not. */
+  /** What is known about any account, friend or not. The same object while that stays the same. */
   get(steamid: string): Friend {
     const persona = this.#personas.get(steamid);
     const restored = this.#restored.get(steamid);
-    return {
+    const friend = {
       steamid,
       name: persona?.name ?? restored?.name ?? steamid,
       avatarUrl: persona?.avatarHash
@@ -145,6 +147,15 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
         : (restored?.avatarUrl ?? null),
       online: (persona?.state ?? OFFLINE) !== OFFLINE,
     };
+    const shown = this.#shown.get(steamid);
+    if (
+      shown?.name === friend.name &&
+      shown.avatarUrl === friend.avatarUrl &&
+      shown.online === friend.online
+    )
+      return shown;
+    this.#shown.set(steamid, friend);
+    return friend;
   }
 
   #receiveList(message: FriendsListMessage) {
@@ -168,7 +179,10 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
 
   #receivePersonas(message: PersonaStateMessage) {
     const flags = message.status_flags ?? 0;
+    // most updates are about what isn't shown (the game played, say)
+    let changed = false;
     for (const friend of message.friends ?? []) {
+      const before = this.get(friend.friendid);
       const known = this.#personas.get(friend.friendid);
       this.#personas.set(friend.friendid, {
         name: friend.player_name ?? known?.name,
@@ -181,8 +195,9 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
             ? (friend.persona_state ?? OFFLINE)
             : (known?.state ?? OFFLINE),
       });
+      changed ||= this.get(friend.friendid) !== before;
     }
-    this.emit('changed', {});
+    if (changed) this.emit('changed', {});
   }
 
   #requestPersonas(steamids: string[]) {

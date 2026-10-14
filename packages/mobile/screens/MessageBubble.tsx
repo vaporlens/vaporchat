@@ -1,4 +1,5 @@
-import { Image as AnimatedImage } from 'expo-image';
+// the app's other pictures share its cache, react-native's Image stays for emoticons inside text
+import { Image as CachedImage } from 'expo-image';
 import { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ChatMessage, ChatPart } from 'vaporchat/protocol';
@@ -113,7 +114,7 @@ export const MessageBubble = memo(function MessageBubble({
           if (block.kind === 'sticker') {
             // react-native's Image shows only the first frame of animated PNGs
             return (
-              <AnimatedImage
+              <CachedImage
                 key={key}
                 source={{ uri: block.url }}
                 accessibilityLabel={`${block.name} sticker`}
@@ -127,8 +128,8 @@ export const MessageBubble = memo(function MessageBubble({
               onPress={() => onOpenImage(block.url)}
               accessibilityLabel="Open image"
             >
-              <Image
-                source={{ uri: block.thumbnailUrl }}
+              <CachedImage
+                source={block.thumbnailUrl}
                 style={[
                   styles.image,
                   {

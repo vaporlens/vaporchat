@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 
 function initial(name: string) {
@@ -28,11 +29,7 @@ export function Avatar({
   const box = { width: size, height: size, borderRadius: radius };
   const picture =
     url && !failed ? (
-      <Image
-        source={{ uri: url }}
-        style={box}
-        onError={() => setFailed(true)}
-      />
+      <Image source={url} style={box} onError={() => setFailed(true)} />
     ) : (
       <View style={[box, styles.initial]}>
         <Text style={[styles.initialText, { fontSize: size * 0.42 }]}>

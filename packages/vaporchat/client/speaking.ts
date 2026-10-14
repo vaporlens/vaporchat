@@ -1,8 +1,9 @@
-const POLL_INTERVAL_MS = 150;
+// each poll serializes every WebRTC stat, on react-native across to JS
+const POLL_INTERVAL_MS = 250;
 // audio level (0..1, as WebRTC reports it) above which a track counts as speech,
 // and how long it stays "speaking" after going quiet
 const SPEAKING_LEVEL = 0.03;
-const HOLD_MS = 300;
+const HOLD_MS = 400;
 
 interface AudioLevelStats {
   type: string;

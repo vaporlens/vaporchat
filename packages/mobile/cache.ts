@@ -6,6 +6,8 @@ import type { CacheStore } from 'vaporchat/steam/cacheStore';
 const directory = new Directory(Paths.cache, 'steam');
 /** the signed-in account's SteamID64, the app's entries are its */
 let account: string | null = null;
+/** entries waiting for the app to be idle, by file name: only the last of each is written */
+const pending = new Map<string, () => string>();
 
 function file(name: string) {
   // keys hold ids and `:`, file names keep to plain characters
@@ -13,6 +15,8 @@ function file(name: string) {
 }
 
 function readText(name: string) {
+  const waiting = pending.get(name);
+  if (waiting) return waiting();
   try {
     const saved = file(name);
     return saved.exists ? saved.textSync() : null;
@@ -22,8 +26,6 @@ function readText(name: string) {
 }
 
 function writeText(name: string, text: string) {
-  // loads finishing after signing out are dropped
-  if (!account) return;
   try {
     file(name).write(text);
   } catch (err) {
@@ -40,6 +42,7 @@ export function openCache(steamid: string) {
 /** On signing out: forgets every account's chats and friends. */
 export function clearCache() {
   account = null;
+  pending.clear();
   if (directory.exists) directory.delete();
 }
 
@@ -53,15 +56,33 @@ export function readCache<T>(key: string): T | null {
   }
 }
 
+/** Writes what waits while the app stays idle, the rest the next time it is. */
+function writePending(deadline: IdleDeadline) {
+  for (const [name, text] of pending) {
+    pending.delete(name);
+    writeText(name, text());
+    if (deadline.timeRemaining() <= 0) break;
+  }
+  if (pending.size > 0) requestIdleCallback(writePending);
+}
+
+/** Writes `text` once the app is idle: making JSON of big lists and writing it blocks the JS thread. */
+function writeSoon(name: string, text: () => string) {
+  // signed out nothing is cached, loads finishing after signing out are dropped
+  if (!account) return;
+  if (pending.size === 0) requestIdleCallback(writePending);
+  pending.set(name, text);
+}
+
 /** Saves `value` (JSON) to show next time before it loads. */
 export function writeCache<T>(key: string, value: T) {
-  writeText(`${account}-${key}`, JSON.stringify(value));
+  writeSoon(`${account}-${key}`, () => JSON.stringify(value));
 }
 
 /** The library's cache (Steam's servers, friends list), its keys name the account themselves. */
 export const cacheStore: CacheStore = {
   load: async (key) => readText(key),
-  save: async (key, value) => writeText(key, value),
+  save: async (key, value) => writeSoon(key, () => value),
 };
 
 /**

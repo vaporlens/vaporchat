@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
@@ -50,8 +50,28 @@ export function setDeafened(session: VoiceSession, deafened: boolean) {
 }
 
 /**
+ * Re-renders on the session's state, participants, who is speaking (several times a second in a
+ * lively call) and our mute and deafen. Only for what shows them, not the screens around.
+ */
+export function useSessionChanges(session: VoiceSession) {
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const offs = [
+      session.on('state', rerender),
+      session.on('speaking', rerender),
+      session.on('participants', rerender),
+      session.on('muted', rerender),
+    ];
+    return () => {
+      for (const off of offs) off();
+    };
+  }, [session]);
+}
+
+/**
  * The current voice session, incoming calls (the phone vibrates while they ring) and the
- * speaker setting, re-rendering on every change.
+ * speaker setting, re-rendering when they change. Not on the session's own changes, see
+ * `useSessionChanges`.
  */
 export function useVoice(voice: SteamVoice) {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
@@ -65,13 +85,8 @@ export function useVoice(voice: SteamVoice) {
       session.on('state', (state) => {
         // the audio route is only set up once audio flows
         if (state === 'connected') setSpeakerOn(speakerRef.current);
-        rerender();
       });
-      session.on('speaking', rerender);
-      session.on('participants', () => {
-        syncPlayback(session);
-        rerender();
-      });
+      session.on('participants', () => syncPlayback(session));
       session.on('ended', ({ reason }) => {
         console.log('Voice ended:', reason);
         // a session taking over a simultaneous call detaches the microphone before this one ends
@@ -100,14 +115,16 @@ export function useVoice(voice: SteamVoice) {
     };
   }, [voice]);
 
+  const changeSpeaker = useCallback((on: boolean) => {
+    speakerRef.current = on;
+    setSpeaker(on);
+    setSpeakerOn(on);
+  }, []);
+
   return {
     session: voice.session,
     incomingCalls: voice.incomingCalls,
     speaker,
-    setSpeaker: (on: boolean) => {
-      speakerRef.current = on;
-      setSpeaker(on);
-      setSpeakerOn(on);
-    },
+    setSpeaker: changeSpeaker,
   };
 }

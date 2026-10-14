@@ -70,7 +70,7 @@ export function SaleScreen({
         steamUrl={event.url}
         titleShown={pastHero.past}
       />
-      <scroll.Provider value={scroll.listeners}>
+      <scroll.Provider value={scroll.watch}>
         <SectionList<StoreItem[], Section>
           sections={sections ?? []}
           onScroll={(scrolled) => {
@@ -123,7 +123,7 @@ export function SaleScreen({
                   key={item.url}
                   item={item}
                   show="discountEnds"
-                  onPress={() => onOpenGame(item)}
+                  onPress={onOpenGame}
                 />
               ))}
             </View>

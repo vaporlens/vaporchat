@@ -1,11 +1,6 @@
-import { type Ref, useImperativeHandle, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
-
-export interface LoopingVideoControls {
-  play: () => void;
-  pause: () => void;
-}
 
 // as script strings, `<` escaped so they can't end the script
 function script(value: string) {
@@ -28,46 +23,39 @@ function page(url: string, posterUrl: string | null) {
 </script>`;
 }
 
+/** What both platforms' `LoopingVideo` take. */
+export interface LoopingVideoProps {
+  url: string;
+  posterUrl: string | null;
+  style: StyleProp<ViewStyle>;
+  /** paused (Android: released) while false, scrolled away say */
+  playing?: boolean;
+  onError?: () => void;
+}
+
 /**
- * A silent looping video, the way Steam plays the animations in its descriptions. WebKit plays
- * the webm Steam has them in (native players don't), far lighter than an animated picture
- * decoded frame by frame. Not touchable, taps go to what's around. `onError` when it can't play.
+ * A silent looping video, the way Steam plays the animations in its descriptions, far lighter
+ * than an animated picture decoded frame by frame. A web view plays it, the webm some only come
+ * in too. Not touchable, taps go to what's around. `onError` when it can't play. Android plays
+ * them natively, see `LoopingVideo.android.tsx`.
  */
 export function LoopingVideo({
   url,
   posterUrl,
   style,
+  playing = true,
   onError,
-  ref,
-}: {
-  url: string;
-  posterUrl: string | null;
-  style: StyleProp<ViewStyle>;
-  onError?: () => void;
-  ref?: Ref<LoopingVideoControls>;
-}) {
+}: LoopingVideoProps) {
   const source = useMemo(
     () => ({ html: page(url, posterUrl) }),
     [url, posterUrl],
   );
   const web = useRef<WebView>(null);
-  const paused = useRef(false);
-  const apply = () => {
-    // `play()` rejects when autoplay isn't allowed, the poster stays then
-    web.current?.injectJavaScript(
-      `${paused.current ? 'video.pause()' : 'video.play().catch(() => {})'}; true;`,
-    );
-  };
-  useImperativeHandle(ref, () => ({
-    play: () => {
-      paused.current = false;
-      apply();
-    },
-    pause: () => {
-      paused.current = true;
-      apply();
-    },
-  }));
+  // `play()` rejects when autoplay isn't allowed, the poster stays then
+  const command = playing ? 'video.play().catch(() => {})' : 'video.pause()';
+  useEffect(() => {
+    web.current?.injectJavaScript(`${command}; true;`);
+  }, [command]);
   return (
     <View style={[styles.box, style]} pointerEvents="none">
       <WebView
@@ -79,7 +67,9 @@ export function LoopingVideo({
         mediaPlaybackRequiresUserAction={false}
         onMessage={onError}
         // paused before the page was there, before autoplay starts
-        onLoadEnd={() => paused.current && apply()}
+        onLoadEnd={() =>
+          !playing && web.current?.injectJavaScript('video.pause(); true;')
+        }
       />
     </View>
   );

@@ -57,7 +57,7 @@ export function DetailPage({
         }}
         scrollEventThrottle={100}
       >
-        <scroll.Provider value={scroll.listeners}>
+        <scroll.Provider value={scroll.watch}>
           {imageUrl && (
             <Image
               source={imageUrl}

@@ -166,6 +166,12 @@ function StoreItems({
     (next: number | null) => list.load(feeds, next),
     [feeds, list],
   );
+  const renderItem = useCallback(
+    (item: StoreItem) => (
+      <StoreItemCard item={item} show={show} onPress={onOpenGame} />
+    ),
+    [show, onOpenGame],
+  );
   const search = useMemo<Search<StoreItem>>(
     () =>
       list.filterPlaceholder
@@ -183,13 +189,7 @@ function StoreItems({
       keyOf={storeItemKey}
       search={search}
       columns={2}
-      renderItem={(item) => (
-        <StoreItemCard
-          item={item}
-          show={show}
-          onPress={() => onOpenGame(item)}
-        />
-      )}
+      renderItem={renderItem}
       header={header}
       empty={list.empty}
       onError={onError}
@@ -241,17 +241,20 @@ function Events({
     (next: number | null) => list.load(feeds, next),
     [feeds, list],
   );
+  const openEvent = useCallback(
+    (event: SteamEvent) => onOpenPage({ kind: list.page, event }),
+    [list.page, onOpenPage],
+  );
+  const renderItem = useCallback(
+    (event: SteamEvent) => <EventCard event={event} onPress={openEvent} />,
+    [openEvent],
+  );
   return (
     <Feed
       cacheKey={`feed-${list.tab}`}
       load={load}
       keyOf={eventKey}
-      renderItem={(event) => (
-        <EventCard
-          event={event}
-          onPress={() => onOpenPage({ kind: list.page, event })}
-        />
-      )}
+      renderItem={renderItem}
       header={header}
       empty={list.empty}
       onError={onError}

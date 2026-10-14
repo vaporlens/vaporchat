@@ -4,7 +4,7 @@ import {
   type NavigationState,
   useNavigationContainerRef,
 } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -31,14 +31,13 @@ import { matches } from '../search';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
-import { Chat } from './Chat';
+import { ChatRoute, findRoom } from './ChatRoute';
 import { FeedTabs } from './FeedTabs';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
 import { PageScreen } from './PageScreen';
 import { FriendRow, GroupRow, SectionHeader } from './Rows';
 import { navigationTheme, type Routes, Stack, usePages } from './stack';
-import { VoiceChannels } from './VoiceChannels';
 
 /** How the app is connected to Steam, Home shows what was cached until it is online. */
 export type Link =
@@ -53,8 +52,9 @@ const LINK_STATUS: Record<Link['kind'], { text: string; color: string }> = {
   lost: { text: 'Offline', color: colors.offline },
 };
 
-type Row = { key: string; chat: ChatTarget } & (
-  | { kind: 'group'; group: ChatGroup }
+// a friend's row keeps its props while the friend stays the same, it doesn't render again then
+type Row = { key: string } & (
+  | { kind: 'group'; chat: ChatTarget; group: ChatGroup; inVoice: Friend[] }
   | { kind: 'friend'; friend: Friend }
 );
 
@@ -63,11 +63,6 @@ interface Section {
   title: string;
   count?: number;
   data: Row[];
-}
-
-function findRoom(groups: ChatGroup[], groupId: string, chatId: string) {
-  const group = groups.find((g) => g.groupId === groupId);
-  return { group, room: group?.rooms.find((r) => r.chatId === chatId) };
 }
 
 function sessionTitle(
@@ -80,28 +75,6 @@ function sessionTitle(
     return voice.connection.user(target.steamid).name;
   const { group, room } = findRoom(groups, target.groupId, target.chatId);
   return `${group?.name ?? 'Group'} › ${room?.name ?? 'voice'}`;
-}
-
-function chatHeader(
-  voice: SteamVoice,
-  chat: ChatTarget,
-  groups: ChatGroup[],
-  live: boolean,
-) {
-  if (chat.kind === 'friend') {
-    const friend = voice.connection.user(chat.steamid);
-    return {
-      title: friend.name,
-      subtitle: live && friend.online ? 'Online' : 'Offline',
-      avatarUrl: friend.avatarUrl,
-    };
-  }
-  const { group, room } = findRoom(groups, chat.groupId, chat.chatId);
-  return {
-    title: group?.name ?? 'Group',
-    subtitle: room?.name ?? '',
-    avatarUrl: group?.avatarUrl ?? null,
-  };
 }
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
@@ -159,7 +132,6 @@ export function Home({
       ),
     [reloadGroups],
   );
-  const fetchedGroups = cachedGroups ?? [];
 
   useEffect(() => {
     const { connection } = voice;
@@ -191,62 +163,93 @@ export function Home({
   // who is online or in voice is only known while connected
   const live = link.kind === 'online';
   // unnamed groups go by their members' names, which come in as `friendsChanged`
-  const groups = fetchedGroups.map((group) => ({
-    ...group,
-    name: groupTitle(group, me.steamid, (id) => voice.connection.user(id).name),
-    rooms: live
-      ? group.rooms
-      : group.rooms.map((room) => ({ ...room, membersInVoice: [] })),
-  }));
+  // `friends` changes as names do, a new `groups` also re-renders the open chat for its header
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  const groups = useMemo(
+    () =>
+      (cachedGroups ?? []).map((group) => ({
+        ...group,
+        name: groupTitle(
+          group,
+          me.steamid,
+          (id) => voice.connection.user(id).name,
+        ),
+        rooms: live
+          ? group.rooms
+          : group.rooms.map((room) => ({ ...room, membersInVoice: [] })),
+      })),
+    [cachedGroups, friends, me.steamid, live, voice],
+  );
   const target = session?.target;
-  const groupRows: Row[] = groups.flatMap((group): Row[] => {
-    // a group opens its first text room, its voice channels are on top of that chat
-    const room = group.rooms.find((r) => !r.voiceAllowed) ?? group.rooms[0];
-    if (!room || !matches(query, group.name, ...group.rooms.map((r) => r.name)))
-      return [];
-    const chat = {
-      kind: 'room',
-      groupId: group.groupId,
-      chatId: room.chatId,
-    } as const;
-    return [{ kind: 'group', key: chatKey(chat), chat, group }];
-  });
-  const shown = friends
-    .filter((f) => matches(query, f.name))
-    .map((f) => (live ? f : { ...f, online: false }))
-    .sort(byName);
-  const friendRow = (friend: Friend): Row => {
-    const chat = { kind: 'friend', steamid: friend.steamid } as const;
-    return { kind: 'friend', key: chatKey(chat), chat, friend };
-  };
-  const online = shown.filter((f) => f.online).map(friendRow);
-  const offline = shown.filter((f) => !f.online).map(friendRow);
   // searching shows matching offline friends without having to expand them, and so does
   // not knowing who is online
   const offlineOpen = showOffline || query.trim() !== '' || !live;
-  const sections: Section[] = [
-    { key: 'groups', title: 'GROUP CHATS', data: groupRows },
-    {
-      key: 'online',
-      title: 'ONLINE',
-      count: live ? online.length : undefined,
-      data: online,
-    },
-    {
-      key: 'offline',
-      title: 'OFFLINE',
-      count: offline.length,
-      data: offlineOpen ? offline : [],
-    },
-  ];
+  // only when these change, Home also renders for unread messages and calls
+  const sections = useMemo((): Section[] => {
+    const groupRows = groups.flatMap((group): Row[] => {
+      // a group opens its first text room, its voice channels are on top of that chat
+      const room = group.rooms.find((r) => !r.voiceAllowed) ?? group.rooms[0];
+      if (
+        !room ||
+        !matches(query, group.name, ...group.rooms.map((r) => r.name))
+      )
+        return [];
+      const chat = {
+        kind: 'room',
+        groupId: group.groupId,
+        chatId: room.chatId,
+      } as const;
+      const inVoice = group.rooms.flatMap((r) =>
+        r.membersInVoice.map((id) => voice.connection.user(id)),
+      );
+      return [{ kind: 'group', key: chatKey(chat), chat, group, inVoice }];
+    });
+    const matching = friends.filter((f) => matches(query, f.name));
+    // by name within online and offline already, not knowing who is online makes it one list
+    const shown = live
+      ? matching
+      : matching.map((f) => ({ ...f, online: false })).sort(byName);
+    const friendRow = (friend: Friend): Row => ({
+      kind: 'friend',
+      key: chatKey({ kind: 'friend', steamid: friend.steamid }),
+      friend,
+    });
+    const online = shown.filter((f) => f.online).map(friendRow);
+    const offline = shown.filter((f) => !f.online).map(friendRow);
+    return [
+      { key: 'groups', title: 'GROUP CHATS', data: groupRows },
+      {
+        key: 'online',
+        title: 'ONLINE',
+        count: live ? online.length : undefined,
+        data: online,
+      },
+      {
+        key: 'offline',
+        title: 'OFFLINE',
+        count: offline.length,
+        data: offlineOpen ? offline : [],
+      },
+    ];
+  }, [groups, friends, query, live, offlineOpen, voice]);
 
   const { push, openGame, back } = usePages(navigation);
 
   // set along with navigating, in one render, `onStateChange` would only catch up after it
-  function openChat(chat: ChatTarget) {
-    setChat(chat);
-    navigation.navigate('chat', { chat });
-  }
+  const openChat = useCallback(
+    (chat: ChatTarget) => {
+      setChat(chat);
+      navigation.navigate('chat', { chat });
+    },
+    [navigation],
+  );
+  const callFriend = useCallback(
+    (friend: Friend) =>
+      void startVoice((mic) => voice.callFriend(friend.steamid, mic)).catch(
+        showError,
+      ),
+    [voice, showError],
+  );
 
   function confirmSignOut() {
     Alert.alert('Sign out?', 'You will need your password to sign in again.', [
@@ -412,15 +415,14 @@ export function Home({
             item.kind === 'group' ? (
               <GroupRow
                 group={item.group}
-                inVoice={item.group.rooms.flatMap((room) =>
-                  room.membersInVoice.map((id) => voice.connection.user(id)),
-                )}
+                chat={item.chat}
+                inVoice={item.inVoice}
                 connected={
                   target?.kind === 'group' &&
                   target.groupId === item.group.groupId
                 }
                 unread={unread[item.key] ?? 0}
-                onOpen={() => openChat(item.chat)}
+                onOpen={openChat}
               />
             ) : (
               <FriendRow
@@ -430,12 +432,8 @@ export function Home({
                   target.steamid === item.friend.steamid
                 }
                 unread={unread[item.key] ?? 0}
-                onOpen={() => openChat(item.chat)}
-                onCall={() =>
-                  startVoice((mic) =>
-                    voice.callFriend(item.friend.steamid, mic),
-                  ).catch(showError)
-                }
+                onOpen={openChat}
+                onCall={callFriend}
               />
             )
           }
@@ -463,34 +461,19 @@ export function Home({
           {/* render callbacks, the screens show what Home has now */}
           <Stack.Screen name="tabs">{() => tabs}</Stack.Screen>
           <Stack.Screen name="chat">
-            {({ route }) => {
-              // from the route, it still shows while it is swiped away
-              const routeChat = route.params.chat;
-              const chatGroup =
-                routeChat.kind === 'room'
-                  ? groups.find((group) => group.groupId === routeChat.groupId)
-                  : undefined;
-              return (
-                <Chat
-                  voice={voice}
-                  chat={routeChat}
-                  {...chatHeader(voice, routeChat, groups, live)}
-                  top={
-                    chatGroup && (
-                      <VoiceChannels
-                        voice={voice}
-                        group={chatGroup}
-                        target={target}
-                        onError={showError}
-                      />
-                    )
-                  }
-                  bottomInset={session ? 0 : insets.bottom}
-                  onBack={back}
-                  onError={showError}
-                />
-              );
-            }}
+            {({ route }) => (
+              <ChatRoute
+                voice={voice}
+                // from the route, it still shows while it is swiped away
+                chat={route.params.chat}
+                groups={groups}
+                live={live}
+                target={target}
+                bottomInset={session ? 0 : insets.bottom}
+                onBack={back}
+                onError={showError}
+              />
+            )}
           </Stack.Screen>
           <Stack.Screen name="page">
             {({ route }) => (

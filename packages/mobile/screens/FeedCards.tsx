@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type {
   Friend,
@@ -88,16 +89,16 @@ export function BuyHeader({ item }: { item: StoreItem }) {
 /**
  * A game with its price. When it was or will be released, or when its discount ends, and
  * whether the user owns or wishlisted it. Half a row of a two-column grid, the rows pad
- * themselves by `gridGutter`.
+ * themselves by `gridGutter`. Memoized, lists render again as their search or tabs change.
  */
-export function StoreItemCard({
+export const StoreItemCard = memo(function StoreItemCard({
   item,
   show,
   onPress,
 }: {
   item: StoreItem;
   show: 'released' | 'discountEnds';
-  onPress: () => void;
+  onPress: (item: StoreItem) => void;
 }) {
   const detail =
     show === 'released'
@@ -111,7 +112,7 @@ export function StoreItemCard({
   return (
     <View style={styles.cell}>
       <Pressable
-        onPress={onPress}
+        onPress={() => onPress(item)}
         style={({ pressed }) => [
           styles.card,
           mark && { borderColor: mark.color },
@@ -158,7 +159,7 @@ export function StoreItemCard({
       </Pressable>
     </View>
   );
-}
+});
 
 /** `Until Oct 12` while it runs, otherwise when it was posted. */
 function when(event: SteamEvent) {
@@ -169,17 +170,17 @@ function when(event: SteamEvent) {
     : timeAgo(event.startsAt);
 }
 
-/** A sale or news post: its picture, title and the start of its text. */
-export function EventCard({
+/** A sale or news post: its picture, title and the start of its text. Memoized like `StoreItemCard`. */
+export const EventCard = memo(function EventCard({
   event,
   onPress,
 }: {
   event: SteamEvent;
-  onPress: () => void;
+  onPress: (event: SteamEvent) => void;
 }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onPress(event)}
       style={({ pressed }) => [styles.eventCard, pressed && styles.pressed]}
     >
       {event.imageUrl && (
@@ -205,7 +206,7 @@ export function EventCard({
       </View>
     </Pressable>
   );
-}
+});
 
 function plural(count: number, word: string) {
   return count === 1 ? `1 ${word}` : `${count} ${word}s`;

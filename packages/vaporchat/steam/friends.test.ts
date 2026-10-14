@@ -121,6 +121,30 @@ describe('FriendsList', () => {
     ]);
   });
 
+  it('tells about changes only when something shown changed', () => {
+    const steam = fakeSteam();
+    const list = new FriendsList();
+    list.attach(steam.cm);
+    steam.friendsList(false, [[ALICE, FRIEND]]);
+    steam.personas(STATUS | NAME, [
+      { friendid: ALICE, persona_state: 1, player_name: 'Alice' },
+    ]);
+    const alice = list.get(ALICE);
+    let changes = 0;
+    list.on('changed', () => changes++);
+
+    // what she plays, say, isn't shown
+    steam.personas(STATUS | NAME, [
+      { friendid: ALICE, persona_state: 1, player_name: 'Alice' },
+    ]);
+    expect(changes).toBe(0);
+    expect(list.get(ALICE)).toBe(alice);
+
+    steam.personas(STATUS, [{ friendid: ALICE, persona_state: 0 }]);
+    expect(changes).toBe(1);
+    expect(list.get(ALICE)).toEqual({ ...alice, online: false });
+  });
+
   it('follows friends being added and removed after logon', () => {
     const steam = fakeSteam();
     const list = new FriendsList();

@@ -46,7 +46,7 @@ export function BundleScreen({
               key={game.url}
               item={game}
               show="released"
-              onPress={() => onOpenGame(game)}
+              onPress={onOpenGame}
             />
           ))}
         </View>
