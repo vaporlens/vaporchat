@@ -39,14 +39,36 @@ export function Price({ item }: { item: StoreItem }) {
   );
 }
 
-/** A game's or bundle's name over its price, and opening it on Steam to buy it. */
+// how a game the user has is shown, steam's store marks them like this
+const OWNERSHIP = {
+  owned: { label: 'In library', color: colors.accept },
+  wishlisted: { label: 'Wishlisted', color: colors.accent },
+};
+
+/**
+ * A game's or bundle's name over its price, whether the user owns or wishlisted it, and
+ * opening it on Steam to buy it.
+ */
 export function BuyHeader({ item }: { item: StoreItem }) {
+  const ownership = useOwnership(item.appid);
+  const mark = ownership && OWNERSHIP[ownership];
   return (
     <>
       <Text style={styles.name}>{item.name}</Text>
       <View style={styles.buy}>
         <View style={styles.grow}>
           <Price item={item} />
+          {mark && (
+            <Text
+              style={[
+                styles.mark,
+                styles.buyMark,
+                { backgroundColor: mark.color },
+              ]}
+            >
+              {mark.label}
+            </Text>
+          )}
           {item.discountEndsAt && (
             <Text style={styles.offerEnds}>
               Offer ends {date(item.discountEndsAt)}
@@ -62,12 +84,6 @@ export function BuyHeader({ item }: { item: StoreItem }) {
     </>
   );
 }
-
-// how a card shows a game the user has, steam's store marks them like this
-const OWNERSHIP = {
-  owned: { label: 'In library', color: colors.accept },
-  wishlisted: { label: 'Wishlisted', color: colors.accent },
-};
 
 /**
  * A game with its price. When it was or will be released, or when its discount ends, and
@@ -113,7 +129,13 @@ export function StoreItemCard({
             <Price item={item} />
           </View>
           {mark && (
-            <Text style={[styles.mark, { backgroundColor: mark.color }]}>
+            <Text
+              style={[
+                styles.mark,
+                styles.cardMark,
+                { backgroundColor: mark.color },
+              ]}
+            >
               {mark.label}
             </Text>
           )}
@@ -301,9 +323,6 @@ const styles = StyleSheet.create({
   // in the picture's corner, the way steam's store shows discounts
   cardPrice: { position: 'absolute', right: 6, bottom: 6 },
   mark: {
-    position: 'absolute',
-    left: 6,
-    top: 6,
     color: colors.bright,
     fontSize: 11,
     fontWeight: '700',
@@ -312,6 +331,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
+  cardMark: { position: 'absolute', left: 6, top: 6 },
+  buyMark: { alignSelf: 'flex-start' },
   title: { color: colors.bright, fontSize: 15, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 12 },
   price: {
