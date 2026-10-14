@@ -22,7 +22,12 @@ const server = vi.hoisted(() => ({
   }[],
   acceptedCode: null as string | null,
   satisfied: false,
-  closed: false,
+  /** connections not closed yet */
+  open: 0,
+  /** the next call dies with its connection, like one Android drops for a backgrounded app */
+  dropConnection: false,
+  /** how many of the next connects fail, like with the network still cut */
+  failConnects: 0,
 }));
 
 const { publicKey, privateKey } = generateKeyPairSync('rsa', {
@@ -35,10 +40,21 @@ function hexFromBase64Url(value: string) {
 
 vi.mock('./cm.ts', () => ({
   SteamCM: class {
+    #closed = false;
     static async connect() {
+      if (server.failConnects > 0) {
+        server.failConnects--;
+        throw new Error('Could not connect to Steam');
+      }
+      server.open++;
       return new this();
     }
     async call(method: string, body: Record<string, string>) {
+      if (server.dropConnection) {
+        server.dropConnection = false;
+        this.close();
+      }
+      if (this.#closed) throw new Error('Not connected to Steam');
       switch (method) {
         case 'Authentication.GetPasswordRSAPublicKey#1': {
           const jwk = publicKey.export({ format: 'jwk' });
@@ -79,7 +95,8 @@ vi.mock('./cm.ts', () => ({
       throw new Error(`unexpected ${method}`);
     }
     close() {
-      server.closed = true;
+      if (!this.#closed) server.open--;
+      this.#closed = true;
     }
   },
 }));
@@ -89,14 +106,16 @@ describe('getRefreshTokenWithCredentials', () => {
     server.confirmations = [{ confirmation_type: NONE }];
     server.acceptedCode = null;
     server.satisfied = false;
-    server.closed = false;
+    server.open = 0;
+    server.dropConnection = false;
+    server.failConnects = 0;
   });
 
   it('returns the token when steam needs no guard, and closes its connection', async () => {
     await expect(
       getRefreshTokenWithCredentials('bot', 'hunter2'),
     ).resolves.toBe('refresh-token');
-    expect(server.closed).toBe(true);
+    expect(server.open).toBe(0);
   });
 
   it('says so when the password is wrong', async () => {
@@ -159,6 +178,36 @@ describe('getRefreshTokenWithCredentials', () => {
     });
   });
 
+  it('finishes an approval made while its connection died', async () => {
+    server.confirmations = [{ confirmation_type: DEVICE_CONFIRMATION }];
+    const steamGuard = () => {
+      // the user leaves for the Steam app, approves there and comes back
+      server.dropConnection = true;
+      server.satisfied = true;
+      return new Promise<string>(() => {});
+    };
+
+    await expect(
+      getRefreshTokenWithCredentials('bot', 'hunter2', steamGuard),
+    ).resolves.toBe('refresh-token');
+    expect(server.open).toBe(0);
+  });
+
+  it('keeps waiting for the approval when reconnecting fails at first', async () => {
+    server.confirmations = [{ confirmation_type: DEVICE_CONFIRMATION }];
+    const steamGuard = () => {
+      server.dropConnection = true;
+      server.failConnects = 2;
+      server.satisfied = true;
+      return new Promise<string>(() => {});
+    };
+
+    await expect(
+      getRefreshTokenWithCredentials('bot', 'hunter2', steamGuard),
+    ).resolves.toBe('refresh-token');
+    expect(server.open).toBe(0);
+  });
+
   it('aborts the login when the guard prompt is cancelled', async () => {
     server.confirmations = [{ confirmation_type: DEVICE_CONFIRMATION }];
     const steamGuard = async () => {
@@ -168,6 +217,8 @@ describe('getRefreshTokenWithCredentials', () => {
     await expect(
       getRefreshTokenWithCredentials('bot', 'hunter2', steamGuard),
     ).rejects.toThrow('user cancelled');
-    expect(server.closed).toBe(true);
+    // the abandoned polling must not reconnect for a login nobody waits for
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(server.open).toBe(0);
   });
 });

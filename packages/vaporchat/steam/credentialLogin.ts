@@ -59,6 +59,8 @@ interface AuthSession {
   steamid: string;
 }
 
+type AuthCall = <Res>(method: string, body: object) => Promise<Res>;
+
 function guardPrompt(confirmations: AllowedConfirmation[]): SteamGuardPrompt {
   const has = (type: number) =>
     confirmations.find((c) => c.confirmation_type === type);
@@ -76,21 +78,19 @@ function guardPrompt(confirmations: AllowedConfirmation[]): SteamGuardPrompt {
 }
 
 async function startAuthSession(
-  cm: SteamCM,
+  call: AuthCall,
   accountName: string,
   password: string,
 ) {
-  const key = await cm.call<{
+  const key = await call<{
     publickey_mod: string;
     publickey_exp: string;
     timestamp: string;
-  }>(
-    'Authentication.GetPasswordRSAPublicKey#1',
-    { account_name: accountName },
-    { authenticated: false },
-  );
+  }>('Authentication.GetPasswordRSAPublicKey#1', {
+    account_name: accountName,
+  });
   try {
-    return await cm.call<AuthSession>(
+    return await call<AuthSession>(
       'Authentication.BeginAuthSessionViaCredentials#1',
       {
         account_name: accountName,
@@ -110,7 +110,6 @@ async function startAuthSession(
           gaming_device_type: GAMING_DEVICE_PC,
         },
       },
-      { authenticated: false },
     );
   } catch (err) {
     if (hasEResult(err, new Set([EResult.InvalidPassword]))) {
@@ -122,22 +121,27 @@ async function startAuthSession(
 
 /** Polls until the login is approved (or needs no approval) and Steam hands out the token. */
 async function pollForRefreshToken(
-  cm: SteamCM,
+  call: AuthCall,
   session: AuthSession,
   timeoutMs: number,
+  isDone: () => boolean,
 ) {
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const status = await cm.call<{
-      new_client_id?: string;
-      refresh_token?: string;
-    }>(
-      'Authentication.PollAuthSessionStatus#1',
-      { client_id: session.client_id, request_id: session.request_id },
-      { authenticated: false },
-    );
-    if (status.new_client_id) session.client_id = status.new_client_id;
-    if (status.refresh_token) return status.refresh_token;
+  while (Date.now() < deadline && !isDone()) {
+    try {
+      const status = await call<{
+        new_client_id?: string;
+        refresh_token?: string;
+      }>('Authentication.PollAuthSessionStatus#1', {
+        client_id: session.client_id,
+        request_id: session.request_id,
+      });
+      if (status.new_client_id) session.client_id = status.new_client_id;
+      if (status.refresh_token) return status.refresh_token;
+    } catch (err) {
+      // a connection that can't be replaced yet gets another try next poll
+      if (err instanceof SteamError) throw err;
+    }
     await new Promise((resolve) =>
       setTimeout(resolve, session.interval * 1000),
     );
@@ -148,7 +152,7 @@ async function pollForRefreshToken(
 // keeps asking until a code is accepted or the login finishes another way (approved on the phone),
 // rejects on anything but a wrong code
 async function submitCodes(
-  cm: SteamCM,
+  call: AuthCall,
   session: AuthSession,
   steamGuard: SteamGuardHandler,
   prompt: SteamGuardPrompt,
@@ -161,16 +165,12 @@ async function submitCodes(
     const code = await steamGuard({ ...prompt, lastCodeWrong });
     if (isDone()) return;
     try {
-      await cm.call(
-        'Authentication.UpdateAuthSessionWithSteamGuardCode#1',
-        {
-          client_id: session.client_id,
-          steamid: session.steamid,
-          code,
-          code_type: codeType,
-        },
-        { authenticated: false },
-      );
+      await call('Authentication.UpdateAuthSessionWithSteamGuardCode#1', {
+        client_id: session.client_id,
+        steamid: session.steamid,
+        code,
+        code_type: codeType,
+      });
       return;
     } catch (err) {
       if (!hasEResult(err, WRONG_CODE_ERESULTS)) throw err;
@@ -190,15 +190,39 @@ export async function getRefreshTokenWithCredentials(
   steamGuard?: SteamGuardHandler,
   options: SteamConnectOptions = {},
 ): Promise<string> {
-  const cm = await SteamCM.connect(options);
+  let connecting = SteamCM.connect(options);
+  let done = false;
+  // android drops a backgrounded app's connection, the auth session outlives it on steam's side
+  const call: AuthCall = async (method, body) => {
+    const current = connecting;
+    try {
+      return await (await current).call(method, body, { authenticated: false });
+    } catch (err) {
+      if (err instanceof SteamError || done) throw err;
+      // a poll and a code submission can fail together, one replacement serves both
+      if (connecting === current) {
+        current.then(
+          (cm) => cm.close(),
+          () => {},
+        );
+        connecting = SteamCM.connect(options);
+      }
+      return (await connecting).call(method, body, { authenticated: false });
+    }
+  };
   try {
-    const session = await startAuthSession(cm, accountName, password);
+    const session = await startAuthSession(call, accountName, password);
     const confirmations = session.allowed_confirmations ?? [];
     const guarded = !confirmations.some(
       (c) => c.confirmation_type === Guard.None,
     );
     if (!guarded) {
-      return await pollForRefreshToken(cm, session, LOGIN_TIMEOUT_MS);
+      return await pollForRefreshToken(
+        call,
+        session,
+        LOGIN_TIMEOUT_MS,
+        () => done,
+      );
     }
     if (!steamGuard) {
       throw new Error(
@@ -206,24 +230,29 @@ export async function getRefreshTokenWithCredentials(
       );
     }
 
-    let done = false;
     const prompt = guardPrompt(confirmations);
     const guard = prompt.codeType
-      ? submitCodes(cm, session, steamGuard, prompt, () => done)
+      ? submitCodes(call, session, steamGuard, prompt, () => done)
       : // approval only: tell the user, the login finishes once they approve
         steamGuard(prompt);
     // the guard only ever ends the login by failing, a submitted code still needs polling
     const guardFailed = guard.then(() => new Promise<never>(() => {}));
-    const polling = pollForRefreshToken(cm, session, GUARDED_LOGIN_TIMEOUT_MS);
-    // whichever loses keeps running until the connection closes, its failure is moot
+    const polling = pollForRefreshToken(
+      call,
+      session,
+      GUARDED_LOGIN_TIMEOUT_MS,
+      () => done,
+    );
+    // whichever loses stops once the login is done, its failure is moot
     polling.catch(() => {});
     guardFailed.catch(() => {});
-    try {
-      return await Promise.race([polling, guardFailed]);
-    } finally {
-      done = true;
-    }
+    return await Promise.race([polling, guardFailed]);
   } finally {
-    cm.close();
+    done = true;
+    // a replacement can still be connecting, or have failed to
+    connecting.then(
+      (cm) => cm.close(),
+      () => {},
+    );
   }
 }
