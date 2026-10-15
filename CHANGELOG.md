@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5 (2026-10-15)
+
+- Split the game page into Overview, Media, About, Reviews and News tabs.
+- Show a game's Steam reviews, most helpful first, and its news, updates and events.
+- List a game's features, like single-player or controller support, on its page.
+- Show "Coming soon" with the release date or window for games that aren't out yet.
+
 ## 0.4.3 (2026-10-15)
 
 - Fix Steam Guard login failing on Android when approving in the Steam app on the same phone.
