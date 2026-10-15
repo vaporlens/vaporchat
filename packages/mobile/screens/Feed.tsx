@@ -117,90 +117,93 @@ export function Feed<T>({
   );
 
   return (
-    <FlatList
-      ref={bar.ref}
-      data={items ?? []}
-      keyExtractor={keyOf}
-      numColumns={columns}
-      // the default keeps 10 screens of rows on either side, for each list kept open
-      windowSize={7}
-      columnWrapperStyle={columns > 1 ? styles.row : undefined}
-      renderItem={renderRow}
-      extraData={extraData}
-      contentContainerStyle={[
-        styles.content,
-        // tall enough to scroll the bar away when there are few rows
-        search && { minHeight: bar.minHeight },
-      ]}
-      {...(search && bar.list)}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      onEndReached={() => void shown.loadMore()}
-      onEndReachedThreshold={1}
-      refreshControl={
-        <RefreshControl
-          refreshing={shown.refreshing}
-          tintColor={colors.muted}
-          onRefresh={shown.pull}
-        />
-      }
-      ListHeaderComponent={
-        <>
-          {search && (
-            <View style={styles.search} {...bar.barView}>
-              <SearchField
-                ref={bar.input}
-                value={query}
-                onChangeText={setQuery}
-                onSubmitEditing={() => setSentQuery(query.trim())}
-                placeholder={search.placeholder}
-              />
-            </View>
-          )}
-          {header}
-        </>
-      }
-      ListEmptyComponent={
-        items ? (
-          // the rest of the list may still match
-          shown.loadingMore ? null : (
-            <Text style={styles.message}>
-              {searching ? 'No matches.' : empty}
-            </Text>
-          )
-        ) : (
-          <View style={styles.center}>
-            {shown.error === null ? (
-              <ActivityIndicator color={colors.muted} />
-            ) : (
-              <>
-                <Text style={styles.message}>{shown.error}</Text>
-                <Pressable
-                  onPress={shown.loadFirst}
-                  style={({ pressed }) => [
-                    styles.retry,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.retryText}>Try again</Text>
-                </Pressable>
-              </>
+    <View style={styles.frame} {...(search && bar.frame)}>
+      <FlatList
+        ref={bar.ref}
+        data={items ?? []}
+        keyExtractor={keyOf}
+        numColumns={columns}
+        // the default keeps 10 screens of rows on either side, for each list kept open
+        windowSize={7}
+        columnWrapperStyle={columns > 1 ? styles.row : undefined}
+        renderItem={renderRow}
+        extraData={extraData}
+        contentContainerStyle={[
+          styles.content,
+          // tall enough to scroll the bar away when there are few rows
+          search && { minHeight: bar.minHeight },
+        ]}
+        {...(search && bar.list)}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onEndReached={() => void shown.loadMore()}
+        onEndReachedThreshold={1}
+        refreshControl={
+          <RefreshControl
+            refreshing={shown.refreshing}
+            tintColor={colors.muted}
+            onRefresh={shown.pull}
+          />
+        }
+        ListHeaderComponent={
+          <>
+            {search && (
+              <View style={styles.search} {...bar.barView}>
+                <SearchField
+                  ref={bar.input}
+                  value={query}
+                  onChangeText={setQuery}
+                  onSubmitEditing={() => setSentQuery(query.trim())}
+                  placeholder={search.placeholder}
+                />
+              </View>
             )}
-          </View>
-        )
-      }
-      ListFooterComponent={
-        shown.loadingMore ? (
-          <ActivityIndicator color={colors.muted} style={styles.more} />
-        ) : shown.next === null && (items?.length ?? 0) > 0 ? (
-          <Text style={styles.message}>That's all.</Text>
-        ) : null
-      }
-    />
+            {header}
+          </>
+        }
+        ListEmptyComponent={
+          items ? (
+            // the rest of the list may still match
+            shown.loadingMore ? null : (
+              <Text style={styles.message}>
+                {searching ? 'No matches.' : empty}
+              </Text>
+            )
+          ) : (
+            <View style={styles.center}>
+              {shown.error === null ? (
+                <ActivityIndicator color={colors.muted} />
+              ) : (
+                <>
+                  <Text style={styles.message}>{shown.error}</Text>
+                  <Pressable
+                    onPress={shown.loadFirst}
+                    style={({ pressed }) => [
+                      styles.retry,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.retryText}>Try again</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )
+        }
+        ListFooterComponent={
+          shown.loadingMore ? (
+            <ActivityIndicator color={colors.muted} style={styles.more} />
+          ) : shown.next === null && (items?.length ?? 0) > 0 ? (
+            <Text style={styles.message}>That's all.</Text>
+          ) : null
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  frame: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',

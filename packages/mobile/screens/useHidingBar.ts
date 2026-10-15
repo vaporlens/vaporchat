@@ -13,6 +13,8 @@ const MOMENTUM_MS = 100;
 /** the touch going on: on a bar, or scrolling a list */
 let touch = { onBar: false, dragged: false };
 const bars = new Set<() => void>();
+/** the last list's height, the next mounts as tall to start scrolled past its bar */
+let lastHeight = 0;
 
 /** For the app's root view: a tap anywhere but on a bar hides the bars that show. */
 export const barTouches = {
@@ -34,10 +36,12 @@ export function useHidingBar<T>(barHeight: number, inUse: boolean) {
   const ref = useRef<FlatList<T>>(null);
   const input = useRef<TextInput>(null);
   // the list's, the rows are made taller than it with the bar
-  const [height, setHeight] = useState(0);
+  const [height, setHeight] = useState(lastHeight);
   // as they're measured, ahead of renders
   const sizes = useRef({ list: 0, rows: 0, offset: 0 });
   const hidden = useRef(false);
+  // mounted scrolled past the bar, the scroll after measuring comes a frame later
+  const [startOffset] = useState({ x: 0, y: barHeight });
   const used = useRef(inUse);
   used.current = inUse;
   // the user's scroll: where it started, its end waiting for momentum. Not ones the code makes
@@ -94,12 +98,17 @@ export function useHidingBar<T>(barHeight: number, inUse: boolean) {
     ref,
     /** for the rows' container */
     minHeight: height + barHeight,
-    list: {
+    /** for a view the list fills, empty it reports its empty component's layout as its own */
+    frame: {
       onLayout(event: LayoutChangeEvent) {
         sizes.current.list = event.nativeEvent.layout.height;
+        lastHeight = sizes.current.list;
         setHeight(sizes.current.list);
         hideFirst();
       },
+    },
+    list: {
+      contentOffset: startOffset,
       onContentSizeChange(_width: number, rowsHeight: number) {
         sizes.current.rows = rowsHeight;
         hideFirst();
