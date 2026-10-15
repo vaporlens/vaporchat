@@ -1,5 +1,5 @@
 import type { SteamCM } from '../steam/cm.ts';
-import { getLiveSaleEvents } from '../steam/events.ts';
+import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails } from '../steam/gameDetails.ts';
 import { steamLanguage } from '../steam/language.ts';
@@ -136,7 +136,7 @@ export class SteamFeeds {
     return getStoreItems(appids, await this.#country());
   }
 
-  /** A game's store page: descriptions, screenshots, reviews and tags. */
+  /** A game's store page: descriptions, screenshots, reviews, tags and features. */
   async getGame(appid: number) {
     return getGameDetails(appid, await this.#country());
   }
@@ -144,6 +144,11 @@ export class SteamFeeds {
   /** A page of a game's reviews, most helpful first. */
   getGameReviews(appid: number, cursor: string | null = null) {
     return getGameReviews(appid, cursor);
+  }
+
+  /** A page of a game's news, newest first. */
+  getGameNews(appid: number, offset: number | null = null) {
+    return getGameNews(appid, offset);
   }
 
   /** The texts and game lists of a sale event's page, by the event's `id`. */

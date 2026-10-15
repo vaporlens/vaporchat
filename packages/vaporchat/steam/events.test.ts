@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { type ApiEvent, toSteamEvent } from './events.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { type ApiEvent, getGameNews, toSteamEvent } from './events.ts';
 
 // clan account id 46255707
 const CLAN_STEAMID = '103582791475777115';
@@ -89,5 +89,28 @@ describe('toSteamEvent', () => {
       summary: 'Patch notes',
       imageUrl: null,
     });
+  });
+});
+
+describe('getGameNews', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('starts the next page after the posts so far and ends on a page without any', async () => {
+    const asked: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      asked.push(url);
+      const first = url.includes('offset=0&');
+      return Response.json({
+        events: first ? [event({}, { gid: '1' }), event({}, { gid: '2' })] : [],
+      });
+    });
+    const first = await getGameNews(10, null);
+    expect(first.items.map(({ id }) => id)).toEqual(['1', '2']);
+    expect(first.next).toBe(2);
+    expect(await getGameNews(10, first.next)).toEqual({
+      items: [],
+      next: null,
+    });
+    expect(asked[1]).toContain('appid=10&offset=2&');
   });
 });

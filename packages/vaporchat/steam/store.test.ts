@@ -55,6 +55,8 @@ describe('toStoreItem', () => {
       discountPercent: 50,
       discountEndsAt: 2_000_000,
       releasedAt: 1_000_000,
+      releaseWindow: null,
+      comingSoon: false,
       free: false,
     });
   });
@@ -81,14 +83,33 @@ describe('toStoreItem', () => {
     });
   });
 
-  it('has the release date of a coming game only when it is a full date', () => {
-    const coming = (coming_soon_display: string) =>
-      toStoreItem({
+  it('has the release date of a coming game when it is a full date, else its window', () => {
+    const coming = (coming_soon_display: string) => {
+      const { releasedAt, releaseWindow } = toStoreItem({
         appid: 10,
         release: { steam_release_date: 1000, coming_soon_display },
-      }).releasedAt;
-    expect(coming('date_full')).toBe(1_000_000);
-    expect(coming('date_quarter')).toBeNull();
+      });
+      return { releasedAt, releaseWindow };
+    };
+    expect(coming('date_full')).toEqual({
+      releasedAt: 1_000_000,
+      releaseWindow: null,
+    });
+    expect(coming('date_quarter')).toEqual({
+      releasedAt: null,
+      releaseWindow: { at: 1_000_000, precision: 'quarter' },
+    });
+    expect(coming('text_tba')).toEqual({
+      releasedAt: null,
+      releaseWindow: null,
+    });
+  });
+
+  it('is coming soon only when Steam says so, with a date or without', () => {
+    expect(
+      toStoreItem({ appid: 10, release: { is_coming_soon: true } }).comingSoon,
+    ).toBe(true);
+    expect(toStoreItem({ appid: 10 }).comingSoon).toBe(false);
   });
 
   it('has no price when free or not for sale yet', () => {

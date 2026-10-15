@@ -1,4 +1,4 @@
-import type { FeedPage, StoreItem } from '../protocol.ts';
+import type { FeedPage, ReleaseWindow, StoreItem } from '../protocol.ts';
 import {
   API_URL,
   ASSETS_URL,
@@ -31,6 +31,7 @@ export interface ApiStoreItem {
     steam_release_date?: number;
     /** how precise the date of a coming game is: `date_full`, `date_month`, `date_quarter`… */
     coming_soon_display?: string;
+    is_coming_soon?: boolean;
   };
   best_purchase_option?: {
     formatted_final_price?: string;
@@ -78,12 +79,20 @@ export async function getStoreCountry() {
 
 const DATA_REQUEST = { include_assets: true, include_release: true };
 
+// how precise a coming game's date is, without a day
+const WINDOWS: Record<string, ReleaseWindow['precision'] | undefined> = {
+  date_month: 'month',
+  date_quarter: 'quarter',
+  date_year: 'year',
+};
+
 export function toStoreItem(item: ApiStoreItem): StoreItem {
   const { assets, best_purchase_option: offer } = item;
   const discounted = (offer?.discount_pct ?? 0) > 0;
   const endsAt = offer?.active_discounts?.[0]?.discount_end_date;
   const { steam_release_date: released, coming_soon_display: precision } =
     item.release ?? {};
+  const rough = precision ? WINDOWS[precision] : undefined;
   return {
     appid: item.appid ?? null,
     includedAppids: item.appid ? [] : (item.included_appids ?? []),
@@ -106,6 +115,9 @@ export function toStoreItem(item: ApiStoreItem): StoreItem {
       released && (precision ?? 'date_full') === 'date_full'
         ? released * 1000
         : null,
+    releaseWindow:
+      released && rough ? { at: released * 1000, precision: rough } : null,
+    comingSoon: item.release?.is_coming_soon ?? false,
     free: item.is_free ?? false,
   };
 }

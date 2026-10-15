@@ -1,4 +1,4 @@
-import type { SteamEvent } from '../protocol.ts';
+import type { FeedPage, SteamEvent } from '../protocol.ts';
 import { localized } from './language.ts';
 import { parseRichText, plainText } from './richText.ts';
 import { CLAN_IMAGES_URL, getJson, inBatches, STORE_URL } from './web.ts';
@@ -9,6 +9,7 @@ const CLAN_STEAMID_BASE = 103582791429521408n;
 // ajaxgetbatchedpartnerevent takes up to this many ids per request
 const BATCH_SIZE = 100;
 const SUMMARY_LENGTH = 240;
+const NEWS_PAGE_SIZE = 20;
 
 /** An event as the store's ajax endpoints describe it, only what we use. */
 export interface ApiEvent {
@@ -88,4 +89,23 @@ export async function getLiveSaleEvents(language: number) {
   }>(`${STORE_URL}saleaction/ajaxgetlivesaleevents?l=english`);
   const events = await getEvents(recent_events.map(({ gid }) => gid));
   return events.map((event) => toSteamEvent(event, language));
+}
+
+/**
+ * A page of a game's news, updates and events, newest first like its store page's news. In
+ * English, `offset` is the `next` of the previous page.
+ */
+export async function getGameNews(
+  appid: number,
+  offset: number | null,
+): Promise<FeedPage<SteamEvent>> {
+  const start = offset ?? 0;
+  const { events = [] } = await getJson<{ events?: ApiEvent[] }>(
+    `${STORE_URL}events/ajaxgetpartnereventspageable/?clan_accountid=0&appid=${appid}` +
+      `&offset=${start}&count=${NEWS_PAGE_SIZE}&l=english`,
+  );
+  return {
+    items: events.map((event) => toSteamEvent(event, 0)),
+    next: events.length > 0 ? start + events.length : null,
+  };
 }

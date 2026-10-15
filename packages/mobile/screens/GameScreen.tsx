@@ -1,13 +1,15 @@
+import { Image } from 'expo-image';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
-import type { GameDetails, StoreItem } from 'vaporchat/protocol';
+import type { GameDetails, SteamEvent, StoreItem } from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
+import { KeepOpened } from '../components/KeepOpened';
 import { type MediaItem, MediaTile, mediaCount } from '../components/MediaTile';
 import { RichText } from '../components/RichText';
 import { SubTabs } from '../components/SubTabs';
-import { fullDate } from '../format';
+import { releaseDate } from '../format';
 import { openLink } from '../links';
 import { colors, gridGutter } from '../theme';
 import {
@@ -16,7 +18,9 @@ import {
   vaporlensUrl,
 } from '../vaporlens';
 import { BuyHeader } from './FeedCards';
+import { GameNews } from './GameNews';
 import { GameReviews } from './GameReviews';
+import type { Page } from './PageScreen';
 import { VaporlensReport } from './VaporlensReport';
 
 const DECK = {
@@ -25,7 +29,7 @@ const DECK = {
   unsupported: 'Unsupported on Steam Deck',
 };
 
-type Tab = 'overview' | 'media' | 'about' | 'reviews';
+type Tab = 'overview' | 'media' | 'about' | 'reviews' | 'news';
 
 function reviewColor(percentPositive: number) {
   if (percentPositive >= 70) return colors.positive;
@@ -59,10 +63,7 @@ function Overview({
         <Text style={styles.lead}>{game.shortDescription}</Text>
       )}
       <View style={styles.facts}>
-        <Fact
-          label="Release date"
-          value={game.releasedAt ? fullDate(game.releasedAt) : ''}
-        />
+        <Fact label="Release date" value={releaseDate(game) ?? ''} />
         <Fact label="Developer" value={game.developers.join(', ')} />
         <Fact label="Publisher" value={game.publishers.join(', ')} />
         <Fact
@@ -77,6 +78,21 @@ function Overview({
       </View>
       {game.tags.length > 0 && (
         <Text style={styles.tags}>{game.tags.join(' · ')}</Text>
+      )}
+      {/* pages cached before features were loaded have none */}
+      {(game.features ?? []).length > 0 && (
+        <View style={styles.features}>
+          {game.features.map((feature) => (
+            <View key={feature.name} style={styles.feature}>
+              <Image
+                source={feature.iconUrl}
+                style={styles.featureIcon}
+                tintColor={colors.muted}
+              />
+              <Text style={styles.featureName}>{feature.name}</Text>
+            </View>
+          ))}
+        </View>
       )}
       {report && (
         <VaporlensReport
@@ -121,6 +137,7 @@ function Details({
   game,
   report,
   onOpenImage,
+  onOpenPage,
   onError,
 }: {
   feeds: SteamFeeds;
@@ -128,11 +145,14 @@ function Details({
   game: GameDetails;
   report: Report | null;
   onOpenImage: (url: string) => void;
+  onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
-  // kept once opened, leaving it keeps the pages loaded
-  const [reviewsOpened, setReviewsOpened] = useState(false);
+  const openEvent = useCallback(
+    (event: SteamEvent) => onOpenPage({ kind: 'article', event }),
+    [onOpenPage],
+  );
   // pages cached before trailers were loaded have none
   const media = [...(game.trailers ?? []), ...game.screenshots];
   const tabs = (
@@ -141,6 +161,7 @@ function Details({
       { tab: 'media', title: 'Media', shown: media.length > 0 },
       { tab: 'about', title: 'About', shown: game.description.length > 0 },
       { tab: 'reviews', title: 'Reviews', shown: true },
+      { tab: 'news', title: 'News', shown: true },
     ] as const
   ).filter((item) => item.shown);
   return (
@@ -159,42 +180,52 @@ function Details({
         </Text>
       )}
       <View style={styles.bleed}>
-        <SubTabs
-          tabs={tabs}
-          tab={tab}
-          onChange={(next) => {
-            setTab(next);
-            if (next === 'reviews') setReviewsOpened(true);
-          }}
-        />
+        <SubTabs tabs={tabs} tab={tab} onChange={setTab} />
       </View>
-      {tab === 'overview' && (
-        <Overview appid={appid} game={game} report={report} />
-      )}
-      {tab === 'media' && <Media media={media} onOpenImage={onOpenImage} />}
-      {tab === 'about' && (
-        <RichText blocks={game.description} onOpenImage={onOpenImage} />
-      )}
-      {reviewsOpened && (
-        <View style={[styles.tab, tab !== 'reviews' && styles.hidden]}>
-          <GameReviews
-            feeds={feeds}
-            appid={appid}
-            onOpenImage={onOpenImage}
-            onError={onError}
-          />
-        </View>
-      )}
+      {/* kept once opened, coming back to reviews or news keeps the pages loaded */}
+      <KeepOpened
+        tab={tab}
+        render={(name) => (
+          <View style={styles.tab}>
+            {name === 'overview' && (
+              <Overview appid={appid} game={game} report={report} />
+            )}
+            {name === 'media' && (
+              <Media media={media} onOpenImage={onOpenImage} />
+            )}
+            {name === 'about' && (
+              <RichText blocks={game.description} onOpenImage={onOpenImage} />
+            )}
+            {name === 'reviews' && (
+              <GameReviews
+                feeds={feeds}
+                appid={appid}
+                onOpenImage={onOpenImage}
+                onError={onError}
+              />
+            )}
+            {name === 'news' && (
+              <GameNews
+                feeds={feeds}
+                appid={appid}
+                onOpenEvent={openEvent}
+                onError={onError}
+              />
+            )}
+          </View>
+        )}
+      />
     </>
   );
 }
 
-/** A game's store page: price and reviews over tabs of its facts, media, description and reviews. */
+/** A game's store page: price and reviews over tabs of its facts, media, description, reviews and news. */
 export function GameScreen({
   feeds,
   item,
   onBack,
   onOpenImage,
+  onOpenPage,
   onError,
 }: {
   feeds: SteamFeeds;
@@ -202,6 +233,8 @@ export function GameScreen({
   item: StoreItem & { appid: number };
   onBack: () => void;
   onOpenImage: (url: string) => void;
+  /** a news post */
+  onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
 }) {
   const loadGame = useCallback(
@@ -238,6 +271,7 @@ export function GameScreen({
           game={game}
           report={report}
           onOpenImage={onOpenImage}
+          onOpenPage={onOpenPage}
           onError={onError}
         />
       ) : error ? (
@@ -254,7 +288,6 @@ const styles = StyleSheet.create({
   bleed: { marginHorizontal: -16 },
   // spaced like the page's own content
   tab: { gap: 14 },
-  hidden: { display: 'none' },
   muted: { color: colors.muted, fontSize: 13 },
   loading: { marginTop: 24 },
   reviews: { color: colors.muted, fontSize: 14 },
@@ -263,6 +296,19 @@ const styles = StyleSheet.create({
   factLabel: { width: 90, color: colors.muted, fontSize: 13 },
   factValue: { flex: 1, color: colors.text, fontSize: 13 },
   tags: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  features: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  feature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingRight: 10,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: colors.surface,
+  },
+  // steam's icons are 52x32, padding included
+  featureIcon: { width: 26, height: 16 },
+  featureName: { color: colors.text, fontSize: 12 },
   // a grid as wide as the page, its cells pad themselves by the gutter
   grid: {
     flexDirection: 'row',

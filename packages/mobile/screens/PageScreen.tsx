@@ -20,12 +20,14 @@ export const PageScreen = memo(function PageScreen({
   page,
   onBack,
   onOpenGame,
+  onOpenPage,
   onError,
 }: {
   feeds: SteamFeeds;
   page: Page;
   onBack: () => void;
   onOpenGame: (item: StoreItem) => void;
+  onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
 }) {
   const [viewing, setViewing] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export const PageScreen = memo(function PageScreen({
           item={page.item}
           onBack={onBack}
           onOpenImage={setViewing}
+          onOpenPage={onOpenPage}
           onError={onError}
         />
       ) : page.kind === 'bundle' ? (

@@ -5,7 +5,7 @@ import { toGameDetails } from './gameDetails.ts';
 const TRAILER_URL_FORMAT = 'steam/apps/${FILENAME}?t=7';
 
 describe('toGameDetails', () => {
-  it('names tags, sizes screenshots, streams trailers and says where the game runs', () => {
+  it('names tags and features, sizes screenshots, streams trailers and says where the game runs', () => {
     const game = toGameDetails(
       {
         success: 1,
@@ -24,6 +24,11 @@ describe('toGameDetails', () => {
           },
         },
         tags: [{ tagid: 2 }, { tagid: 99 }, { tagid: 1 }],
+        categories: {
+          supported_player_categoryids: [2],
+          feature_categoryids: [23, 99],
+          controller_categoryids: [57, 58],
+        },
         screenshots: {
           all_ages_screenshots: [{ filename: 'steam/apps/10/ss_a.jpg?t=5' }],
         },
@@ -69,6 +74,12 @@ describe('toGameDetails', () => {
         [1, 'Puzzle'],
         [2, 'Indie'],
       ]),
+      new Map([
+        [2, { name: 'Single-player', iconUrl: 'player.png' }],
+        [23, { name: 'Steam Cloud', iconUrl: 'cloud.png' }],
+        [57, { name: 'DualSense Controller Support', iconUrl: 'pad.png' }],
+        [58, { name: 'DualSense Controller Support', iconUrl: 'pad.png' }],
+      ]),
     );
     expect(game).toMatchObject({
       shortDescription: 'Short',
@@ -76,6 +87,11 @@ describe('toGameDetails', () => {
       publishers: ['Pub'],
       reviews: { label: 'Very Positive', percentPositive: 91, count: 120 },
       tags: ['Indie', 'Puzzle'],
+      features: [
+        { name: 'Single-player', iconUrl: 'player.png' },
+        { name: 'DualSense Controller Support', iconUrl: 'pad.png' },
+        { name: 'Steam Cloud', iconUrl: 'cloud.png' },
+      ],
       screenshots: [
         {
           url: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/10/ss_a.jpg?t=5',
@@ -106,9 +122,38 @@ describe('toGameDetails', () => {
     });
   });
 
-  it('has no reviews or Steam Deck rating when Steam has none', () => {
+  it('has no reviews, features or Steam Deck rating when Steam has none', () => {
     expect(
-      toGameDetails({ success: 1, appid: 10, reviews: {} }, new Map()),
-    ).toMatchObject({ reviews: null, steamDeck: null, platforms: [] });
+      toGameDetails(
+        { success: 1, appid: 10, reviews: {} },
+        new Map(),
+        new Map(),
+      ),
+    ).toMatchObject({
+      reviews: null,
+      features: [],
+      steamDeck: null,
+      platforms: [],
+    });
+  });
+
+  it('has no reviews for a game without any, though Steam labels them', () => {
+    expect(
+      toGameDetails(
+        {
+          success: 1,
+          appid: 10,
+          reviews: {
+            summary_filtered: {
+              review_count: 0,
+              percent_positive: 0,
+              review_score_label: 'No user reviews',
+            },
+          },
+        },
+        new Map(),
+        new Map(),
+      ).reviews,
+    ).toBeNull();
   });
 });

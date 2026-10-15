@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { StyleSheet, View } from 'react-native';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type {
@@ -52,7 +53,7 @@ interface List<T> {
 
 // the feeds' `keyOf`, stable so they don't load again on every render
 const storeItemKey = (item: StoreItem) => item.url;
-const eventKey = (event: SteamEvent) => event.id;
+export const eventKey = (event: SteamEvent) => event.id;
 const activityKey = (activity: FriendActivity) => activity.id;
 // what the user's own lists filter by
 const storeItemName = (item: StoreItem) => item.name;
@@ -246,7 +247,11 @@ function Events({
     [list.page, onOpenPage],
   );
   const renderItem = useCallback(
-    (event: SteamEvent) => <EventCard event={event} onPress={openEvent} />,
+    (event: SteamEvent) => (
+      <View style={styles.event}>
+        <EventCard event={event} onPress={openEvent} />
+      </View>
+    ),
     [openEvent],
   );
   return (
@@ -360,4 +365,8 @@ export const FeedTabs = memo(function FeedTabs({
       }}
     />
   );
+});
+
+const styles = StyleSheet.create({
+  event: { marginHorizontal: 12, marginBottom: 12 },
 });

@@ -79,7 +79,9 @@ await feeds.getNewReleases(); // popular new releases, newest first; pages like 
 await feeds.getUpcoming(); // popular games coming soon; pages like news
 await feeds.searchGames('term'); // what the store finds, best matches first; pages like news
 await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days to a page
-await feeds.getGame(appid); // a store page: reviews, tags, screenshots, description
+await feeds.getGame(appid); // a store page: reviews, tags, features, screenshots, description
+await feeds.getGameReviews(appid); // its reviews, most helpful first; pages like news
+await feeds.getGameNews(appid); // its news, updates and events, newest first; pages like news
 await feeds.getStoreItems(bundle.includedAppids); // a bundle's games
 await feeds.getSalePage(event.id); // a sale event's sections: texts and their games
 const news = await feeds.getNews(); // the News Hub's "Your News", newest first; featured ones signed out
@@ -177,6 +179,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |
 | Store feeds: top sellers, upcoming, wishlist (private too), personal calendar, library, owned and wishlisted appids | live (Bun), wishlist paging not tried (bot's fits one page) |
 | Game pages; store descriptions and news posts as rich text | live (Bun) |
+| Game pages' features and release windows, their reviews and news, paging | live (Bun) |
 | Sale event pages with their games, bundles included | live (Bun) |
 | Store feeds, game and sale pages without an account (`SteamFeeds.anonymous`) | live (Bun) |
 | iOS app: Store, Releases, Feed tabs and their lists | installed on the phone, not tried yet |

@@ -1,9 +1,11 @@
-import type { GameDetails } from '../protocol.ts';
+import type { GameDetails, GameFeature } from '../protocol.ts';
 import { parseRichText } from './richText.ts';
 import { type ApiStoreItem, callApi, context, toStoreItem } from './store.ts';
 import { ASSETS_URL, VIDEO_URL } from './web.ts';
 
 const SHOWN_TAGS = 12;
+// where the store's own pictures are, like its feature icons
+const STORE_STATIC_URL = 'https://store.fastly.steamstatic.com/';
 // ESteamDeckCompatibilityCategory
 const STEAM_DECK = {
   1: 'unsupported',
@@ -35,6 +37,11 @@ interface ApiGameDetails extends ApiStoreItem {
   };
   /** most voted first */
   tags?: { tagid: number }[];
+  categories?: {
+    supported_player_categoryids?: number[];
+    feature_categoryids?: number[];
+    controller_categoryids?: number[];
+  };
   screenshots?: { all_ages_screenshots?: { filename?: string }[] };
   trailers?: { highlights?: ApiTrailer[]; other_trailers?: ApiTrailer[] };
   platforms?: {
@@ -46,22 +53,49 @@ interface ApiGameDetails extends ApiStoreItem {
   full_description_bbcode?: string;
 }
 
-// tag names hardly ever change, they are fetched once
-let tagNames: Promise<Map<number, string>> | null = null;
+/** What `load` gets, fetched once and asked again only if it failed. */
+function fetchedOnce<T>(load: () => Promise<T>) {
+  let loaded: Promise<T> | null = null;
+  return () => {
+    loaded ??= load().catch((err: Error) => {
+      loaded = null;
+      throw err;
+    });
+    return loaded;
+  };
+}
 
-function getTagNames() {
-  tagNames ??= callApi<{ tags?: { tagid: number; name: string }[] }>(
+// tag and feature names hardly ever change
+const getTagNames = fetchedOnce(() =>
+  callApi<{ tags?: { tagid: number; name: string }[] }>(
     'IStoreService/GetTagList',
     { language: 'english' },
   ).then(
     ({ tags = [] }) => new Map(tags.map(({ tagid, name }) => [tagid, name])),
-    (err: Error) => {
-      tagNames = null;
-      throw err;
-    },
-  );
-  return tagNames;
-}
+  ),
+);
+
+const getFeatures = fetchedOnce(() =>
+  callApi<{
+    categories?: {
+      categoryid: number;
+      display_name: string;
+      /** like `public/images/v6/ico/ico_cloud.png` */
+      image_url: string;
+    }[];
+  }>('IStoreBrowseService/GetStoreCategories', { language: 'english' }).then(
+    ({ categories = [] }) =>
+      new Map(
+        categories.flatMap(
+          ({ categoryid, display_name: name, image_url: icon }) =>
+            // the store's own names for some aren't translated
+            name.startsWith('#')
+              ? []
+              : [[categoryid, { name, iconUrl: STORE_STATIC_URL + icon }]],
+        ),
+      ),
+  ),
+);
 
 function names(list: { name?: string }[] = []) {
   return list.flatMap(({ name }) => (name ? [name] : []));
@@ -70,8 +104,16 @@ function names(list: { name?: string }[] = []) {
 export function toGameDetails(
   item: ApiGameDetails,
   tagNames: Map<number, string>,
+  features: Map<number, GameFeature>,
 ): GameDetails {
   const reviews = item.reviews?.summary_filtered;
+  const categories = item.categories ?? {};
+  // like the store page lists them: players, then controllers, then the rest
+  const listed = [
+    ...(categories.supported_player_categoryids ?? []),
+    ...(categories.controller_categoryids ?? []),
+    ...(categories.feature_categoryids ?? []),
+  ].flatMap((id) => features.get(id) ?? []);
   const platforms = item.platforms ?? {};
   const deck = platforms.steam_deck_compat_category as
     | keyof typeof STEAM_DECK
@@ -81,16 +123,22 @@ export function toGameDetails(
     shortDescription: item.basic_info?.short_description ?? '',
     developers: names(item.basic_info?.developers),
     publishers: names(item.basic_info?.publishers),
-    reviews: reviews?.review_score_label
-      ? {
-          label: reviews.review_score_label,
-          percentPositive: reviews.percent_positive ?? 0,
-          count: reviews.review_count ?? 0,
-        }
-      : null,
+    // an upcoming game's label is `No user reviews`
+    reviews:
+      reviews?.review_score_label && reviews.review_count
+        ? {
+            label: reviews.review_score_label,
+            percentPositive: reviews.percent_positive ?? 0,
+            count: reviews.review_count,
+          }
+        : null,
     tags: (item.tags ?? [])
       .flatMap(({ tagid }) => tagNames.get(tagid) ?? [])
       .slice(0, SHOWN_TAGS),
+    // a few names are there twice, for different controllers
+    features: [
+      ...new Map(listed.map((feature) => [feature.name, feature])).values(),
+    ],
     screenshots: (item.screenshots?.all_ages_screenshots ?? []).flatMap(
       ({ filename }) =>
         filename
@@ -137,9 +185,9 @@ export function toGameDetails(
   };
 }
 
-/** A game's store page: descriptions, screenshots, trailers, reviews and tags. */
+/** A game's store page: descriptions, screenshots, trailers, reviews, tags and features. */
 export async function getGameDetails(appid: number, country: string) {
-  const [{ store_items = [] }, tags] = await Promise.all([
+  const [{ store_items = [] }, tags, features] = await Promise.all([
     callApi<{ store_items?: ApiGameDetails[] }>(
       'IStoreBrowseService/GetItems',
       {
@@ -159,8 +207,9 @@ export async function getGameDetails(appid: number, country: string) {
       },
     ),
     getTagNames(),
+    getFeatures(),
   ]);
   const item = store_items[0];
   if (item?.success !== 1) throw new Error('This game is not in the store');
-  return toGameDetails(item, tags);
+  return toGameDetails(item, tags, features);
 }

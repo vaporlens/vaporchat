@@ -218,7 +218,17 @@ export interface StoreItem {
   discountPercent: number;
   discountEndsAt: number | null;
   releasedAt: number | null;
+  /** when a coming game without a full date is planned for, null with one */
+  releaseWindow: ReleaseWindow | null;
+  /** not out yet, with or without a date */
+  comingSoon: boolean;
   free: boolean;
+}
+
+/** A month, quarter or year, by its last day like Steam has it. Milliseconds since the epoch. */
+export interface ReleaseWindow {
+  at: number;
+  precision: 'month' | 'quarter' | 'year';
 }
 
 /** The apps the user owns and the ones on their wishlist, by appid, like the store marks them. */
@@ -341,6 +351,7 @@ export interface GameDetails extends StoreItem {
   /** like `Very Positive`, null without enough reviews */
   reviews: { label: string; percentPositive: number; count: number } | null;
   tags: string[];
+  features: GameFeature[];
   screenshots: { url: string; thumbnailUrl: string }[];
   /** `url` is an HLS stream */
   trailers: { url: string; posterUrl: string }[];
@@ -348,6 +359,13 @@ export interface GameDetails extends StoreItem {
   platforms: string[];
   steamDeck: 'verified' | 'playable' | 'unsupported' | null;
   description: RichBlock[];
+}
+
+/** What a game supports, like `Single-player` or `Steam Cloud`. */
+export interface GameFeature {
+  name: string;
+  /** steam's white icon, 52x32 */
+  iconUrl: string;
 }
 
 /** A player's review of a game in the store. */

@@ -40,6 +40,8 @@ export function libraryItems(
       discountPercent: 0,
       discountEndsAt: null,
       releasedAt: null,
+      releaseWindow: null,
+      comingSoon: false,
       free: false,
     }));
 }

@@ -1,3 +1,5 @@
+import type { StoreItem } from 'vaporchat/protocol';
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -17,6 +19,23 @@ export function fullDate(time: number) {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+/** `Oct 5, 2026`, or as precise as Steam knows a coming game's: `December 2026`, `Q2 2027`, `2027`. */
+export function releaseDate({ releasedAt, releaseWindow }: StoreItem) {
+  if (releasedAt) return fullDate(releasedAt);
+  // pages cached before windows were loaded have none
+  if (!releaseWindow) return null;
+  const day = new Date(releaseWindow.at);
+  if (releaseWindow.precision === 'month') {
+    return day.toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+  return releaseWindow.precision === 'quarter'
+    ? `Q${Math.floor(day.getMonth() / 3) + 1} ${day.getFullYear()}`
+    : String(day.getFullYear());
 }
 
 /** `5m ago`, `3h ago`, `2d ago`, then the date. */

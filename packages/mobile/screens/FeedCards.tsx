@@ -10,7 +10,7 @@ import type {
 } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
-import { date, fullDate, timeAgo } from '../format';
+import { date, fullDate, releaseDate, timeAgo } from '../format';
 import { openLink } from '../links';
 import { colors, gradients, gridGutter, imageFadeMs } from '../theme';
 import { useOwnership } from '../userApps';
@@ -53,20 +53,24 @@ const OWNERSHIP = {
 export function BuyHeader({ item }: { item: StoreItem }) {
   const ownership = useOwnership(item.appid);
   const mark = ownership && OWNERSHIP[ownership];
+  const releases = releaseDate(item);
   return (
     <>
       <Text style={styles.name}>{item.name}</Text>
       <View style={styles.buy}>
-        <View style={styles.grow}>
-          <Price item={item} />
+        <View style={styles.buyInfo}>
+          {item.free || item.price ? (
+            <Price item={item} />
+          ) : (
+            <Text style={styles.price}>
+              {item.comingSoon ? 'Coming soon' : 'Not for sale'}
+            </Text>
+          )}
+          {item.comingSoon && releases && (
+            <Text style={styles.offerEnds}>Releases {releases}</Text>
+          )}
           {mark && (
-            <Text
-              style={[
-                styles.mark,
-                styles.buyMark,
-                { backgroundColor: mark.color },
-              ]}
-            >
+            <Text style={[styles.mark, { backgroundColor: mark.color }]}>
               {mark.label}
             </Text>
           )}
@@ -333,7 +337,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardMark: { position: 'absolute', left: 6, top: 6 },
-  buyMark: { alignSelf: 'flex-start' },
   title: { color: colors.bright, fontSize: 15, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 12 },
   price: {
@@ -368,10 +371,10 @@ const styles = StyleSheet.create({
   final: { color: colors.discount, fontSize: 14, fontWeight: '600' },
   name: { color: colors.bright, fontSize: 24, fontWeight: '800' },
   buy: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // the price and marks as wide as their text
+  buyInfo: { flex: 1, gap: 4, alignItems: 'flex-start' },
   offerEnds: { color: colors.muted, fontSize: 13 },
   eventCard: {
-    marginHorizontal: 12,
-    marginBottom: 12,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: colors.surface,

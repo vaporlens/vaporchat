@@ -1,14 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { memo, useCallback, useRef } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type { GameReview } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
-import { useOnScreen } from '../components/onScreen';
 import { RichText } from '../components/RichText';
 import { fullDate } from '../format';
 import { colors } from '../theme';
-import { usePaging } from './usePaging';
+import { PagedList } from './PagedList';
 
 function keyOf(review: GameReview) {
   return review.id;
@@ -76,39 +75,21 @@ export function GameReviews({
     (cursor: string | null) => feeds.getGameReviews(appid, cursor),
     [feeds, appid],
   );
-  const list = usePaging(load, keyOf, `reviews-${appid}`, onError);
-  const end = useRef<View>(null);
-  const onEndLayout = useOnScreen(end, (visible, settled) => {
-    // once scrolling pauses, a failing page isn't asked for on every scroll event
-    if (visible && settled) list.loadMore();
-  });
-
-  if (!list.items) {
-    return list.error ? (
-      <Text style={styles.muted}>{list.error}</Text>
-    ) : (
-      <ActivityIndicator color={colors.muted} style={styles.loading} />
-    );
-  }
-  if (list.items.length === 0) {
-    return <Text style={styles.muted}>No reviews yet</Text>;
-  }
   return (
-    <>
-      {list.items.map((review) => (
-        <Review key={review.id} review={review} onOpenImage={onOpenImage} />
-      ))}
-      {list.next !== null && (
-        <View ref={end} onLayout={onEndLayout}>
-          <ActivityIndicator color={colors.muted} />
-        </View>
+    <PagedList
+      load={load}
+      keyOf={keyOf}
+      cacheKey={`reviews-${appid}`}
+      empty="No reviews yet"
+      renderItem={(review) => (
+        <Review review={review} onOpenImage={onOpenImage} />
       )}
-    </>
+      onError={onError}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  loading: { marginTop: 24 },
   muted: { color: colors.muted, fontSize: 13 },
   review: {
     gap: 10,
