@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3 (2026-10-15)
+
+- Fix Steam Guard login failing on Android when approving in the Steam app on the same phone.
+
 ## 0.4.2 (2026-10-15)
 
 - Keep the search bar hidden while lists load and when switching sub-tabs.

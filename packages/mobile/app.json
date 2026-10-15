@@ -2,13 +2,13 @@
   "expo": {
     "name": "Vaporlens",
     "slug": "vaporchat",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "org.vaporlens.Vaporlens",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "appleTeamId": "EA3F6PEEAV",
       "supportsTablet": true,
       "config": {
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "org.vaporlens.Vaporlens",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#2D73FF",
         "foregroundImage": "./assets/android-icon-foreground.png",
