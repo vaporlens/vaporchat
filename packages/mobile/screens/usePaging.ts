@@ -3,7 +3,9 @@ import type { FeedPage } from 'vaporchat/protocol';
 import { readCache, writeCache } from '../cache';
 
 /** Loads a page of a list: the first for null, else the one at the `next` of the last. */
-export type Load<T> = (next: number | null) => Promise<FeedPage<T>>;
+export type Load<T, Next = number> = (
+  next: Next | null,
+) => Promise<FeedPage<T, Next>>;
 
 /** `added` that aren't in `shown`, each once: steam sends some items again. */
 function unique<T>(shown: T[], added: T[], keyOf: (item: T) => string) {
@@ -20,17 +22,17 @@ function unique<T>(shown: T[], added: T[], keyOf: (item: T) => string) {
  * A list loaded from Steam a page at a time, last time's first page (under `cacheKey`) while it
  * loads. It loads again when `load` changes, `null` empties it.
  */
-export function usePaging<T>(
-  load: Load<T> | null,
+export function usePaging<T, Next = number>(
+  load: Load<T, Next> | null,
   keyOf: (item: T) => string,
   cacheKey: string | null,
   onError: (err: Error) => void,
 ) {
   const [cached] = useState(() =>
-    cacheKey === null ? null : readCache<FeedPage<T>>(cacheKey),
+    cacheKey === null ? null : readCache<FeedPage<T, Next>>(cacheKey),
   );
   const [items, setItems] = useState<T[] | null>(cached?.items ?? null);
-  const [next, setNext] = useState<number | null>(cached?.next ?? null);
+  const [next, setNext] = useState<Next | null>(cached?.next ?? null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);

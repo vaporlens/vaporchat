@@ -482,7 +482,7 @@ export function Home({
                 page={route.params.page}
                 onBack={back}
                 onOpenGame={openGame}
-                onOpenPage={push}
+                onError={showError}
               />
             )}
           </Stack.Screen>

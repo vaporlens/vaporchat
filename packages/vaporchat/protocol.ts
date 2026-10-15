@@ -289,9 +289,9 @@ export interface FriendActivity {
 }
 
 /** Part of a list, in the list's order. The rest comes by passing `next`, which is null at the end. */
-export interface FeedPage<T> {
+export interface FeedPage<T, Next = number> {
   items: T[];
-  next: number | null;
+  next: Next | null;
 }
 
 /** Formatted text of a store page or news post, from Steam's BBCode. */
@@ -348,4 +348,19 @@ export interface GameDetails extends StoreItem {
   platforms: string[];
   steamDeck: 'verified' | 'playable' | 'unsupported' | null;
   description: RichBlock[];
+}
+
+/** A player's review of a game in the store. */
+export interface GameReview {
+  id: string;
+  author: string;
+  avatarUrl: string;
+  recommended: boolean;
+  /** how long they had played when they wrote it */
+  hoursPlayed: number;
+  /** milliseconds since the epoch */
+  createdAt: number;
+  /** how many found it helpful */
+  helpful: number;
+  body: RichBlock[];
 }

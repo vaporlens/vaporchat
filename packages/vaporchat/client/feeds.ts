@@ -7,6 +7,7 @@ import { getLibrary, getUserApps } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
 import { getPersonalCalendar } from '../steam/personalCalendar.ts';
+import { getGameReviews } from '../steam/reviews.ts';
 import { getSalePage } from '../steam/salePage.ts';
 import {
   getNewReleases,
@@ -138,6 +139,11 @@ export class SteamFeeds {
   /** A game's store page: descriptions, screenshots, reviews and tags. */
   async getGame(appid: number) {
     return getGameDetails(appid, await this.#country());
+  }
+
+  /** A page of a game's reviews, most helpful first. */
+  getGameReviews(appid: number, cursor: string | null = null) {
+    return getGameReviews(appid, cursor);
   }
 
   /** The texts and game lists of a sale event's page, by the event's `id`. */

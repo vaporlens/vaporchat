@@ -81,7 +81,7 @@ export function GuestHome({
                 page={route.params.page}
                 onBack={back}
                 onOpenGame={openGame}
-                onOpenPage={push}
+                onError={showError}
               />
             )}
           </Stack.Screen>

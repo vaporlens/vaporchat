@@ -24,6 +24,10 @@ export const colors = {
   // steam's discount badge
   discount: '#beee11',
   discountBackground: '#4c6b22',
+  // steam's colors for positive, mixed and negative reviews
+  positive: '#66c0f4',
+  mixed: '#b9a074',
+  negative: '#a34c25',
 };
 
 export const gradients = {
