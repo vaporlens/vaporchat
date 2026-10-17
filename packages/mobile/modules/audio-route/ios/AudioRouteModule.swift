@@ -13,6 +13,16 @@ public class AudioRouteModule: Module {
       try AVAudioSession.sharedInstance().overrideOutputAudioPort(on ? .speaker : .none)
     }
 
+    // the speaker's default when voice starts: off with a headset voice chat can play through.
+    // Before voice a Bluetooth headset can show as A2DP, its call link only comes with voice
+    Function("hasHeadset") { () -> Bool in
+      let headsets: Set<AVAudioSession.Port> = [
+        .bluetoothHFP, .bluetoothA2DP, .bluetoothLE, .headphones, .usbAudio,
+      ]
+      return AVAudioSession.sharedInstance().currentRoute.outputs
+        .contains { headsets.contains($0.portType) }
+    }
+
     // apps can't play the phone's ringtone, a bundled ring stands in, silent with the ring switch.
     // In voice chat a call waiting beep instead.
     Function("startRinging") { (inCall: Bool) in

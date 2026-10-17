@@ -21,16 +21,58 @@ class AudioRouteModule : Module() {
   private var ringtone: Ringtone? = null
   private var beeper: ToneGenerator? = null
 
-  // off goes back to the default route, a headset when there is one
+  // headsets that carry voice chat, Bluetooth ones over their call link (SCO). Bluetooth first
+  private val headsetTypes = listOf(
+    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+    AudioDeviceInfo.TYPE_BLE_HEADSET,
+    AudioDeviceInfo.TYPE_WIRED_HEADSET,
+    AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+    AudioDeviceInfo.TYPE_USB_HEADSET
+  )
+
+  private fun headset(audio: AudioManager): AudioDeviceInfo? {
+    val devices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      audio.availableCommunicationDevices
+    } else {
+      audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList()
+    }
+    return headsetTypes.firstNotNullOfOrNull { type -> devices.firstOrNull { it.type == type } }
+  }
+
+  // off plays through the headset when there is one, the earpiece otherwise
   private fun route(audio: AudioManager, speakerOn: Boolean) {
+    val headset = if (speakerOn) null else headset(audio)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      val speaker = audio.availableCommunicationDevices
-        .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
-      if (speakerOn && speaker != null) audio.setCommunicationDevice(speaker)
+      val device = if (speakerOn) {
+        audio.availableCommunicationDevices
+          .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+      } else headset
+      if (device != null) audio.setCommunicationDevice(device)
       else audio.clearCommunicationDevice()
     } else {
       @Suppress("DEPRECATION")
       audio.isSpeakerphoneOn = speakerOn
+      // wired headsets take over by themselves, Bluetooth ones only once asked for their call link.
+      // Starts are counted, a reconnect asking again would outlast the one stop in reset
+      val bluetooth = headset?.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+      @Suppress("DEPRECATION")
+      if (!bluetooth) audio.stopBluetoothSco()
+      else if (!audio.isBluetoothScoOn) audio.startBluetoothSco()
+      @Suppress("DEPRECATION")
+      audio.isBluetoothScoOn = bluetooth
+    }
+  }
+
+  private fun clearRoute(audio: AudioManager) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      audio.clearCommunicationDevice()
+    } else {
+      @Suppress("DEPRECATION")
+      audio.isSpeakerphoneOn = false
+      @Suppress("DEPRECATION")
+      audio.stopBluetoothSco()
+      @Suppress("DEPRECATION")
+      audio.isBluetoothScoOn = false
     }
   }
 
@@ -48,9 +90,12 @@ class AudioRouteModule : Module() {
     // ends the communication mode once voice is over, the volume keys control media again
     Function("reset") {
       val audio = audio
-      route(audio, false)
+      clearRoute(audio)
       audio.mode = AudioManager.MODE_NORMAL
     }
+
+    // the speaker's default when voice starts: off with a headset voice chat can play through
+    Function("hasHeadset") { headset(audio) != null }
 
     // the phone's ringtone on the ring volume, silent when the phone is. In voice chat the phone's
     // call waiting beep instead, in the call's audio, repeating until stopped

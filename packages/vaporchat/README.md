@@ -206,6 +206,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Room messages mentioning us, everyone or who is here | unit-tested, not live |
 | Alerts with the app in the background (Android, Stay connected): friend and room messages, incoming calls with the phone's ringtone, tapping one opens its chat | live (Android emulator) |
 | A call coming in during voice beeps instead of ringing (Android) | built, not tried live |
+| Voice through a Bluetooth or wired headset, speaker off by default with one | Android built, emulator without a headset only; iOS not built |
 | Alerts and ringing on iOS | not built or tried (written without a Mac) |
 | Wishlisting, following and ignoring a game and taking it back, the game page's state from Steam | live (Android) |
 | Game page editions, Early Access answers, links, system requirements (structured and older games' text), DLC, More like this | live (Android); older games' requirements text unit-tested and seen from Bun, not on the phone |

@@ -3,6 +3,7 @@ import { Vibration } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
 import {
+  hasHeadset,
   resetAudioRoute,
   setRinging,
   setSpeakerOn,
@@ -73,15 +74,17 @@ export function useSessionChanges(session: VoiceSession) {
 }
 
 /**
- * The current voice session, incoming calls (the phone rings and vibrates while they do) and the
- * speaker setting, re-rendering when they change. Not on the session's own changes, see
- * `useSessionChanges`.
+ * The current voice session, incoming calls (the phone rings and vibrates while they do), the
+ * speaker setting and whether a headset is connected, re-rendering when they change. Not on the
+ * session's own changes, see `useSessionChanges`.
  */
 export function useVoice(voice: SteamVoice) {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  // group voice is meant for the loudspeaker, not for holding the phone to your ear
+  // group voice is meant for the loudspeaker, not for holding the phone to your ear, unless a
+  // headset is connected when voice starts
   const [speaker, setSpeaker] = useState(true);
   const speakerRef = useRef(speaker);
+  const [headset, setHeadset] = useState(false);
 
   useEffect(() => {
     // sessions also start without a tap (taking over a simultaneous call), so wire them all here
@@ -107,7 +110,15 @@ export function useVoice(voice: SteamVoice) {
     };
     if (voice.session) wire(voice.session);
     setCallActive(voice.session !== null);
+    let inVoice = voice.session !== null;
     const offSession = voice.on('session', (session) => {
+      if (session && !inVoice) {
+        const plugged = hasHeadset();
+        speakerRef.current = !plugged;
+        setSpeaker(!plugged);
+        setHeadset(plugged);
+      }
+      inVoice = session !== null;
       // null only once the last one ended, a session taking over another keeps voice going
       setCallActive(session !== null);
       if (session) wire(session);
@@ -139,5 +150,6 @@ export function useVoice(voice: SteamVoice) {
     incomingCalls: voice.incomingCalls,
     speaker,
     setSpeaker: changeSpeaker,
+    headset,
   };
 }

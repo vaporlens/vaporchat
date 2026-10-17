@@ -63,7 +63,7 @@ behaviour.
 | Notification actions (mute, hang up) | the Android call notification has none (`mobile/modules/call-service`) | easy |
 | Switching microphone mid-call | the library has `setMicrophone`, the app doesn't expose it | easy |
 | Per-user volume and local mute of a participant | Big Picture's voice tab has per-user sliders | moderate |
-| Bluetooth / headset route picker | only a speaker/earpiece toggle | moderate |
+| Bluetooth / headset route picker, switching when one connects mid-call | speaker off plays through the headset connected at that moment, else the earpiece; the default and the button's label are set when voice starts (`mobile/modules/audio-route`, `mobile/voice.ts`) | moderate |
 | Push-to-talk, voice activity threshold | desktop client | moderate |
 
 ## Notifications

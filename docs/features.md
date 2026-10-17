@@ -58,7 +58,8 @@ clears desktop badges too; reads elsewhere come back as `NotifyAckMessageEcho`.
 ## Voice
 
 Group voice channels and 1:1 calls (place, accept, decline, simultaneous-call takeover); mute,
-deafen and speaker/earpiece; speaking indicators; reconnect with backoff; an Android foreground
+deafen and a speaker toggle whose other side is a connected headset or the earpiece (speaker off
+by default with a headset); speaking indicators; reconnect with backoff; an Android foreground
 service and iOS background audio.
 
 **Incoming calls** ring with the phone's ringtone on Android and a bundled ring on iOS

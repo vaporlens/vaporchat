@@ -116,7 +116,8 @@ export function Home({
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>('store');
   const [status, setStatus] = useState(voice.connection.status);
-  const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
+  const { session, incomingCalls, speaker, setSpeaker, headset } =
+    useVoice(voice);
   const unread = useUnread(voice);
   const unreadNotices = useSteamNotices(voice).filter((n) => !n.read).length;
   // stable, the open chat reloads when it changes
@@ -575,6 +576,7 @@ export function Home({
           title={sessionTitle(voice, session, groups)}
           speaker={speaker}
           setSpeaker={setSpeaker}
+          headset={headset}
         />
       )}
       <IncomingCall voice={voice} calls={incomingCalls} onError={showError} />

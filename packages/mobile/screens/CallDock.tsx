@@ -120,12 +120,15 @@ export const CallDock = memo(function CallDock({
   title,
   speaker,
   setSpeaker,
+  headset,
 }: {
   voice: SteamVoice;
   session: VoiceSession;
   title: string;
   speaker: boolean;
   setSpeaker: (on: boolean) => void;
+  /** a headset was connected when voice started, speaker off plays through it */
+  headset: boolean;
 }) {
   const insets = useSafeAreaInsets();
   useSessionChanges(session);
@@ -192,7 +195,7 @@ export const CallDock = memo(function CallDock({
         />
         <RoundButton
           icon={speaker ? 'volume-high' : 'ear'}
-          label={speaker ? 'Speaker' : 'Earpiece'}
+          label={speaker ? 'Speaker' : headset ? 'Headset' : 'Earpiece'}
           onPress={() => setSpeaker(!speaker)}
         />
         <RoundButton
