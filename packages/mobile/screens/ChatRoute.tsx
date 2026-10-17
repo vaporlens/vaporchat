@@ -2,8 +2,10 @@ import { memo } from 'react';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceTarget } from 'vaporchat/client/voiceSession';
 import type { ChatGroup, ChatTarget } from 'vaporchat/protocol';
+import { chatKey } from 'vaporchat/steam/messages';
 import { friendStatus } from '../format';
 import { Chat } from './Chat';
+import { RoomTabs } from './RoomTabs';
 import { VoiceChannels } from './VoiceChannels';
 
 /** A group chat's group and room, either missing once gone. */
@@ -34,14 +36,19 @@ function chatHeader(
   };
 }
 
-/** A group chat or a friend's on the stack, its voice channels on top of a group's. */
+/**
+ * A group chat or a friend's on the stack. A group's has its rooms on top, then its voice
+ * channels.
+ */
 export const ChatRoute = memo(function ChatRoute({
   voice,
   chat,
   groups,
   live,
   target,
+  unreadRooms,
   bottomInset,
+  onOpenChat,
   onBack,
   onError,
 }: {
@@ -50,7 +57,11 @@ export const ChatRoute = memo(function ChatRoute({
   groups: ChatGroup[];
   live: boolean;
   target: VoiceTarget | undefined;
+  /** `chatKey`s */
+  unreadRooms: ReadonlySet<string>;
   bottomInset: number;
+  /** in place of this one */
+  onOpenChat: (chat: ChatTarget) => void;
   onBack: () => void;
   onError: (err: Error) => void;
 }) {
@@ -60,17 +71,28 @@ export const ChatRoute = memo(function ChatRoute({
       : undefined;
   return (
     <Chat
+      // another room is another chat, none of this one's messages and drafts
+      key={chatKey(chat)}
       voice={voice}
       chat={chat}
       {...chatHeader(voice, chat, groups, live)}
       top={
-        group && (
-          <VoiceChannels
-            voice={voice}
-            group={group}
-            target={target}
-            onError={onError}
-          />
+        group &&
+        chat.kind === 'room' && (
+          <>
+            <RoomTabs
+              group={group}
+              chatId={chat.chatId}
+              unreadRooms={unreadRooms}
+              onOpen={onOpenChat}
+            />
+            <VoiceChannels
+              voice={voice}
+              group={group}
+              target={target}
+              onError={onError}
+            />
+          </>
         )
       }
       bottomInset={bottomInset}

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
+  CommonActions,
   NavigationContainer,
   useNavigationContainerRef,
 } from '@react-navigation/native';
@@ -177,7 +178,7 @@ export function Home({
   // only when these change, Home also renders for unread messages and calls
   const sections = useMemo((): Section[] => {
     const groupRows = groups.flatMap((group): Row[] => {
-      // a group opens its first text room, its voice channels are on top of that chat
+      // a group opens its first text room, its rooms and voice channels are on top of that chat
       const room = group.rooms.find((r) => !r.voiceAllowed) ?? group.rooms[0];
       if (
         !room ||
@@ -227,6 +228,12 @@ export function Home({
 
   const openChat = useCallback(
     (chat: ChatTarget) => navigation.navigate('chat', { chat }),
+    [navigation],
+  );
+  // the open chat's route changes to the other room
+  const switchChat = useCallback(
+    (chat: ChatTarget) =>
+      navigation.dispatch(CommonActions.setParams({ chat })),
     [navigation],
   );
   const callFriend = useCallback(
@@ -407,7 +414,15 @@ export function Home({
                   target?.kind === 'group' &&
                   target.groupId === item.group.groupId
                 }
-                unread={unread.rooms.has(item.key)}
+                unread={item.group.rooms.some((room) =>
+                  unread.rooms.has(
+                    chatKey({
+                      kind: 'room',
+                      groupId: item.group.groupId,
+                      chatId: room.chatId,
+                    }),
+                  ),
+                )}
                 onOpen={openChat}
               />
             ) : (
@@ -451,7 +466,9 @@ export function Home({
                 groups={groups}
                 live={live}
                 target={target}
+                unreadRooms={unread.rooms}
                 bottomInset={session ? 0 : insets.bottom}
+                onOpenChat={switchChat}
                 onBack={back}
                 onError={showError}
               />

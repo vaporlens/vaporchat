@@ -181,7 +181,9 @@ function Actions({
       .setGameInterest(appid, kind, !interest[kind])
       .then((changed) => {
         setInterest(changed);
-        markWishlisted(appid, changed.wishlisted);
+        // only when it changed, marking it reloads the Wishlist tab
+        if (changed.wishlisted !== interest.wishlisted)
+          markWishlisted(appid, changed.wishlisted);
       })
       .catch(onError)
       .finally(() => setChanging(false));

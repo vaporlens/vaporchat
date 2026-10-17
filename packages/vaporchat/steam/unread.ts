@@ -15,10 +15,12 @@ interface MessageSessions {
 interface MyChatRoomGroups {
   chat_room_groups?: {
     user_chat_group_state?: {
+      unread_indicator_muted?: boolean;
       user_chat_room_state?: {
         chat_id: string;
         time_joined?: number;
         time_last_ack?: number;
+        unread_indicator_muted?: boolean;
       }[];
     };
     group_summary?: {
@@ -37,8 +39,13 @@ interface RoomAck {
   chat_id: string;
 }
 
-/** What is unread now, by Steam's own count for friends and its last read time for rooms. */
-export async function getUnread(cm: SteamCM): Promise<Unread> {
+/**
+ * What is unread now, by Steam's own count for friends and its last read time for rooms. Rooms
+ * whose unread indicator is muted, or in a group muted so, are `muted` instead.
+ */
+export async function getUnread(
+  cm: SteamCM,
+): Promise<{ unread: Unread; muted: Set<string> }> {
   const [{ message_sessions = [] }, { chat_room_groups = [] }] =
     await Promise.all([
       cm.call<MessageSessions>('FriendMessages.GetActiveMessageSessions#1', {
@@ -55,25 +62,29 @@ export async function getUnread(cm: SteamCM): Promise<Unread> {
       );
   }
   const rooms = new Set<string>();
+  const muted = new Set<string>();
   for (const { user_chat_group_state, group_summary } of chat_room_groups) {
     if (!group_summary) continue;
     for (const room of group_summary.chat_rooms ?? []) {
       const mine = user_chat_group_state?.user_chat_room_state?.find(
         (state) => state.chat_id === room.chat_id,
       );
+      const key = chatKey({
+        kind: 'room',
+        groupId: group_summary.chat_group_id,
+        chatId: room.chat_id,
+      });
       // a room never read counts from joining it
       const read = mine?.time_last_ack ?? mine?.time_joined ?? 0;
-      if ((room.time_last_message ?? 0) > read)
-        rooms.add(
-          chatKey({
-            kind: 'room',
-            groupId: group_summary.chat_group_id,
-            chatId: room.chat_id,
-          }),
-        );
+      if (
+        user_chat_group_state?.unread_indicator_muted ||
+        mine?.unread_indicator_muted
+      )
+        muted.add(key);
+      else if ((room.time_last_message ?? 0) > read) rooms.add(key);
     }
   }
-  return { friends, rooms };
+  return { unread: { friends, rooms }, muted };
 }
 
 /**
@@ -83,6 +94,8 @@ export async function getUnread(cm: SteamCM): Promise<Unread> {
 export class UnreadChats extends Emitter<{ changed: Unread }> {
   #cm: SteamCM | null = null;
   #unread: Unread = { friends: new Map(), rooms: new Set() };
+  /** rooms never unread, as set in Steam when logging on */
+  #muted = new Set<string>();
   /** reads until Steam said what is unread, its answer would bring them back */
   #pending: Map<string, { chat: ChatTarget; time: number }> | null = new Map();
 
@@ -94,7 +107,8 @@ export class UnreadChats extends Emitter<{ changed: Unread }> {
   async start(cm: SteamCM) {
     this.#cm = cm;
     onChatMessages(cm, ({ chat, message }) => {
-      if (message.sender !== cm.steamid) this.#update(chat, 'add');
+      if (message.sender !== cm.steamid && !this.#muted.has(chatKey(chat)))
+        this.#update(chat, 'add');
     });
     cm.onMessage('FriendMessagesClient.NotifyAckMessageEcho#1', (_h, body) => {
       const ack = decodeProto<FriendAck>(
@@ -115,7 +129,7 @@ export class UnreadChats extends Emitter<{ changed: Unread }> {
     });
     try {
       // steam's count includes what arrived while it was asked
-      this.#unread = await getUnread(cm);
+      ({ unread: this.#unread, muted: this.#muted } = await getUnread(cm));
       this.emit('changed', this.#unread);
     } finally {
       // without its answer, the reads are still worth telling

@@ -53,7 +53,7 @@ function fakeSteam(responses: Record<string, object> = {}) {
           ...extra,
         },
       ),
-    roomMessage: (from: string) =>
+    roomMessage: (from: string, extra: object = {}) =>
       deliver(
         'ChatRoomClient.NotifyIncomingChatMessage#1',
         'CChatRoom_IncomingChatMessage_Notification',
@@ -62,6 +62,7 @@ function fakeSteam(responses: Record<string, object> = {}) {
           chat_id: ROOM.chatId,
           steamid_sender: from,
           message: 'hi',
+          ...extra,
         },
       ),
     readElsewhere: (steamid_partner: string) =>
@@ -127,6 +128,53 @@ describe('UnreadChats', () => {
       friends: { [ALICE]: 3 },
       rooms: [ROOM_KEY, '7:72'],
     });
+  });
+
+  it('leaves out rooms with their unread indicator muted, or in a muted group', async () => {
+    const steam = fakeSteam({
+      'ChatRoom.GetMyChatRoomGroups#1': {
+        chat_room_groups: [
+          {
+            user_chat_group_state: {
+              user_chat_room_state: [
+                { chat_id: '70', time_last_ack: 100 },
+                {
+                  chat_id: '71',
+                  time_last_ack: 100,
+                  unread_indicator_muted: true,
+                },
+              ],
+            },
+            group_summary: {
+              chat_group_id: '7',
+              chat_rooms: [
+                { chat_id: '70', time_last_message: 150 },
+                { chat_id: '71', time_last_message: 150 },
+              ],
+            },
+          },
+          {
+            user_chat_group_state: {
+              unread_indicator_muted: true,
+              user_chat_room_state: [{ chat_id: '80', time_last_ack: 100 }],
+            },
+            group_summary: {
+              chat_group_id: '8',
+              chat_rooms: [{ chat_id: '80', time_last_message: 150 }],
+            },
+          },
+        ],
+      },
+    });
+    const unread = new UnreadChats();
+    await unread.start(steam.cm);
+    unread.markRead(ROOM, 1_700_000_000_000);
+
+    steam.roomMessage(BOB, { chat_id: '71' });
+    steam.roomMessage(BOB, { chat_group_id: '8', chat_id: '80' });
+    steam.roomMessage(BOB);
+
+    expect(shown(unread.current)).toEqual({ friends: {}, rooms: [ROOM_KEY] });
   });
 
   it('counts messages from others, not ours from other devices', async () => {

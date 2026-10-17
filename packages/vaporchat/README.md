@@ -181,6 +181,8 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Incoming calls: accept, decline, caller cancels | live |
 | Text chat: friend and room messages, history, sending (brackets escaped), echo dedupe | live (Bun) |
 | Unread messages from Steam at logon, marking read on Steam, through reconnects | live (Android); chats read on another device unit-tested, not live |
+| No unread dot for rooms with their unread indicator muted (room or group, as at logon) | unit-tested, not live |
+| Room switcher: pills for all of a group's rooms, unread per room, the group's dot for any of them | live (Android) |
 | Wishlisting, following and ignoring a game and taking it back, the game page's state from Steam | live (Android) |
 | Game page editions, Early Access answers, links, system requirements (structured and older games' text), DLC, More like this | live (Android); older games' requirements text unit-tested and seen from Bun, not on the phone |
 | My games: total playtime, playtime in the last two weeks, last played | live (Android) for total and last played; the two-weeks data mapping unit-tested, its line not seen live (the bot hasn't played lately) |

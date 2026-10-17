@@ -22,6 +22,7 @@ import { SignInPrompt } from '../components/SignInPrompt';
 import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
+import { useWishlistChanges } from '../userApps';
 import { Feed, type Search } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
 import type { Page } from './PageScreen';
@@ -163,9 +164,13 @@ function StoreItems({
   show: 'released' | 'discountEnds';
   header: ReactElement;
 }) {
+  // the wishlist loads again once a game's page changed it
+  const wishlistChanges = useWishlistChanges();
+  const changed = list.tab === 'wishlist' ? wishlistChanges : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   const load = useCallback(
     (next: number | null) => list.load(feeds, next),
-    [feeds, list],
+    [feeds, list, changed],
   );
   const renderItem = useCallback(
     (item: StoreItem) => (

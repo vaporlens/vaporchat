@@ -106,7 +106,7 @@ export const GroupRow = memo(function GroupRow({
   /** the people in its voice channels */
   inVoice: Friend[];
   connected: boolean;
-  /** steam doesn't count a room's unread messages */
+  /** any of its rooms, steam doesn't count a room's unread messages */
   unread: boolean;
   onOpen: (chat: ChatTarget) => void;
 }) {

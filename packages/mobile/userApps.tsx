@@ -13,6 +13,8 @@ const UserAppSets = createContext({
   owned: new Set<number>(),
   wishlisted: new Set<number>(),
   markWishlisted: (_appid: number, _on: boolean) => {},
+  /** a new one after each `markWishlisted` */
+  wishlistChanges: new Map<number, boolean>(),
 });
 
 /** Tells the game cards under it which games the user owns and wishlisted. */
@@ -39,7 +41,12 @@ export function UserAppsProvider({
       if (on) wishlisted.add(appid);
       else wishlisted.delete(appid);
     }
-    return { owned: new Set(data?.owned), wishlisted, markWishlisted };
+    return {
+      owned: new Set(data?.owned),
+      wishlisted,
+      markWishlisted,
+      wishlistChanges: changes,
+    };
   }, [data, changes, markWishlisted]);
   return <UserAppSets.Provider value={apps}>{children}</UserAppSets.Provider>;
 }
@@ -57,4 +64,9 @@ export function useOwnership(
 /** Shows a game on or off the wishlist everywhere, after changing it on Steam. */
 export function useMarkWishlisted() {
   return useContext(UserAppSets).markWishlisted;
+}
+
+/** Changes after each game put on or taken off the wishlist here. */
+export function useWishlistChanges() {
+  return useContext(UserAppSets).wishlistChanges;
 }
