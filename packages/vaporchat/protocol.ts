@@ -387,6 +387,39 @@ export interface GameDetails extends StoreItem {
   platforms: string[];
   steamDeck: 'verified' | 'playable' | 'unsupported' | null;
   description: RichBlock[];
+  /** each way to buy it, like the store page lists them: the game alone, editions, bundles */
+  editions: GameEdition[];
+  /** its DLC's appids, in the store's order */
+  dlc: number[];
+  /** what its developers say about Early Access, null when it isn't in Early Access */
+  earlyAccess: { question: string; answer: RichBlock[] }[] | null;
+  /** its website first, then its pages elsewhere (Discord, YouTube…) */
+  links: { label: string; url: string }[];
+  /** per platform it runs on */
+  requirements: SystemRequirements[];
+}
+
+/** A way to buy a game, its price after any discount. */
+export interface GameEdition {
+  name: string;
+  price: string | null;
+  /** only when discounted */
+  originalPrice: string | null;
+  discountPercent: number;
+}
+
+/** What a game needs on one platform. */
+export interface SystemRequirements {
+  /** `Windows`, `macOS`, `Linux` */
+  platform: string;
+  minimum: Requirements | null;
+  recommended: Requirements | null;
+}
+
+/** Labelled rows like `Memory: 8 GB RAM`, older games have their own text instead. */
+export interface Requirements {
+  rows: { label: string; value: string }[];
+  text: RichBlock[];
 }
 
 /** What a game supports, like `Single-player` or `Steam Cloud`. */

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { toGameDetails } from './gameDetails.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getGameDetails, toGameDetails } from './gameDetails.ts';
 
 // biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
 const TRAILER_URL_FORMAT = 'steam/apps/${FILENAME}?t=7';
@@ -155,5 +155,160 @@ describe('toGameDetails', () => {
         new Map(),
       ).reviews,
     ).toBeNull();
+  });
+
+  it('lists editions, links and requirements like the store page', () => {
+    const game = toGameDetails(
+      {
+        success: 1,
+        appid: 10,
+        purchase_options: [
+          {
+            purchase_option_name: 'Game',
+            formatted_final_price: '9,99€',
+            formatted_original_price: '19,99€',
+            discount_pct: 50,
+          },
+          {
+            purchase_option_name: 'Game Deluxe',
+            formatted_final_price: '29,99€',
+            formatted_original_price: '29,99€',
+          },
+        ],
+        links: [
+          { url: 'https://discord.gg/game' },
+          { url: 'https://game.example.com' },
+          { url: 'https://www.youtube.com/@game' },
+        ],
+        extra_details: {
+          links_and_info: { website: 'https://game.example.com' },
+          system_requirements: {
+            platforms: [
+              {
+                platform: 1,
+                minimum: {
+                  os_version: 'Windows 10',
+                  memory: { amount: '8', units: 'GB' },
+                  directx: '12',
+                  broadband: true,
+                  storage: { amount: '70', units: 'GB' },
+                },
+                recommended: { legacy_bbcode: '[b]A fast PC[/b]' },
+              },
+              // a token the store translates, nothing to show
+              { platform: 2, minimum: { legacy_bbcode: '#sys_req_old' } },
+              { platform: 99, minimum: { os_version: 'Other' } },
+            ],
+          },
+        },
+      },
+      new Map(),
+      new Map(),
+    );
+    expect(game.editions).toEqual([
+      {
+        name: 'Game',
+        price: '9,99€',
+        originalPrice: '19,99€',
+        discountPercent: 50,
+      },
+      {
+        name: 'Game Deluxe',
+        price: '29,99€',
+        originalPrice: null,
+        discountPercent: 0,
+      },
+    ]);
+    expect(game.links).toEqual([
+      { label: 'Website', url: 'https://game.example.com' },
+      { label: 'discord.gg', url: 'https://discord.gg/game' },
+      { label: 'youtube.com', url: 'https://www.youtube.com/@game' },
+    ]);
+    expect(game.requirements).toEqual([
+      {
+        platform: 'Windows',
+        minimum: {
+          rows: [
+            { label: 'OS', value: 'Windows 10' },
+            { label: 'Memory', value: '8 GB RAM' },
+            { label: 'DirectX', value: 'Version 12' },
+            { label: 'Network', value: 'Broadband Internet connection' },
+            { label: 'Storage', value: '70 GB available space' },
+          ],
+          text: [],
+        },
+        recommended: {
+          rows: [],
+          text: [
+            {
+              kind: 'paragraph',
+              spans: [{ text: 'A fast PC', bold: true }],
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("has Early Access answers only for a game in Early Access, in the store's order", () => {
+    const extra_details = {
+      early_access: {
+        how_long_bbcode: 'About a year',
+        why_bbcode: 'To hear from players',
+        pricing_bbcode: '',
+      },
+    };
+    expect(
+      toGameDetails(
+        {
+          success: 1,
+          appid: 10,
+          release: { is_early_access: true },
+          extra_details,
+        },
+        new Map(),
+        new Map(),
+      ).earlyAccess,
+    ).toEqual([
+      {
+        question: 'Why Early Access?',
+        answer: [
+          { kind: 'paragraph', spans: [{ text: 'To hear from players' }] },
+        ],
+      },
+      {
+        question: 'How long will this game be in Early Access?',
+        answer: [{ kind: 'paragraph', spans: [{ text: 'About a year' }] }],
+      },
+    ]);
+    // released games keep their old answers
+    expect(
+      toGameDetails(
+        { success: 1, appid: 10, extra_details },
+        new Map(),
+        new Map(),
+      ).earlyAccess,
+    ).toBeNull();
+  });
+});
+
+describe('getGameDetails', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('shows the page without DLC when looking the DLC up fails', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.includes('GetDLCForAppsSolr'))
+        return new Response('', { status: 500 });
+      if (url.includes('GetItems'))
+        return Response.json({
+          response: { store_items: [{ success: 1, appid: 10, name: 'Game' }] },
+        });
+      // tag and category names
+      return Response.json({ response: {} });
+    });
+    expect(await getGameDetails(10, 'DE')).toMatchObject({
+      name: 'Game',
+      dlc: [],
+    });
   });
 });

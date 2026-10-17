@@ -22,7 +22,14 @@ export function gridRows<T>(items: T[]): T[][] {
   return rows;
 }
 
-export function Price({ item }: { item: StoreItem }) {
+/** A price, its discount and the price before it. Editions have no `free`. */
+export function Price({
+  item,
+}: {
+  item: Pick<StoreItem, 'price' | 'originalPrice' | 'discountPercent'> & {
+    free?: boolean;
+  };
+}) {
   if (item.free) return <Text style={styles.price}>Free</Text>;
   if (!item.price) return null;
   if (!item.originalPrice)

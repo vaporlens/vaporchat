@@ -81,7 +81,8 @@ await feeds.getNewReleases(); // popular new releases, newest first; pages like 
 await feeds.getUpcoming(); // popular games coming soon; pages like news
 await feeds.searchGames('term'); // what the store finds, best matches first; pages like news
 await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days to a page
-await feeds.getGame(appid); // a store page: reviews, tags, features, screenshots, description
+await feeds.getGame(appid); // a store page: reviews, tags, features, screenshots, description, editions, Early Access, links, requirements, DLC appids
+await feeds.getSimilarGames(appid); // the store page's "More like this"
 await feeds.getGameReviews(appid); // its reviews, most helpful first; pages like news
 await feeds.getGameNews(appid); // its news, updates and events, newest first; pages like news
 await feeds.getGameInterest(appid); // whether the user owns, wishlisted, follows or ignored it
@@ -181,6 +182,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Text chat: friend and room messages, history, sending (brackets escaped), echo dedupe | live (Bun) |
 | Unread messages from Steam at logon, marking read on Steam, through reconnects | live (Android); chats read on another device unit-tested, not live |
 | Wishlisting, following and ignoring a game and taking it back, the game page's state from Steam | live (Android) |
+| Game page editions, Early Access answers, links, system requirements (structured and older games' text), DLC, More like this | live (Android); older games' requirements text unit-tested and seen from Bun, not on the phone |
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |

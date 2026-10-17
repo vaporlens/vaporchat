@@ -2,7 +2,7 @@ import type { GameInterest } from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
 import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
-import { getGameDetails } from '../steam/gameDetails.ts';
+import { getGameDetails, getSimilarGames } from '../steam/gameDetails.ts';
 import { getGameInterest, setGameInterest } from '../steam/gameInterest.ts';
 import { steamLanguage } from '../steam/language.ts';
 import { getLibrary, getUserApps } from '../steam/library.ts';
@@ -138,9 +138,14 @@ export class SteamFeeds {
     return getStoreItems(appids, await this.#country());
   }
 
-  /** A game's store page: descriptions, screenshots, reviews, tags and features. */
+  /** A game's store page: descriptions, screenshots, reviews, tags, features, editions, requirements. */
   async getGame(appid: number) {
     return getGameDetails(appid, await this.#country());
+  }
+
+  /** Games like this one, the store page's "More like this". */
+  async getSimilarGames(appid: number) {
+    return getSimilarGames(appid, await this.#country());
   }
 
   /** Whether the user owns, wishlisted, follows or ignored a game. */

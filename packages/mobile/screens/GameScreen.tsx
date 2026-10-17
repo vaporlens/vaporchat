@@ -32,6 +32,15 @@ import {
 import { BuyHeader } from './FeedCards';
 import { GameNews } from './GameNews';
 import { GameReviews } from './GameReviews';
+import {
+  EarlyAccessAnswers,
+  EarlyAccessNotice,
+  Editions,
+  GameDlc,
+  Links,
+  SimilarGames,
+  SystemRequirementsList,
+} from './GameSections';
 import type { Page } from './PageScreen';
 import { VaporlensReport } from './VaporlensReport';
 
@@ -41,7 +50,14 @@ const DECK = {
   unsupported: 'Unsupported on Steam Deck',
 };
 
-type Tab = 'overview' | 'media' | 'about' | 'reviews' | 'news';
+type Tab =
+  | 'overview'
+  | 'media'
+  | 'about'
+  | 'dlc'
+  | 'reviews'
+  | 'news'
+  | 'similar';
 
 // the store page's buttons, off and on
 const ACTIONS = [
@@ -76,8 +92,14 @@ function Overview({
   /** null when VaporLens hasn't analyzed the game (or isn't reachable) */
   report: Report | null;
 }) {
+  // pages cached before these were loaded have none
+  const editions = game.editions ?? [];
+  const links = game.links ?? [];
   return (
     <>
+      {game.earlyAccess && (
+        <EarlyAccessNotice answered={game.earlyAccess.length > 0} />
+      )}
       {game.shortDescription !== '' && (
         <Text style={styles.lead}>{game.shortDescription}</Text>
       )}
@@ -95,6 +117,8 @@ function Overview({
             .join(' · ')}
         />
       </View>
+      {/* the game alone is the price above */}
+      {editions.length > 1 && <Editions editions={editions} />}
       {game.tags.length > 0 && (
         <Text style={styles.tags}>{game.tags.join(' · ')}</Text>
       )}
@@ -113,6 +137,7 @@ function Overview({
           ))}
         </View>
       )}
+      {links.length > 0 && <Links links={links} />}
       {report && (
         <VaporlensReport
           report={report}
@@ -220,6 +245,7 @@ function Details({
   game,
   report,
   onOpenImage,
+  onOpenGame,
   onOpenPage,
   onError,
 }: {
@@ -228,6 +254,7 @@ function Details({
   game: GameDetails;
   report: Report | null;
   onOpenImage: (url: string) => void;
+  onOpenGame: (item: StoreItem) => void;
   onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
 }) {
@@ -238,13 +265,25 @@ function Details({
   );
   // pages cached before trailers were loaded have none
   const media = [...(game.trailers ?? []), ...game.screenshots];
+  // pages cached before these were loaded have none
+  const requirements = game.requirements ?? [];
+  const dlc = game.dlc ?? [];
   const tabs = (
     [
       { tab: 'overview', title: 'Overview', shown: true },
       { tab: 'media', title: 'Media', shown: media.length > 0 },
-      { tab: 'about', title: 'About', shown: game.description.length > 0 },
+      {
+        tab: 'about',
+        title: 'About',
+        shown:
+          game.description.length > 0 ||
+          !!game.earlyAccess?.length ||
+          requirements.length > 0,
+      },
+      { tab: 'dlc', title: 'DLC', shown: dlc.length > 0 },
       { tab: 'reviews', title: 'Reviews', shown: true },
       { tab: 'news', title: 'News', shown: true },
+      { tab: 'similar', title: 'More like this', shown: true },
     ] as const
   ).filter((item) => item.shown);
   return (
@@ -277,7 +316,30 @@ function Details({
               <Media media={media} onOpenImage={onOpenImage} />
             )}
             {name === 'about' && (
-              <RichText blocks={game.description} onOpenImage={onOpenImage} />
+              <>
+                {!!game.earlyAccess?.length && (
+                  <EarlyAccessAnswers
+                    answers={game.earlyAccess}
+                    onOpenImage={onOpenImage}
+                  />
+                )}
+                <RichText blocks={game.description} onOpenImage={onOpenImage} />
+                {requirements.length > 0 && (
+                  <SystemRequirementsList
+                    requirements={requirements}
+                    onOpenImage={onOpenImage}
+                  />
+                )}
+              </>
+            )}
+            {name === 'dlc' && (
+              <GameDlc
+                feeds={feeds}
+                appid={appid}
+                dlc={dlc}
+                onOpenGame={onOpenGame}
+                onError={onError}
+              />
             )}
             {name === 'reviews' && (
               <GameReviews
@@ -295,6 +357,13 @@ function Details({
                 onError={onError}
               />
             )}
+            {name === 'similar' && (
+              <SimilarGames
+                feeds={feeds}
+                appid={appid}
+                onOpenGame={onOpenGame}
+              />
+            )}
           </View>
         )}
       />
@@ -302,12 +371,13 @@ function Details({
   );
 }
 
-/** A game's store page: price and reviews over tabs of its facts, media, description, reviews and news. */
+/** A game's store page: price and reviews over tabs of its facts, media, description, DLC, reviews, news and games like it. */
 export function GameScreen({
   feeds,
   item,
   onBack,
   onOpenImage,
+  onOpenGame,
   onOpenPage,
   onError,
 }: {
@@ -316,6 +386,8 @@ export function GameScreen({
   item: StoreItem & { appid: number };
   onBack: () => void;
   onOpenImage: (url: string) => void;
+  /** a DLC or a game like it */
+  onOpenGame: (item: StoreItem) => void;
   /** a news post */
   onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
@@ -355,6 +427,7 @@ export function GameScreen({
           game={game}
           report={report}
           onOpenImage={onOpenImage}
+          onOpenGame={onOpenGame}
           onOpenPage={onOpenPage}
           onError={onError}
         />

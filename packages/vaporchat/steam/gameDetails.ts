@@ -1,9 +1,51 @@
-import type { GameDetails, GameFeature } from '../protocol.ts';
+import type {
+  GameDetails,
+  GameEdition,
+  GameFeature,
+  Requirements,
+  SystemRequirements,
+} from '../protocol.ts';
 import { parseRichText } from './richText.ts';
-import { type ApiStoreItem, callApi, context, toStoreItem } from './store.ts';
+import {
+  type ApiStoreItem,
+  callApi,
+  context,
+  DATA_REQUEST,
+  toStoreItem,
+} from './store.ts';
 import { ASSETS_URL, VIDEO_URL } from './web.ts';
 
 const SHOWN_TAGS = 12;
+const SIMILAR_GAMES = 12;
+// it gives 20 by default, games have hundreds at most
+const ALL_DLC = 2000;
+// EPlatform, as system requirements have it
+const PLATFORMS: Record<number, string | undefined> = {
+  1: 'Windows',
+  2: 'macOS',
+  3: 'Linux',
+};
+// the store page's questions, in its order
+const EARLY_ACCESS_QUESTIONS = [
+  ['why_bbcode', 'Why Early Access?'],
+  ['how_long_bbcode', 'How long will this game be in Early Access?'],
+  [
+    'full_version_bbcode',
+    'How is the full version planned to differ from the Early Access version?',
+  ],
+  [
+    'current_state_bbcode',
+    'What is the current state of the Early Access version?',
+  ],
+  [
+    'pricing_bbcode',
+    'Will the game be priced differently during and after Early Access?',
+  ],
+  [
+    'community_bbcode',
+    'How are you planning on involving the Community in your development process?',
+  ],
+] as const;
 // where the store's own pictures are, like its feature icons
 const STORE_STATIC_URL = 'https://store.fastly.steamstatic.com/';
 // ESteamDeckCompatibilityCategory
@@ -21,8 +63,49 @@ interface ApiTrailer {
   all_ages?: boolean;
 }
 
+interface ApiSize {
+  amount?: string;
+  units?: string;
+}
+
+interface ApiRequirements {
+  os_version?: string;
+  processor?: string;
+  memory?: ApiSize;
+  graphics?: string;
+  directx?: string;
+  broadband?: boolean;
+  storage?: ApiSize;
+  sound_card?: string;
+  vr_support?: string;
+  notes?: string;
+  /** older games' own text, or a token like `#sys_req_OrangeBox` the store translates */
+  legacy_bbcode?: string;
+}
+
 /** What GetItems says about a game's page, besides the store item itself. */
 interface ApiGameDetails extends ApiStoreItem {
+  release?: ApiStoreItem['release'] & { is_early_access?: boolean };
+  purchase_options?: {
+    purchase_option_name?: string;
+    formatted_final_price?: string;
+    formatted_original_price?: string;
+    discount_pct?: number;
+  }[];
+  links?: { url?: string }[];
+  extra_details?: {
+    early_access?: Partial<
+      Record<(typeof EARLY_ACCESS_QUESTIONS)[number][0], string>
+    >;
+    links_and_info?: { website?: string };
+    system_requirements?: {
+      platforms?: {
+        platform?: number;
+        minimum?: ApiRequirements;
+        recommended?: ApiRequirements;
+      }[];
+    };
+  };
   basic_info?: {
     short_description?: string;
     developers?: { name?: string }[];
@@ -101,10 +184,60 @@ function names(list: { name?: string }[] = []) {
   return list.flatMap(({ name }) => (name ? [name] : []));
 }
 
+function size({ amount, units }: ApiSize = {}) {
+  return amount && units ? `${amount} ${units}` : '';
+}
+
+function toRequirements(
+  api: ApiRequirements | undefined,
+  appid: number | null,
+): Requirements | null {
+  if (!api) return null;
+  const memory = size(api.memory);
+  const storage = size(api.storage);
+  const rows = [
+    ['OS', api.os_version ?? ''],
+    ['Processor', api.processor ?? ''],
+    ['Memory', memory && `${memory} RAM`],
+    ['Graphics', api.graphics ?? ''],
+    ['DirectX', api.directx ? `Version ${api.directx}` : ''],
+    ['Network', api.broadband ? 'Broadband Internet connection' : ''],
+    ['Storage', storage && `${storage} available space`],
+    ['Sound Card', api.sound_card ?? ''],
+    ['VR Support', api.vr_support ?? ''],
+    ['Additional Notes', api.notes ?? ''],
+  ].flatMap(([label, value]) => (value ? [{ label, value }] : []));
+  // the store's tokens aren't text
+  const legacy = api.legacy_bbcode?.startsWith('#') ? '' : api.legacy_bbcode;
+  const text = parseRichText(legacy ?? '', appid);
+  return rows.length > 0 || text.length > 0 ? { rows, text } : null;
+}
+
+function toEdition(
+  option: NonNullable<ApiGameDetails['purchase_options']>[number],
+): GameEdition {
+  const discounted = (option.discount_pct ?? 0) > 0;
+  return {
+    name: option.purchase_option_name ?? '',
+    price: option.formatted_final_price ?? null,
+    originalPrice: discounted
+      ? (option.formatted_original_price ?? null)
+      : null,
+    discountPercent: option.discount_pct ?? 0,
+  };
+}
+
+/** A link's site, like `discord.gg`. */
+function site(url: string) {
+  return url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] ?? url;
+}
+
 export function toGameDetails(
   item: ApiGameDetails,
   tagNames: Map<number, string>,
   features: Map<number, GameFeature>,
+  /** in the store's order */
+  dlc: number[] = [],
 ): GameDetails {
   const reviews = item.reviews?.summary_filtered;
   const categories = item.categories ?? {};
@@ -115,6 +248,8 @@ export function toGameDetails(
     ...(categories.feature_categoryids ?? []),
   ].flatMap((id) => features.get(id) ?? []);
   const platforms = item.platforms ?? {};
+  const extra = item.extra_details ?? {};
+  const website = extra.links_and_info?.website;
   const deck = platforms.steam_deck_compat_category as
     | keyof typeof STEAM_DECK
     | undefined;
@@ -182,34 +317,92 @@ export function toGameDetails(
       item.full_description_bbcode ?? '',
       item.appid ?? null,
     ),
+    editions: (item.purchase_options ?? []).map(toEdition),
+    dlc,
+    earlyAccess: item.release?.is_early_access
+      ? EARLY_ACCESS_QUESTIONS.flatMap(([field, question]) => {
+          const answer = parseRichText(
+            extra.early_access?.[field] ?? '',
+            item.appid ?? null,
+          );
+          return answer.length > 0 ? [{ question, answer }] : [];
+        })
+      : null,
+    links: [
+      ...(website ? [{ label: 'Website', url: website }] : []),
+      ...(item.links ?? []).flatMap(({ url }) =>
+        url && url !== website ? [{ label: site(url), url }] : [],
+      ),
+    ],
+    requirements: (extra.system_requirements?.platforms ?? []).flatMap(
+      (requirements): SystemRequirements[] => {
+        const platform = PLATFORMS[requirements.platform ?? 0];
+        const minimum = toRequirements(
+          requirements.minimum,
+          item.appid ?? null,
+        );
+        const recommended = toRequirements(
+          requirements.recommended,
+          item.appid ?? null,
+        );
+        return platform && (minimum || recommended)
+          ? [{ platform, minimum, recommended }]
+          : [];
+      },
+    ),
   };
 }
 
-/** A game's store page: descriptions, screenshots, trailers, reviews, tags and features. */
+/** A game's store page: descriptions, screenshots, trailers, reviews, tags, features, editions, DLC. */
 export async function getGameDetails(appid: number, country: string) {
-  const [{ store_items = [] }, tags, features] = await Promise.all([
-    callApi<{ store_items?: ApiGameDetails[] }>(
-      'IStoreBrowseService/GetItems',
-      {
-        ids: [{ appid }],
-        context: context(country),
-        data_request: {
-          include_assets: true,
-          include_release: true,
-          include_platforms: true,
-          include_screenshots: true,
-          include_trailers: true,
-          include_reviews: true,
-          include_tag_count: SHOWN_TAGS,
-          include_basic_info: true,
-          include_full_description: true,
+  const [{ store_items = [] }, tags, features, { dlc_lists = [] }] =
+    await Promise.all([
+      callApi<{ store_items?: ApiGameDetails[] }>(
+        'IStoreBrowseService/GetItems',
+        {
+          ids: [{ appid }],
+          context: context(country),
+          data_request: {
+            include_assets: true,
+            include_release: true,
+            include_platforms: true,
+            include_screenshots: true,
+            include_trailers: true,
+            include_reviews: true,
+            include_tag_count: SHOWN_TAGS,
+            include_basic_info: true,
+            include_full_description: true,
+            include_all_purchase_options: true,
+            include_links: true,
+            include_extra_details: true,
+          },
         },
-      },
-    ),
-    getTagNames(),
-    getFeatures(),
-  ]);
+      ),
+      getTagNames(),
+      getFeatures(),
+      callApi<{ dlc_lists?: { dlc_appids?: number[] }[] }>(
+        'IStoreBrowseService/GetDLCForAppsSolr',
+        { appids: [appid], context: context(country), count: ALL_DLC },
+        // the page works without it, failing just shows no DLC
+      ).catch(() => ({ dlc_lists: [] })),
+    ]);
   const item = store_items[0];
   if (item?.success !== 1) throw new Error('This game is not in the store');
-  return toGameDetails(item, tags, features);
+  return toGameDetails(item, tags, features, dlc_lists[0]?.dlc_appids);
+}
+
+/** Games like this one, as the store page's "More like this" picks them. */
+export async function getSimilarGames(appid: number, country: string) {
+  const { store_items = [] } = await callApi<{ store_items?: ApiStoreItem[] }>(
+    'IStoreQueryService/MoreLikeThis',
+    {
+      item_id: { appid },
+      context: context(country),
+      count: SIMILAR_GAMES,
+      data_request: DATA_REQUEST,
+    },
+  );
+  return store_items
+    .filter((item) => item.success === 1 && item.visible !== false)
+    .map(toStoreItem);
 }

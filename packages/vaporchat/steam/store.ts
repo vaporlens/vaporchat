@@ -77,7 +77,7 @@ export async function getStoreCountry() {
   return countryFromPage(await getText(`${STORE_URL}login/`));
 }
 
-const DATA_REQUEST = { include_assets: true, include_release: true };
+export const DATA_REQUEST = { include_assets: true, include_release: true };
 
 // how precise a coming game's date is, without a day
 const WINDOWS: Record<string, ReleaseWindow['precision'] | undefined> = {

@@ -39,6 +39,7 @@ export const PageScreen = memo(function PageScreen({
           item={page.item}
           onBack={onBack}
           onOpenImage={setViewing}
+          onOpenGame={onOpenGame}
           onOpenPage={onOpenPage}
           onError={onError}
         />
