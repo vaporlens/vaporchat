@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6 (2026-10-17)
+
+- Get alerts for messages and calls while the app is in the background, and choose per chat which
+  ones alert. On Android, "Stay connected" in the new Settings screen keeps them coming.
+- Ring on incoming calls, with a short beep instead while you're in voice.
+- Add Steam's notification inbox behind a bell.
+- Keep unread messages in sync with Steam, mark chats read on your other devices too, and show a
+  dot on the Chat tab while anything is unread.
+- Show what friends are playing and when they're away, and set your own status in Settings.
+- Open links in messages, react to messages and see when friends are typing.
+- Switch between a group's rooms and see its members. Muted rooms no longer show as unread.
+- Wishlist, follow and ignore games from their store page.
+- Show a game's editions, DLC, system requirements, Early Access notes and similar games.
+- Show playtime and when you last played on My games cards.
+- Fix voice not playing through Bluetooth headsets on Android.
+
 ## 0.5 (2026-10-15)
 
 - Split the game page into Overview, Media, About, Reviews and News tabs.
