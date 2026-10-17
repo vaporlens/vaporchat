@@ -1,0 +1,37 @@
+# Features: won't do
+
+Gaps against Steam's own apps that stay open on purpose. Leave these out of plans and
+suggestions; reopening one is the user's call. Open gaps are in
+[`features-pending.md`](features-pending.md), what the app has in [`features.md`](features.md).
+
+## Decided
+
+The user decided against these; the notes keep the API found, in case a decision changes.
+
+| Feature | Notes |
+|---|---|
+| Rich presence ("Ranked match, 3-1") | `rich_presence` in `CMsgClientPersonaState.Friend`; `Community.GetAppRichPresenceLocalization` turns tokens into text |
+| Mobile/web/Big Picture badge on friends | `persona_state_flags` (512 mobile, 256 web, 1024 tenfoot) |
+| "Last online N ago" for offline friends | `last_logoff` comes only in pushes for online friends; offline ones need the LastSeen flag (64), untested for the persona-state gotcha (`features.md`) |
+| Friend management: incoming and outgoing requests, accept, ignore, add, add by friend code, invite links, remove, block, nicknames, mutual friends | relationships 2 and 4 in `CMsgClientFriendsList`; `Player.AddFriend`, `RemoveFriend`, `IgnoreFriend`; `UserAccount.CreateFriendInviteToken`; `Player.GetNicknameList`, EMsg 5588; `Player.GetMutualFriendsForIncomingInvites` |
+| Steam texts in the device language (reviews, news, tags, categories, search, activity, logon) | fixed to English everywhere (`context()` in `vaporchat/steam/store.ts`); `vaporchat/steam/language.ts` maps the locale and is used only for sale pages |
+| Game page: supported languages, age rating, Steam awards, anti-cheat, AI-content disclosure, review-bomb notice, recent and per-language review scores, achievements count, Metacritic, friends who play, your playtime and achievements, curator reviews, demos, share, community hub links, more than 12 tags and tag voting, accessibility and controller detail | mostly `GetItems` / `include_extra_details` fields and `appreviews` parameters |
+| Add to cart | purchases stay in Steam ("Open in Steam") |
+| Wishlist sorting | `GetWishlistSortedFiltered` `sort_order`, fixed to discount |
+| Buttons on list cards (remove from wishlist and the like) | — |
+| My games: sort and filter, achievement progress and lists, remote install / launch / download status | `Player.GetAchievementsProgress` (POST); `ClientComm.*` (token, not in steam-user's protos) |
+| QR-code sign-in | `Authentication.BeginAuthSessionViaQR`, approved in Steam Mobile |
+| Presence and unread in the web client | `packages/web` is a test harness |
+
+## Not possible
+
+| Feature | Why |
+|---|---|
+| Busy / Do Not Disturb for friends | Busy (`persona_state` 2) is left from the pre-2018 friends list; today's clients can't set it. Do Not Disturb stays on the user's own client: toggling it sends friends nothing (tested) |
+| Steam Guard authenticator codes | need the account's `shared_secret`, which only the authenticator device holds. Taking it over (`TwoFactor.AddAuthenticator`) moves the user's 2FA off the official app |
+| Approving sign-ins or QR codes for the user | signed with the same `shared_secret` |
+| Trade and market confirmations | signed with `identity_secret`, also authenticator-only; so selling, and trades that give items away, are out too |
+| In-app checkout | no API; Steam's web checkout handles payment and 3-D Secure, and app-store rules restrict digital purchases. "Open in Steam" is the route |
+| Push and ringing while the app is closed or the screen is locked | Valve's push goes only to Valve's apps (APNs/FCM are per app). The only way is our own server holding a CM session per user with their refresh token, sending VoIP push (CallKit / ConnectionService) and our own notifications: a big security and privacy step against the "no server" decision in `docs/handoff.md` |
+| Remote Play / streaming | separate Steam Link protocol and app |
+| Game recording, overlay, performance monitor, Steam Input | PC client features |
