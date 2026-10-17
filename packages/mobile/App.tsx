@@ -15,8 +15,9 @@ import { GuestHome } from './screens/GuestHome';
 import { Home, type Link } from './screens/Home';
 import { SignIn } from './screens/SignIn';
 import { barTouches } from './screens/useHidingBar';
+import { clearStatus, loadStatus } from './statusStore';
 import { colors, gradients } from './theme';
-import { tokenStore } from './tokenStore';
+import { deviceLogonId, tokenStore } from './tokenStore';
 import { UserAppsProvider } from './userApps';
 
 type State =
@@ -70,9 +71,16 @@ export default function App() {
       signedOut(false);
       return;
     }
+    const logonId = await deviceLogonId();
+    const status = await loadStatus();
     let voice: SteamVoice;
     try {
-      voice = await SteamVoice.start(tokenStore, { locale, cache: cacheStore });
+      voice = await SteamVoice.start(tokenStore, {
+        locale,
+        cache: cacheStore,
+        logonId,
+        status,
+      });
     } catch (err) {
       // an unreadable stored token, signing in again replaces it
       await tokenStore.clear();
@@ -107,6 +115,8 @@ export default function App() {
       const voice = await SteamVoice.logOn(tokenStore, {
         locale,
         cache: cacheStore,
+        logonId: await deviceLogonId(),
+        status: await loadStatus(),
         credentials,
         steamGuard,
       });
@@ -124,6 +134,8 @@ export default function App() {
     await voice.session?.leave().catch(() => {});
     voice.connection.close();
     await tokenStore.clear();
+    // nor sign in as this one's status
+    await clearStatus();
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: connects once, at launch

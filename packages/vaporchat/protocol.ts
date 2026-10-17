@@ -143,6 +143,9 @@ export interface Friend {
   game: PlayedGame | null;
 }
 
+/** What friends see of us, as set with `setStatus`. */
+export type MyStatus = 'online' | 'away' | 'invisible';
+
 export interface PlayedGame {
   /** null for non-Steam games */
   appid: number | null;
@@ -183,6 +186,8 @@ export type ChatTarget =
 /** A piece of a message, in reading order. Formatting Steam's clients add (links, quotes) is text. */
 export type ChatPart =
   | { kind: 'text'; text: string }
+  /** a web page, `text` is what to show */
+  | { kind: 'link'; text: string; url: string }
   | { kind: 'emoticon'; name: string; url: string }
   /** big and often animated (APNG) */
   | { kind: 'sticker'; name: string; url: string }
@@ -212,11 +217,38 @@ export interface ChatMessage {
   parts: ChatPart[];
   /** milliseconds since the epoch, the ordinal of messages in the same second as milliseconds */
   time: number;
+  /** emoticons and stickers people put on it */
+  reactions: Reaction[];
 }
 
 export interface IncomingChatMessage {
   chat: ChatTarget;
   message: ChatMessage;
+}
+
+/** An emoticon or sticker to put on a message. */
+export interface ReactionKey {
+  kind: 'emoticon' | 'sticker';
+  name: string;
+}
+
+/** An emoticon or sticker on a message, with how many put it there. */
+export interface Reaction extends ReactionKey {
+  url: string;
+  count: number;
+  /** one of them is us */
+  mine: boolean;
+}
+
+/** Someone putting a reaction on a message, or taking theirs off. */
+export interface ReactionChange {
+  chat: ChatTarget;
+  /** the message's `id` */
+  messageId: string;
+  reaction: ReactionKey;
+  /** SteamID64 */
+  reactor: string;
+  added: boolean;
 }
 
 /** A game or bundle in the Steam store. Times are milliseconds since the epoch. */

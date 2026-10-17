@@ -68,6 +68,11 @@ await voice.connection.sendMessage(chat, 'hi :steamhappy:'); // resolves with th
 const { emoticons, stickers } = await voice.connection.getEmoticons(); // what the account owns
 await voice.connection.sendMessage(chat, stickers[0]); // a sticker is a message of its own
 await voice.connection.sendImage(chat, { bytes, type: 'image/jpeg', width, height }); // Steam posts it
+await voice.connection.react(chat, message, { kind: 'emoticon', name: 'steamhappy' }, true); // false takes ours off
+voice.connection.on('reaction', (change) => update(applyReaction(message, change, me))); // from `steam/messages`
+await voice.connection.sendTyping(steamid); // friends only, every few seconds while typing
+voice.connection.on('typing', ({ steamid }) => showTyping(steamid)); // again every few seconds while they type
+voice.connection.setStatus('away'); // or 'online', 'invisible'; pass `status` to logOn to keep it on reconnects
 
 // what Steam's store and client show
 const { feeds } = voice.connection;
@@ -107,7 +112,9 @@ const guest = SteamFeeds.anonymous(locale); // without an account, the user's ow
   Rejecting the handler's promise cancels the login.
 - `voice.connection.user(steamid)` returns anyone's name and avatar, looking up strangers (people
   in a group voice room) on first use. `joinGroupByInviteLink` joins `https://s.team/chat/…` links.
-- Each logon picks a random logon id, so the same account can be signed in from several devices.
+- Pass each install's own `logonId` (from `randomLogonId`, kept) to logOn: a logon with the same
+  id from the same address replaces the session before it, so devices need different ones and a
+  reconnect takes over its own. Without it, each process picks one.
 - Store descriptions and news posts come as `RichBlock`s to render (paragraphs, headings, lists,
   pictures, videos, links), parsed from Steam's BBCode by `steam/richText.ts`.
 - The feeds use the endpoints Steam's own store, News Hub and client use, none of them documented.
@@ -116,8 +123,9 @@ const guest = SteamFeeds.anonymous(locale); // without an account, the user's ow
   comes over the Steam connection (`UserNews.GetUserNews`, its protobuf is in
   `scripts/userNews.proto`), news, the wishlist, the library and the personal calendar use a web session like
   `sendImage`, and the other store lists need no login. Without one, news is what Steam features for everyone.
-- Messages come as `parts` to render: text, emoticons, stickers and images with their URLs (other
-  BBCode such as links and quotes reads as its text). Our own messages sent from other devices come
+- Messages come as `parts` to render: text, links (web pages only), emoticons, stickers and
+  images with their URLs (other BBCode such as quotes reads as its text), and the `reactions` on
+  them. Our own messages sent from other devices come
   as `message` too, with the same `id` as the one `sendMessage` returned: `mergeMessages` and
   `chatKey` from `steam/messages` keep one list per chat.
 - Sending works like Steam's own clients: Steam turns `:name:` into an emoticon and
@@ -183,6 +191,12 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Unread messages from Steam at logon, marking read on Steam, through reconnects | live (Android); chats read on another device unit-tested, not live |
 | No unread dot for rooms with their unread indicator muted (room or group, as at logon) | unit-tested, not live |
 | Room switcher: pills for all of a group's rooms, unread per room, the group's dot for any of them | live (Android) |
+| Tappable links (`[url]` and typed ones) | live (Android) |
+| Reactions: emoticons and stickers put on and taken off, read from history | live (Android, room); friend chats and others' reactions coming in unit-tested, not live |
+| Typing notices | sending live (Android, Steam accepts them); receiving unit-tested, not live |
+| Group member list, status for friends and you | live (Android) |
+| Own status (Online, Away, Invisible), kept across relaunches | live (Android) |
+| One logon id per install, reconnects replace their own session | unit-tested; relaunches log on again live (Android) |
 | Wishlisting, following and ignoring a game and taking it back, the game page's state from Steam | live (Android) |
 | Game page editions, Early Access answers, links, system requirements (structured and older games' text), DLC, More like this | live (Android); older games' requirements text unit-tested and seen from Bun, not on the phone |
 | My games: total playtime, playtime in the last two weeks, last played | live (Android) for total and last played; the two-weeks data mapping unit-tested, its line not seen live (the bot hasn't played lately) |

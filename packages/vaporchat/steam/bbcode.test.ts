@@ -15,9 +15,41 @@ describe('parseBBCode', () => {
       [{ kind: 'text', text: 'see [b]this[/b]' }],
     ],
     [
-      'links and mentions as their text',
-      '[mention=2]@Alice[/mention] see [url=https://example.com]a site[/url]',
-      [{ kind: 'text', text: '@Alice see a site' }],
+      'mentions as their text',
+      '[mention=2]@Alice[/mention] hi',
+      [{ kind: 'text', text: '@Alice hi' }],
+    ],
+    [
+      'links, with their text or address',
+      'see [url=https://example.com]a [b]site[/b][/url] or [url]https://example.org[/url]',
+      [
+        { kind: 'text', text: 'see ' },
+        { kind: 'link', text: 'a site', url: 'https://example.com' },
+        { kind: 'text', text: ' or ' },
+        {
+          kind: 'link',
+          text: 'https://example.org',
+          url: 'https://example.org',
+        },
+      ],
+    ],
+    [
+      'links typed as text, without the punctuation after them',
+      'look: https://example.com/a?b=1. ok',
+      [
+        { kind: 'text', text: 'look: ' },
+        {
+          kind: 'link',
+          text: 'https://example.com/a?b=1',
+          url: 'https://example.com/a?b=1',
+        },
+        { kind: 'text', text: '. ok' },
+      ],
+    ],
+    [
+      'links to anything but web pages as text',
+      '[url=javascript:alert(1)]click[/url]',
+      [{ kind: 'text', text: 'click' }],
     ],
     [
       'emoticons inside text',

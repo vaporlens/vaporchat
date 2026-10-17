@@ -39,6 +39,7 @@ export function DetailHeader({
   subtitle,
   avatar,
   steamUrl,
+  action,
   titleShown = true,
   onBack,
 }: {
@@ -46,6 +47,8 @@ export function DetailHeader({
   subtitle?: string;
   avatar?: ReactNode;
   steamUrl?: string;
+  /** a button of the screen's own, at the end */
+  action?: ReactNode;
   /** fades the title out, while the page shows it big itself */
   titleShown?: boolean;
   onBack: () => void;
@@ -90,6 +93,7 @@ export function DetailHeader({
           <Ionicons name="open-outline" size={22} color={colors.muted} />
         </Pressable>
       )}
+      {action}
     </View>
   );
 }

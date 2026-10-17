@@ -2,11 +2,12 @@
 import { Image as CachedImage } from 'expo-image';
 import { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ChatMessage, ChatPart } from 'vaporchat/protocol';
+import type { ChatMessage, ChatPart, ReactionKey } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
+import { openLink } from '../links';
 import { colors } from '../theme';
 
-type InlinePart = Extract<ChatPart, { kind: 'text' | 'emoticon' }>;
+type InlinePart = Extract<ChatPart, { kind: 'text' | 'link' | 'emoticon' }>;
 type Block =
   | { kind: 'inline'; parts: InlinePart[] }
   | Exclude<ChatPart, InlinePart>;
@@ -22,11 +23,11 @@ const timeFormat = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
-/** Text and emoticons flow together in one line of text, stickers and images stand alone. */
+/** Text, links and emoticons flow together in one line of text, stickers and images stand alone. */
 function blocks(parts: ChatPart[]) {
   const result: Block[] = [];
   for (const part of parts) {
-    if (part.kind !== 'text' && part.kind !== 'emoticon') {
+    if (part.kind === 'sticker' || part.kind === 'image') {
       result.push(part);
       continue;
     }
@@ -46,6 +47,8 @@ export const MessageBubble = memo(function MessageBubble({
   senderName,
   senderAvatarUrl,
   onOpenImage,
+  onPickReaction,
+  onChangeReaction,
 }: {
   message: ChatMessage;
   mine: boolean;
@@ -57,6 +60,14 @@ export const MessageBubble = memo(function MessageBubble({
   senderName: string | null;
   senderAvatarUrl: string | null;
   onOpenImage: (url: string) => void;
+  /** held down, to pick a reaction for it */
+  onPickReaction: (message: ChatMessage) => void;
+  /** a reaction under it tapped: ours put on (`added`) or taken off */
+  onChangeReaction: (
+    message: ChatMessage,
+    reaction: ReactionKey,
+    added: boolean,
+  ) => void;
 }) {
   const { parts } = message;
   const loneEmoticons = parts.every(
@@ -83,7 +94,9 @@ export const MessageBubble = memo(function MessageBubble({
           </Text>
         </View>
       )}
-      <View
+      <Pressable
+        onLongPress={() => onPickReaction(message)}
+        accessibilityHint="Hold to react"
         style={[
           styles.bubble,
           bare ? styles.bare : mine ? styles.mine : styles.theirs,
@@ -98,6 +111,15 @@ export const MessageBubble = memo(function MessageBubble({
                 {block.parts.map((part, i) =>
                   part.kind === 'text' ? (
                     part.text
+                  ) : part.kind === 'link' ? (
+                    <Text
+                      // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+                      key={i}
+                      onPress={() => openLink(part.url)}
+                      style={styles.link}
+                    >
+                      {part.text}
+                    </Text>
                   ) : (
                     <Image
                       // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
@@ -126,6 +148,8 @@ export const MessageBubble = memo(function MessageBubble({
             <Pressable
               key={key}
               onPress={() => onOpenImage(block.url)}
+              // it takes the touch, the bubble wouldn't see it held
+              onLongPress={() => onPickReaction(message)}
               accessibilityLabel="Open image"
             >
               <CachedImage
@@ -146,7 +170,28 @@ export const MessageBubble = memo(function MessageBubble({
         <Text style={[styles.time, mine && !bare && styles.timeMine]}>
           {timeFormat.format(message.time)}
         </Text>
-      </View>
+      </Pressable>
+      {message.reactions.length > 0 && (
+        <View style={[styles.reactions, mine && styles.reactionsMine]}>
+          {message.reactions.map((reaction) => (
+            <Pressable
+              key={`${reaction.kind}:${reaction.name}`}
+              onPress={() =>
+                onChangeReaction(message, reaction, !reaction.mine)
+              }
+              accessibilityLabel={`${reaction.name}, ${reaction.count}${reaction.mine ? ', yours' : ''}`}
+              style={({ pressed }) => [
+                styles.reaction,
+                reaction.mine && styles.reactionMine,
+                pressed && styles.pressed,
+              ]}
+            >
+              <CachedImage source={reaction.url} style={styles.reactionImage} />
+              <Text style={styles.reactionCount}>{reaction.count}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 });
@@ -174,6 +219,7 @@ const styles = StyleSheet.create({
   tailTheirs: { borderBottomLeftRadius: 4 },
   bare: { paddingHorizontal: 0 },
   text: { color: colors.bright, fontSize: 16 },
+  link: { textDecorationLine: 'underline' },
   sticker: { width: STICKER_SIZE, height: STICKER_SIZE },
   image: {
     width: IMAGE_WIDTH,
@@ -182,5 +228,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   time: { color: colors.muted, fontSize: 11 },
+  reactions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  reactionsMine: { justifyContent: 'flex-end' },
+  reaction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reactionMine: {
+    backgroundColor: colors.accentBackground,
+    borderColor: colors.accent,
+  },
+  reactionImage: { width: 18, height: 18 },
+  reactionCount: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  pressed: { opacity: 0.6 },
   timeMine: { color: 'rgba(255, 255, 255, 0.7)', textAlign: 'right' },
 });

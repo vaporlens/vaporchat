@@ -1,9 +1,13 @@
 import type {
   ChatGroup,
+  ChatMessage,
   ChatTarget,
   Friend,
   IncomingChatMessage,
+  MyStatus,
   OwnedEmoticons,
+  ReactionChange,
+  ReactionKey,
   SteamClientNotifications,
   SteamMethods,
   SteamServerNotifications,
@@ -36,7 +40,11 @@ import {
 import {
   getRecentMessages,
   onChatMessages,
+  onReactions,
+  onTyping,
+  react,
   sendMessage,
+  sendTyping,
 } from '../steam/messages.ts';
 import { decodeProto } from '../steam/protos.ts';
 import { UnreadChats } from '../steam/unread.ts';
@@ -71,8 +79,12 @@ const SERVER_NOTIFICATIONS: Record<keyof SteamServerNotifications, string> = {
     'CChatRoom_NotifyShouldRejoinChatRoomVoiceChat_Notification',
 };
 
-// EPersonaState.Online
-const ONLINE = 1;
+// EPersonaState
+const PERSONA_STATES: Record<MyStatus, number> = {
+  online: 1,
+  away: 3,
+  invisible: 7,
+};
 // web access tokens last a day, a fresh one is made well before that
 const WEB_SESSION_MS = 60 * 60 * 1000;
 const FAIL = new Set<number>([EResult.Fail]);
@@ -101,12 +113,18 @@ type ConnectionEvents = SteamServerNotifications & {
   groupsChanged: Record<string, never>;
   /** a text message in any chat, ours from other devices included */
   message: IncomingChatMessage;
+  /** a friend typing to us, again every few seconds while they do */
+  typing: { steamid: string };
+  /** a reaction put on or taken off a message in any chat, ours from other devices included */
+  reaction: ReactionChange;
   close: { reason: string };
 };
 
 export interface VoiceLogOnOptions extends LogOnOptions {
   /** the user's BCP 47 locale (`de-DE`), sale events are in its language where they have it */
   locale?: string;
+  /** what friends see of us, online by default */
+  status?: MyStatus;
 }
 
 function friendsCacheKey(steamid: string) {
@@ -131,6 +149,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   #savedFriends = '';
   #emoticons: Promise<OwnedEmoticons> | null = null;
   #web: { session: Promise<WebSession>; since: number } | null = null;
+  #status: MyStatus;
   /** Steam's store and client feeds: deals, releases, game pages, news, friends' activity. */
   readonly feeds: SteamFeeds;
   /** Unread messages per chat, shared with the account's other devices. Counted once logged on. */
@@ -146,8 +165,10 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     cache: CacheStore | undefined,
     /** steam's language id, for sale events */
     language: number,
+    status: MyStatus,
   ) {
     super();
+    this.#status = status;
     this.#cm = cm;
     this.#steamid = steamid;
     this.#friends = friends;
@@ -180,18 +201,24 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
       cm.onMessage(name, () => this.emit('groupsChanged', {}));
     }
     onChatMessages(cm, (incoming) => this.emit('message', incoming));
+    onTyping(cm, (steamid) => this.emit('typing', { steamid }));
+    onReactions(cm, (change) => this.emit('reaction', change));
     cm.on('close', (event) => this.emit('close', event));
-    cm.send(EMsg.ClientChangeStatus, 'CMsgClientChangeStatus', {
-      persona_state: ONLINE,
-    });
+    this.#sendStatus(cm);
     this.#friends.start(cm.steamid);
     // without it, messages from now on are still counted
     this.unread.start(cm).catch(() => {});
   }
 
+  #sendStatus(cm: SteamCM) {
+    cm.send(EMsg.ClientChangeStatus, 'CMsgClientChangeStatus', {
+      persona_state: PERSONA_STATES[this.#status],
+    });
+  }
+
   /**
-   * Logs on with the stored refresh token (or `options.credentials`) and goes online,
-   * like the official client does.
+   * Logs on with the stored refresh token (or `options.credentials`) and goes online (or
+   * `options.status`), like the official client does.
    */
   static async logOn(store: TokenStore, options?: VoiceLogOnOptions) {
     const connection = await VoiceConnection.start(store, options);
@@ -205,7 +232,12 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
    */
   static async start(
     store: TokenStore,
-    { locale = 'en', cache, ...options }: VoiceLogOnOptions = {},
+    {
+      locale = 'en',
+      cache,
+      status = 'online',
+      ...options
+    }: VoiceLogOnOptions = {},
   ) {
     // with credentials, steam may log on someone else than the stored token's account
     const stored = options.credentials ? null : await store.load();
@@ -230,11 +262,24 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
       store,
       cache,
       steamLanguage(locale),
+      status,
     );
   }
 
   get me() {
     return this.#friends.get(this.#steamid);
+  }
+
+  /** What friends see of us. Steam keeps one status for the account's sessions. */
+  get status() {
+    return this.#status;
+  }
+
+  /** Shows us online, away or invisible to friends from now on, `status` on `logOn` keeps it. */
+  setStatus(status: MyStatus) {
+    this.#status = status;
+    // a closed connection has no one to tell
+    this.#cm.then((cm) => this.#sendStatus(cm)).catch(() => {});
   }
 
   /** Any account by SteamID64. Unknown ones are looked up, `friendsChanged` follows. */
@@ -288,6 +333,24 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
    */
   async sendMessage(chat: ChatTarget, content: string | StickerPart) {
     return sendMessage(await this.#cm, chat, content);
+  }
+
+  /**
+   * Puts a reaction on a message (`added`) or takes ours off. Show it with `applyReaction`
+   * once done, Steam may also send it back as `reaction`.
+   */
+  async react(
+    chat: ChatTarget,
+    message: Pick<ChatMessage, 'time'>,
+    reaction: ReactionKey,
+    added: boolean,
+  ) {
+    await react(await this.#cm, chat, message, reaction, added);
+  }
+
+  /** Tells a friend we're typing to them. Send again every few seconds while typing. */
+  async sendTyping(steamid: string) {
+    await sendTyping(await this.#cm, steamid);
   }
 
   /**

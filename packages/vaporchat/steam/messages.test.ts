@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { IncomingChatMessage } from '../protocol.ts';
+import type {
+  ChatMessage,
+  IncomingChatMessage,
+  ReactionChange,
+} from '../protocol.ts';
 import type { SteamCM } from './cm.ts';
 import {
+  applyReaction,
   getRecentMessages,
   mergeMessages,
   onChatMessages,
+  onReactions,
+  onTyping,
+  react,
   sendMessage,
+  sendTyping,
 } from './messages.ts';
 import { encodeProto } from './protos.ts';
 
@@ -86,6 +95,7 @@ describe('incoming messages', () => {
           sender: ALICE,
           parts: [{ kind: 'text', text: 'hi' }],
           time: 1_700_000_000_000,
+          reactions: [],
         },
       },
       {
@@ -95,6 +105,7 @@ describe('incoming messages', () => {
           sender: ME,
           parts: [{ kind: 'text', text: 'hey' }],
           time: 1_700_000_000_001,
+          reactions: [],
         },
       },
     ]);
@@ -122,6 +133,7 @@ describe('incoming messages', () => {
           sender: ALICE,
           parts: [{ kind: 'text', text: 'hello room' }],
           time: 1_700_000_001_000,
+          reactions: [],
         },
       },
     ]);
@@ -256,5 +268,209 @@ describe('mergeMessages', () => {
       steam.received.map((incoming) => incoming.message),
     );
     expect(merged.map((m) => m.id)).toEqual(['1700000000:2', '1700000000:10']);
+  });
+
+  it('tells when a friend types to us, not when we type on another device', () => {
+    const steam = fakeSteam();
+    const typing: string[] = [];
+    onTyping(steam.cm, (steamid) => typing.push(steamid));
+    const notice = {
+      steamid_friend: ALICE,
+      chat_entry_type: TYPING,
+      rtime32_server_timestamp: 1_700_000_000,
+    };
+
+    steam.deliver(
+      FRIEND_MESSAGE,
+      'CFriendMessages_IncomingMessage_Notification',
+      notice,
+    );
+    steam.deliver(
+      FRIEND_MESSAGE,
+      'CFriendMessages_IncomingMessage_Notification',
+      { ...notice, local_echo: true },
+    );
+    steam.deliver(
+      FRIEND_MESSAGE,
+      'CFriendMessages_IncomingMessage_Notification',
+      friendMessage('hi'),
+    );
+
+    expect(typing).toEqual([ALICE]);
+  });
+
+  it('sends typing as a typing notice, not a message', async () => {
+    const steam = fakeSteam();
+
+    await sendTyping(steam.cm, ALICE);
+
+    expect(steam.sent).toEqual([{ steamid: ALICE, chat_entry_type: TYPING }]);
+  });
+});
+
+describe('reactions', () => {
+  const ECONOMY = 'https://community.fastly.steamstatic.com/economy';
+  const HAPPY = { kind: 'emoticon', name: 'steamhappy' } as const;
+  const happy = (count: number, mine: boolean) => ({
+    ...HAPPY,
+    url: `${ECONOMY}/emoticonlarge/steamhappy`,
+    count,
+    mine,
+  });
+  const message: ChatMessage = {
+    id: '1700000000:0',
+    sender: ALICE,
+    parts: [],
+    time: 1_700_000_000_000,
+    reactions: [],
+  };
+
+  it('reads who reacted in friend history, and that we did', async () => {
+    const steam = fakeSteam({
+      'FriendMessages.GetRecentMessages#1': {
+        messages: [
+          {
+            accountid: 2,
+            timestamp: 1,
+            message: 'hi',
+            reactions: [
+              { reaction_type: 1, reaction: ':steamhappy:', reactors: [1, 2] },
+              // a kind this doesn't know
+              { reaction_type: 9, reaction: 'x', reactors: [2] },
+            ],
+          },
+        ],
+      },
+    });
+    const { items } = await getRecentMessages(steam.cm, {
+      kind: 'friend',
+      steamid: ALICE,
+    });
+    expect(items[0].reactions).toEqual([happy(2, true)]);
+  });
+
+  it('reads reaction counts in room history', async () => {
+    const steam = fakeSteam({
+      'ChatRoom.GetMessageHistory#1': {
+        messages: [
+          {
+            sender: 2,
+            server_timestamp: 1,
+            message: 'hi',
+            reactions: [
+              {
+                reaction_type: 2,
+                reaction: 'Big Cat',
+                num_reactors: 3,
+                has_user_reacted: false,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const { items } = await getRecentMessages(steam.cm, {
+      kind: 'room',
+      groupId: '7',
+      chatId: '8',
+    });
+    expect(items[0].reactions).toEqual([
+      {
+        kind: 'sticker',
+        name: 'Big Cat',
+        url: `${ECONOMY}/sticker/Big%20Cat`,
+        count: 3,
+        mine: false,
+      },
+    ]);
+  });
+
+  it('counts others reacting, ours once even when Steam echoes it', () => {
+    const others = applyReaction(
+      message,
+      { reaction: HAPPY, reactor: ALICE, added: true },
+      ME,
+    );
+    const ours = applyReaction(
+      others,
+      { reaction: HAPPY, reactor: ME, added: true },
+      ME,
+    );
+    const echo = applyReaction(
+      ours,
+      { reaction: HAPPY, reactor: ME, added: true },
+      ME,
+    );
+    expect(others.reactions).toEqual([happy(1, false)]);
+    expect(ours.reactions).toEqual([happy(2, true)]);
+    expect(echo).toBe(ours);
+  });
+
+  it('drops a reaction once nobody has it on', () => {
+    const on = applyReaction(
+      message,
+      { reaction: HAPPY, reactor: ME, added: true },
+      ME,
+    );
+    const off = applyReaction(
+      on,
+      { reaction: HAPPY, reactor: ME, added: false },
+      ME,
+    );
+    expect(off.reactions).toEqual([]);
+  });
+
+  it('tells reactions in friend chats with the message they are on', () => {
+    const steam = fakeSteam();
+    const changes: ReactionChange[] = [];
+    onReactions(steam.cm, (change) => changes.push(change));
+
+    steam.deliver(
+      'FriendMessagesClient.MessageReaction#1',
+      'CFriendMessages_MessageReaction_Notification',
+      {
+        steamid_friend: ALICE,
+        server_timestamp: 1_700_000_000,
+        ordinal: 0,
+        reactor: ALICE,
+        reaction_type: 1,
+        reaction: ':steamhappy:',
+        is_add: true,
+      },
+    );
+
+    expect(changes).toEqual([
+      {
+        chat: { kind: 'friend', steamid: ALICE },
+        messageId: '1700000000:0',
+        reaction: HAPPY,
+        reactor: ALICE,
+        added: true,
+      },
+    ]);
+  });
+
+  it('reacts to the message Steam knows by its time', async () => {
+    const steam = fakeSteam();
+
+    await react(
+      steam.cm,
+      { kind: 'room', groupId: '7', chatId: '8' },
+      { time: 1_700_000_000_003 },
+      HAPPY,
+      false,
+    );
+
+    expect(steam.sent).toEqual([
+      {
+        chat_group_id: '7',
+        chat_id: '8',
+        server_timestamp: 1_700_000_000,
+        ordinal: 3,
+        reaction_type: 1,
+        reaction: ':steamhappy:',
+        is_add: false,
+      },
+    ]);
   });
 });

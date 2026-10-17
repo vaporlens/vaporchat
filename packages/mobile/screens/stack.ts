@@ -9,11 +9,12 @@ import type { ChatTarget, StoreItem } from 'vaporchat/protocol';
 import { colors } from '../theme';
 import type { Page } from './PageScreen';
 
-/** The tabs, and the native screens pushed over them: a chat or pages. */
+/** The tabs, and the native screens pushed over them: a chat, pages or the settings. */
 export type Routes = {
   tabs: undefined;
   chat: { chat: ChatTarget };
   page: { page: Page };
+  settings: undefined;
 };
 
 export const Stack = createNativeStackNavigator<Routes>();

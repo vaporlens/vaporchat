@@ -17,7 +17,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
-import type { ChatGroup, ChatTarget, Friend } from 'vaporchat/protocol';
+import type {
+  ChatGroup,
+  ChatTarget,
+  Friend,
+  MyStatus,
+} from 'vaporchat/protocol';
 import { groupTitle } from 'vaporchat/steam/groups';
 import { chatKey } from 'vaporchat/steam/messages';
 import { useCached } from '../cache';
@@ -28,6 +33,7 @@ import { SearchField } from '../components/Field';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
 import { matches } from '../search';
+import { saveStatus } from '../statusStore';
 import { colors } from '../theme';
 import { startVoice, useVoice } from '../voice';
 import { CallDock } from './CallDock';
@@ -37,6 +43,7 @@ import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
 import { PageScreen } from './PageScreen';
 import { FriendRow, GroupRow, SectionHeader } from './Rows';
+import { SettingsScreen, STATUSES } from './SettingsScreen';
 import { navigationTheme, type Routes, Stack, usePages } from './stack';
 
 /** How the app is connected to Steam, Home shows what was cached until it is online. */
@@ -48,6 +55,7 @@ export type Link =
 
 const LINK_STATUS: Record<Link['kind'], { text: string; color: string }> = {
   connecting: { text: 'Connecting…', color: colors.muted },
+  // shown as the status friends see once online
   online: { text: 'Online', color: colors.online },
   lost: { text: 'Offline', color: colors.offline },
 };
@@ -104,6 +112,7 @@ export function Home({
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>('store');
+  const [status, setStatus] = useState(voice.connection.status);
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
   const unread = useUnread(voice);
   // stable, the open chat reloads when it changes
@@ -244,6 +253,25 @@ export function Home({
     [voice, showError],
   );
 
+  function changeStatus(picked: MyStatus) {
+    setStatus(picked);
+    voice.connection.setStatus(picked);
+    // the next launch and reconnects log on with it
+    saveStatus(picked).catch(showError);
+  }
+
+  // online, the status friends see
+  const shownStatus =
+    link.kind === 'online'
+      ? STATUSES[status]
+      : {
+          label:
+            link.kind === 'lost'
+              ? `${LINK_STATUS.lost.text}: ${link.reason}`
+              : LINK_STATUS[link.kind].text,
+          color: LINK_STATUS[link.kind].color,
+        };
+
   function confirmSignOut() {
     Alert.alert('Sign out?', 'You will need your password to sign in again.', [
       { text: 'Cancel', style: 'cancel' },
@@ -259,19 +287,17 @@ export function Home({
           url={me.avatarUrl}
           name={me.name}
           size={44}
-          frame={LINK_STATUS[link.kind].color}
+          frame={shownStatus.color}
         />
         <View style={styles.grow}>
           <Text style={styles.myName} numberOfLines={1}>
             {me.name}
           </Text>
           <Text
-            style={[styles.myStatus, { color: LINK_STATUS[link.kind].color }]}
+            style={[styles.myStatus, { color: shownStatus.color }]}
             numberOfLines={1}
           >
-            {link.kind === 'lost'
-              ? `${LINK_STATUS.lost.text}: ${link.reason}`
-              : LINK_STATUS[link.kind].text}
+            {shownStatus.label}
           </Text>
         </View>
         {link.kind === 'lost' && (
@@ -288,15 +314,15 @@ export function Home({
           </Pressable>
         )}
         <Pressable
-          onPress={confirmSignOut}
-          accessibilityLabel="Sign out"
+          onPress={() => navigation.navigate('settings')}
+          accessibilityLabel="Settings"
           hitSlop={8}
           style={({ pressed }) => [
             styles.headerButton,
             pressed && styles.pressed,
           ]}
         >
-          <Ionicons name="log-out-outline" size={22} color={colors.muted} />
+          <Ionicons name="settings-outline" size={22} color={colors.muted} />
         </Pressable>
       </View>
       <FeedTabs
@@ -471,6 +497,16 @@ export function Home({
                 onOpenChat={switchChat}
                 onBack={back}
                 onError={showError}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="settings">
+            {() => (
+              <SettingsScreen
+                status={status}
+                onChangeStatus={changeStatus}
+                onSignOut={confirmSignOut}
+                onBack={back}
               />
             )}
           </Stack.Screen>

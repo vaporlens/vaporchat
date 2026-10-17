@@ -319,7 +319,10 @@ export class SteamCM extends Emitter<{ close: { reason: string } }> {
       if (eresult === EResultOK) job.resolve(body);
       else
         job.reject(
-          new SteamError(header.error_message || 'Steam error', eresult),
+          new SteamError(
+            header.error_message || `Steam error (EResult ${eresult})`,
+            eresult,
+          ),
         );
       return;
     }

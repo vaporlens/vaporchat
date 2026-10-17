@@ -1,5 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -14,8 +21,17 @@ import {
   View,
 } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
-import type { ChatMessage, ChatTarget, StickerPart } from 'vaporchat/protocol';
-import { chatKey, mergeMessages } from 'vaporchat/steam/messages';
+import type {
+  ChatMessage,
+  ChatTarget,
+  ReactionKey,
+  StickerPart,
+} from 'vaporchat/protocol';
+import {
+  applyReaction,
+  chatKey,
+  mergeMessages,
+} from 'vaporchat/steam/messages';
 import { readCache, writeCache } from '../cache';
 import { pickImage } from '../chats';
 import { Avatar } from '../components/Avatar';
@@ -28,6 +44,10 @@ import { MessageBubble } from './MessageBubble';
 
 // as many as steam's recent history has
 const CACHED_MESSAGES = 50;
+// steam's clients tell they're typing every few seconds while they do
+const TYPING_SEND_MS = 5000;
+// how long one notice shows, unless their message comes first
+const TYPING_SHOWN_MS = 8000;
 
 /**
  * A friend's or a room's text chat: recent history, older as it scrolls up, new messages as they
@@ -39,6 +59,7 @@ export function Chat({
   title,
   subtitle,
   avatarUrl,
+  headerAction,
   top,
   bottomInset,
   onBack,
@@ -49,6 +70,8 @@ export function Chat({
   title: string;
   subtitle: string;
   avatarUrl: string | null;
+  /** a button at the end of the header */
+  headerAction?: ReactNode;
   /** above the messages, under the header */
   top?: ReactNode;
   /** room for the home indicator, unless something below the chat takes care of it */
@@ -58,8 +81,12 @@ export function Chat({
 }) {
   const cacheKey = `messages-${chatKey(chat)}`;
   // last time's until the history loads
-  const [messages, setMessages] = useState<ChatMessage[]>(
-    () => readCache(cacheKey) ?? [],
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    // cached before reactions were kept, the history brings them
+    (readCache<ChatMessage[]>(cacheKey) ?? []).map((m) => ({
+      ...m,
+      reactions: m.reactions ?? [],
+    })),
   );
   const [loading, setLoading] = useState(true);
   // where older history starts, null when there's none
@@ -69,7 +96,12 @@ export function Chat({
   const [viewing, setViewing] = useState<string | null>(null);
   // the emoticon and sticker picker, in place of the keyboard
   const [picking, setPicking] = useState(false);
+  // the message the picker puts a reaction on, instead of into the draft
+  const [reactingTo, setReactingTo] = useState<ChatMessage | null>(null);
   const [uploading, setUploading] = useState(false);
+  // the friend is typing to us
+  const [typing, setTyping] = useState(false);
+  const typingSent = useRef(0);
   const me = voice.me.steamid;
 
   useEffect(() => {
@@ -79,6 +111,14 @@ export function Chat({
     const off = voice.connection.on('message', (incoming) => {
       if (chatKey(incoming.chat) !== key) return;
       setMessages((list) => mergeMessages(list, [incoming.message]));
+    });
+    const offReactions = voice.connection.on('reaction', (change) => {
+      if (chatKey(change.chat) !== key) return;
+      setMessages((list) =>
+        list.map((m) =>
+          m.id === change.messageId ? applyReaction(m, change, me) : m,
+        ),
+      );
     });
     voice.connection
       .getRecentMessages(chat)
@@ -96,12 +136,36 @@ export function Chat({
     return () => {
       current = false;
       off();
+      offReactions();
     };
-  }, [voice, chat, onError]);
+  }, [voice, chat, me, onError]);
 
   useEffect(() => {
     if (!loading) writeCache(cacheKey, messages.slice(-CACHED_MESSAGES));
   }, [cacheKey, messages, loading]);
+
+  useEffect(() => {
+    if (chat.kind !== 'friend') return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = () => {
+      clearTimeout(timer);
+      setTyping(false);
+    };
+    const offTyping = voice.connection.on('typing', ({ steamid }) => {
+      if (steamid !== chat.steamid) return;
+      clearTimeout(timer);
+      setTyping(true);
+      timer = setTimeout(stop, TYPING_SHOWN_MS);
+    });
+    const offMessage = voice.connection.on('message', ({ message }) => {
+      if (message.sender === chat.steamid) stop();
+    });
+    return () => {
+      clearTimeout(timer);
+      offTyping();
+      offMessage();
+    };
+  }, [voice, chat]);
 
   // what is on screen is read, on the account's other devices too. Not while the app is away
   const [active, setActive] = useState(AppState.currentState === 'active');
@@ -141,6 +205,19 @@ export function Chat({
     );
   }
 
+  function type(text: string) {
+    setDraft(text);
+    if (
+      chat.kind !== 'friend' ||
+      text.trim() === '' ||
+      Date.now() - typingSent.current < TYPING_SEND_MS
+    )
+      return;
+    typingSent.current = Date.now();
+    // only a nicety, a lost one doesn't matter
+    voice.connection.sendTyping(chat.steamid).catch(() => {});
+  }
+
   function send() {
     const text = draft.trim();
     if (text === '') return;
@@ -168,7 +245,40 @@ export function Chat({
     setPicking(!picking);
   }
 
+  // stable, the bubbles are memoized
+  const changeReaction = useCallback(
+    (message: ChatMessage, reaction: ReactionKey, added: boolean) => {
+      voice.connection.react(chat, message, reaction, added).then(
+        () =>
+          setMessages((list) =>
+            list.map((m) =>
+              m.id === message.id
+                ? applyReaction(m, { reaction, reactor: me, added }, me)
+                : m,
+            ),
+          ),
+        (err: Error) => onError(new Error(`Could not react: ${err.message}`)),
+      );
+    },
+    [voice, chat, me, onError],
+  );
+
+  const pickReaction = useCallback((message: ChatMessage) => {
+    Keyboard.dismiss();
+    setPicking(false);
+    setReactingTo(message);
+  }, []);
+
+  function reactWith(reaction: ReactionKey) {
+    if (reactingTo) changeReaction(reactingTo, reaction, true);
+    setReactingTo(null);
+  }
+
   useBackHandler(() => {
+    if (reactingTo) {
+      setReactingTo(null);
+      return true;
+    }
     if (!picking) return false;
     setPicking(false);
     return true;
@@ -182,8 +292,9 @@ export function Chat({
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <DetailHeader
         title={title}
-        subtitle={subtitle}
+        subtitle={typing ? 'typing…' : subtitle}
         avatar={<Avatar url={avatarUrl} name={title} size={36} />}
+        action={headerAction}
         onBack={onBack}
       />
       {top}
@@ -231,78 +342,104 @@ export function Chat({
               senderName={sender?.name ?? null}
               senderAvatarUrl={sender?.avatarUrl ?? null}
               onOpenImage={setViewing}
+              onPickReaction={pickReaction}
+              onChangeReaction={changeReaction}
             />
           );
         }}
       />
-      <View
-        style={[
-          styles.composer,
-          // the picker below takes care of the home indicator
-          { paddingBottom: (picking ? 0 : bottomInset) + 8 },
-        ]}
-      >
-        <Pressable
-          onPress={togglePicker}
-          accessibilityLabel={
-            picking ? 'Hide emoticons' : 'Emoticons and stickers'
-          }
-          hitSlop={6}
-          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
-        >
-          <Ionicons
-            name="happy-outline"
-            size={26}
-            color={picking ? colors.accent : colors.muted}
-          />
-        </Pressable>
-        <Pressable
-          onPress={sendPhoto}
-          disabled={uploading}
-          accessibilityLabel="Send a photo"
-          hitSlop={6}
-          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
-        >
-          {uploading ? (
-            <ActivityIndicator color={colors.muted} />
-          ) : (
-            <Ionicons name="image-outline" size={26} color={colors.muted} />
-          )}
-        </Pressable>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          onFocus={() => setPicking(false)}
-          placeholder={`Message ${title}`}
-          placeholderTextColor={colors.muted}
-          selectionColor={colors.accent}
-          keyboardAppearance="dark"
-          multiline
-          style={styles.input}
-        />
-        <Pressable
-          onPress={send}
-          disabled={nothingToSend}
-          accessibilityLabel="Send"
-          style={({ pressed }) => [
-            styles.send,
-            nothingToSend && styles.sendDisabled,
-            pressed && styles.pressed,
+      {reactingTo ? (
+        <View style={styles.reacting}>
+          <Text style={styles.reactingText}>
+            React with an emoticon or sticker
+          </Text>
+          <Pressable
+            onPress={() => setReactingTo(null)}
+            accessibilityLabel="Cancel reacting"
+            hitSlop={8}
+          >
+            <Ionicons name="close" size={22} color={colors.muted} />
+          </Pressable>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.composer,
+            // the picker below takes care of the home indicator
+            { paddingBottom: (picking ? 0 : bottomInset) + 8 },
           ]}
         >
-          <Ionicons name="send" size={18} color={colors.bright} />
-        </Pressable>
-      </View>
-      {picking && (
+          <Pressable
+            onPress={togglePicker}
+            accessibilityLabel={
+              picking ? 'Hide emoticons' : 'Emoticons and stickers'
+            }
+            hitSlop={6}
+            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+          >
+            <Ionicons
+              name="happy-outline"
+              size={26}
+              color={picking ? colors.accent : colors.muted}
+            />
+          </Pressable>
+          <Pressable
+            onPress={sendPhoto}
+            disabled={uploading}
+            accessibilityLabel="Send a photo"
+            hitSlop={6}
+            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+          >
+            {uploading ? (
+              <ActivityIndicator color={colors.muted} />
+            ) : (
+              <Ionicons name="image-outline" size={26} color={colors.muted} />
+            )}
+          </Pressable>
+          <TextInput
+            value={draft}
+            onChangeText={type}
+            onFocus={() => setPicking(false)}
+            placeholder={`Message ${title}`}
+            placeholderTextColor={colors.muted}
+            selectionColor={colors.accent}
+            keyboardAppearance="dark"
+            multiline
+            style={styles.input}
+          />
+          <Pressable
+            onPress={send}
+            disabled={nothingToSend}
+            accessibilityLabel="Send"
+            style={({ pressed }) => [
+              styles.send,
+              nothingToSend && styles.sendDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="send" size={18} color={colors.bright} />
+          </Pressable>
+        </View>
+      )}
+      {reactingTo ? (
         <EmoticonPicker
           voice={voice}
           bottomInset={bottomInset}
-          // steam turns `:name:` into the emoticon when the message is sent
-          onEmoticon={(emoticon) =>
-            setDraft((typed) => `${typed}:${emoticon.name}:`)
-          }
-          onSticker={(sticker) => deliver(sticker)}
+          onEmoticon={({ name }) => reactWith({ kind: 'emoticon', name })}
+          onSticker={({ name }) => reactWith({ kind: 'sticker', name })}
         />
+      ) : (
+        picking && (
+          <EmoticonPicker
+            voice={voice}
+            bottomInset={bottomInset}
+            // steam turns `:name:` into the emoticon when the message is sent
+            onEmoticon={(emoticon) =>
+              setDraft((typed) => `${typed}:${emoticon.name}:`)
+            }
+            onSticker={(sticker) => deliver(sticker)}
+          />
+        )
       )}
       <ImageViewer url={viewing} onClose={() => setViewing(null)} />
     </KeyboardAvoidingView>
@@ -348,4 +485,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   sendDisabled: { opacity: 0.4 },
+  reacting: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.bar,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+  },
+  reactingText: { flex: 1, color: colors.text, fontSize: 15 },
 });

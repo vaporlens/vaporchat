@@ -14,6 +14,7 @@ const credentialLogin = vi.mocked(getRefreshTokenWithCredentials);
 const steam = vi.hoisted(() => ({
   results: [] as number[],
   tokens: [] as string[],
+  logonIds: [] as number[],
   renewed: null as string | null,
 }));
 
@@ -34,8 +35,13 @@ vi.mock('./cm.ts', async (importOriginal) => {
     on() {
       return () => {};
     }
-    send(_emsg: number, _type: string, body: { access_token: string }) {
+    send(
+      _emsg: number,
+      _type: string,
+      body: { access_token: string; obfuscated_private_ip: { v4: number } },
+    ) {
       steam.tokens.push(body.access_token);
+      steam.logonIds.push(body.obfuscated_private_ip.v4);
       const eresult = steam.results.shift() ?? 1;
       queueMicrotask(() =>
         this.#handlers.get(actual.EMsg.ClientLogOnResponse)?.(
@@ -79,6 +85,7 @@ describe('logOnSteam', () => {
   beforeEach(() => {
     steam.results = [];
     steam.tokens = [];
+    steam.logonIds = [];
     steam.renewed = null;
     credentialLogin.mockReset();
   });
@@ -112,6 +119,20 @@ describe('logOnSteam', () => {
     await logOnSteam(store);
 
     expect(store.token).toBe(token('renewed'));
+  });
+
+  it('logs on as the same device every time, so Steam replaces the session before', async () => {
+    const store = memoryStore(token('good'));
+
+    await logOnSteam(store, { logonId: 42 });
+    await logOnSteam(store, { logonId: 42 });
+    await logOnSteam(store);
+    await logOnSteam(store);
+
+    const [given, again, ownA, ownB] = steam.logonIds;
+    expect([given, again]).toEqual([42, 42]);
+    // left out, one for the process
+    expect(ownA).toBe(ownB);
   });
 
   it('keeps the stored token on errors unrelated to the token', async () => {

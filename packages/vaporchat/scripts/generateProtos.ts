@@ -35,7 +35,9 @@ const SERVICE_METHODS = [
   'ChatRoom.LeaveVoiceChat',
   'ChatRoom.SendChatMessage',
   'ChatRoom.GetMessageHistory',
+  'ChatRoom.UpdateMessageReaction',
   'FriendMessages.SendMessage',
+  'FriendMessages.UpdateMessageReaction',
   'FriendMessages.GetRecentMessages',
   'FriendMessages.GetActiveMessageSessions',
   'WebRTCClient.InitiateWebRTCConnection',
@@ -78,6 +80,8 @@ const MESSAGES = [
   'CFriendMessages_IncomingMessage_Notification',
   'CFriendMessages_AckMessage_Notification',
   'CChatRoom_AckChatMessage_Notification',
+  'CFriendMessages_MessageReaction_Notification',
+  'CChatRoom_MessageReaction_Notification',
 ];
 
 const require = createRequire(import.meta.url);

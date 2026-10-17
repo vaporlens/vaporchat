@@ -49,18 +49,37 @@ export function steamIdFromRefreshToken(refreshToken: string) {
   return sub;
 }
 
+/** A new id for `logonId`, to keep for the install. */
+export function randomLogonId() {
+  return Math.floor(Math.random() * 0xffffffff);
+}
+
+// without a `logonId`, this process's reconnects still replace their own session
+const PROCESS_LOGON_ID = randomLogonId();
+
 export interface LogOnConnectOptions extends SteamConnectOptions {
   /**
    * Runs on every new connection before logging on. Steam sends things like the friends list
    * together with the logon response, so their handlers have to be registered here.
    */
   beforeLogOn?: (cm: SteamCM) => void;
+  /**
+   * This device to Steam, one per install (`randomLogonId`). A logon with the same id from the
+   * same address replaces the session before it, so a reconnect takes over its own, which may
+   * not have closed yet. Devices on one network need different ones, or they'd keep replacing
+   * each other. One per process when left out.
+   */
+  logonId?: number;
 }
 
 /** Connects to Steam and logs on with a refresh token issued for the steam client. */
 export async function logOnWithRefreshToken(
   refreshToken: string,
-  { beforeLogOn, ...connectOptions }: LogOnConnectOptions = {},
+  {
+    beforeLogOn,
+    logonId = PROCESS_LOGON_ID,
+    ...connectOptions
+  }: LogOnConnectOptions = {},
 ) {
   const steamid = steamIdFromRefreshToken(refreshToken);
   const cm = await SteamCM.connect(connectOptions);
@@ -108,16 +127,18 @@ export async function logOnWithRefreshToken(
       // the "new" friends/group chat, which voice chat belongs to
       chat_mode: 2,
       access_token: refreshToken,
-      // steam replaces a session from the same address with the same id, so a second
-      // vaporchat (phone and web, say) would kick the first one
-      obfuscated_private_ip: { v4: Math.floor(Math.random() * 0xffffffff) },
+      // the official client sends its local address here, see `logonId`
+      obfuscated_private_ip: { v4: logonId },
     },
     { steamid },
   );
   const logon = await response;
   if (logon.eresult !== EResult.OK) {
     cm.close();
-    throw new SteamError('Steam rejected the login', logon.eresult);
+    throw new SteamError(
+      `Steam rejected the login (EResult ${logon.eresult})`,
+      logon.eresult,
+    );
   }
   cm.startSession(
     logon.steamid ?? steamid,

@@ -3,16 +3,23 @@ import type {
   ChatTarget,
   FeedPage,
   IncomingChatMessage,
+  Reaction,
+  ReactionChange,
+  ReactionKey,
   StickerPart,
 } from '../protocol.ts';
-import { parseBBCode } from './bbcode.ts';
+import { emoticonUrl, parseBBCode, stickerUrl } from './bbcode.ts';
 import type { SteamCM } from './cm.ts';
 import { steamIdFromAccountId } from './friends.ts';
 import { decodeProto } from './protos.ts';
 
 // EChatEntryType.ChatMsg, the others are typing notices, invites and the like
 const CHAT_MESSAGE = 1;
+// EChatEntryType.Typing
+const TYPING = 2;
 const HISTORY_COUNT = 50;
+// EMessageReactionType, the same numbers in friend and room chats
+const REACTION_TYPES = { emoticon: 1, sticker: 2 } as const;
 // the newest message there can be, steam's history starts from it
 const LATEST = 2 ** 31 - 1;
 
@@ -43,6 +50,35 @@ interface HistoryEntry {
   message?: string;
   timestamp?: number;
   ordinal?: number;
+  reactions: Reaction[];
+}
+
+interface ReactionNotification {
+  server_timestamp?: number;
+  ordinal?: number;
+  reactor: string;
+  reaction_type?: number;
+  reaction?: string;
+  is_add?: boolean;
+}
+
+/** A reaction as Steam sends it, null for kinds this doesn't know. */
+function reactionKey(type = 0, name = ''): ReactionKey | null {
+  // emoticons as typed, `:name:`
+  if (type === REACTION_TYPES.emoticon)
+    return { kind: 'emoticon', name: name.replace(/^:|:$/g, '') };
+  if (type === REACTION_TYPES.sticker) return { kind: 'sticker', name };
+  return null;
+}
+
+function reaction(key: ReactionKey, count: number, mine: boolean): Reaction {
+  const url =
+    key.kind === 'emoticon' ? emoticonUrl(key.name) : stickerUrl(key.name);
+  return { ...key, url, count, mine };
+}
+
+function messageId(timestamp = 0, ordinal = 0) {
+  return `${timestamp}:${ordinal}`;
 }
 
 interface SentMessage {
@@ -66,13 +102,107 @@ function chatMessage(
   bbcode: string,
   timestamp = 0,
   ordinal = 0,
+  reactions: Reaction[] = [],
 ): ChatMessage {
   return {
-    id: `${timestamp}:${ordinal}`,
+    id: messageId(timestamp, ordinal),
     sender,
     parts: parseBBCode(bbcode),
     time: messageTime(timestamp, ordinal),
+    reactions,
   };
+}
+
+/**
+ * A message with a reaction change applied. Ours count once, so their echo after we reacted
+ * changes nothing. Unchanged messages are returned as they were.
+ */
+export function applyReaction(
+  message: ChatMessage,
+  {
+    reaction: key,
+    reactor,
+    added,
+  }: Pick<ReactionChange, 'reaction' | 'reactor' | 'added'>,
+  me: string,
+): ChatMessage {
+  const existing = message.reactions.find(
+    (r) => r.kind === key.kind && r.name === key.name,
+  );
+  const mine = reactor === me;
+  if (mine && (existing?.mine ?? false) === added) return message;
+  if (!existing && !added) return message;
+  const count = (existing?.count ?? 0) + (added ? 1 : -1);
+  const changed = reaction(
+    key,
+    count,
+    mine ? added : (existing?.mine ?? false),
+  );
+  const reactions = existing
+    ? message.reactions.map((r) => (r === existing ? changed : r))
+    : [...message.reactions, changed];
+  return { ...message, reactions: reactions.filter((r) => r.count > 0) };
+}
+
+/** Calls `handler` for reactions put on or taken off messages in any chat, ours included. */
+export function onReactions(
+  cm: SteamCM,
+  handler: (change: ReactionChange) => void,
+) {
+  const handle = (chat: ChatTarget, n: ReactionNotification) => {
+    const key = reactionKey(n.reaction_type, n.reaction);
+    if (!key) return;
+    handler({
+      chat,
+      messageId: messageId(n.server_timestamp, n.ordinal),
+      reaction: key,
+      reactor: n.reactor,
+      added: n.is_add ?? false,
+    });
+  };
+  cm.onMessage('FriendMessagesClient.MessageReaction#1', (_header, body) => {
+    const n = decodeProto<ReactionNotification & { steamid_friend: string }>(
+      'CFriendMessages_MessageReaction_Notification',
+      body,
+    );
+    handle({ kind: 'friend', steamid: n.steamid_friend }, n);
+  });
+  cm.onMessage('ChatRoomClient.NotifyMessageReaction#1', (_header, body) => {
+    const n = decodeProto<
+      ReactionNotification & { chat_group_id: string; chat_id: string }
+    >('CChatRoom_MessageReaction_Notification', body);
+    handle({ kind: 'room', groupId: n.chat_group_id, chatId: n.chat_id }, n);
+  });
+}
+
+/** Puts a reaction on a message (`added`), or takes ours off. */
+export async function react(
+  cm: SteamCM,
+  chat: ChatTarget,
+  message: Pick<ChatMessage, 'time'>,
+  { kind, name }: ReactionKey,
+  added: boolean,
+) {
+  const { timestamp, ordinal } = fromMessageTime(message.time);
+  const change = {
+    server_timestamp: timestamp,
+    ordinal,
+    reaction_type: REACTION_TYPES[kind],
+    // emoticons as typed, Steam denies them without the colons
+    reaction: kind === 'emoticon' ? `:${name}:` : name,
+    is_add: added,
+  };
+  if (chat.kind === 'friend')
+    await cm.call('FriendMessages.UpdateMessageReaction#1', {
+      steamid: chat.steamid,
+      ...change,
+    });
+  else
+    await cm.call('ChatRoom.UpdateMessageReaction#1', {
+      chat_group_id: chat.groupId,
+      chat_id: chat.chatId,
+      ...change,
+    });
 }
 
 /** One key per chat, to tell chats apart in maps and events. */
@@ -129,6 +259,27 @@ export function onChatMessages(
       });
     },
   );
+}
+
+/** Calls `handler` with the friend each time they type to us. Rooms have no typing notices. */
+export function onTyping(cm: SteamCM, handler: (steamid: string) => void) {
+  cm.onMessage('FriendMessagesClient.IncomingMessage#1', (_header, body) => {
+    const n = decodeProto<FriendMessageNotification>(
+      'CFriendMessages_IncomingMessage_Notification',
+      body,
+    );
+    // local echoes are ours, from another device
+    if (n.chat_entry_type === TYPING && !n.local_echo)
+      handler(n.steamid_friend);
+  });
+}
+
+/** Tells a friend we're typing to them, once every few seconds while we do. */
+export async function sendTyping(cm: SteamCM, steamid: string) {
+  await cm.call('FriendMessages.SendMessage#1', {
+    steamid,
+    chat_entry_type: TYPING,
+  });
 }
 
 /**
@@ -188,6 +339,7 @@ export async function getRecentMessages(
           entry.message ?? '',
           entry.timestamp,
           entry.ordinal,
+          entry.reactions,
         ),
       ),
     ),
@@ -212,7 +364,15 @@ async function getHistory(
   const last = before === null ? null : fromMessageTime(before);
   if (chat.kind === 'friend') {
     const { messages = [], more_available } = await cm.call<{
-      messages?: (Omit<HistoryEntry, 'accountId'> & { accountid: number })[];
+      messages?: (Omit<HistoryEntry, 'accountId' | 'reactions'> & {
+        accountid: number;
+        reactions?: {
+          reaction_type?: number;
+          reaction?: string;
+          /** account ids */
+          reactors?: number[];
+        }[];
+      })[];
       more_available?: boolean;
     }>('FriendMessages.GetRecentMessages#1', {
       steamid1: cm.steamid,
@@ -224,7 +384,17 @@ async function getHistory(
       ordinal_last: last?.ordinal,
     });
     return {
-      entries: messages.map((m) => ({ ...m, accountId: m.accountid })),
+      entries: messages.map((m) => ({
+        ...m,
+        accountId: m.accountid,
+        reactions: (m.reactions ?? []).flatMap((r) => {
+          const key = reactionKey(r.reaction_type, r.reaction);
+          const reactors = (r.reactors ?? []).map(steamIdFromAccountId);
+          return key
+            ? [reaction(key, reactors.length, reactors.includes(cm.steamid))]
+            : [];
+        }),
+      })),
       next: olderThan(more_available, messages.at(-1)),
     };
   }
@@ -236,6 +406,12 @@ async function getHistory(
       ordinal?: number;
       server_message?: object;
       deleted?: boolean;
+      reactions?: {
+        reaction_type?: number;
+        reaction?: string;
+        num_reactors?: number;
+        has_user_reacted?: boolean;
+      }[];
     }[];
     more_available?: boolean;
   }>('ChatRoom.GetMessageHistory#1', {
@@ -254,6 +430,12 @@ async function getHistory(
         message: m.message,
         timestamp: m.server_timestamp,
         ordinal: m.ordinal,
+        reactions: (m.reactions ?? []).flatMap((r) => {
+          const key = reactionKey(r.reaction_type, r.reaction);
+          return key
+            ? [reaction(key, r.num_reactors ?? 0, r.has_user_reacted ?? false)]
+            : [];
+        }),
       })),
     // server and deleted messages too, older history starts before them
     next: olderThan(
