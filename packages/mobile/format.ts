@@ -1,4 +1,4 @@
-import type { StoreItem } from 'vaporchat/protocol';
+import type { Friend, StoreItem } from 'vaporchat/protocol';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -36,6 +36,14 @@ export function releaseDate({ releasedAt, releaseWindow }: StoreItem) {
   return releaseWindow.precision === 'quarter'
     ? `Q${Math.floor(day.getMonth() / 3) + 1} ${day.getFullYear()}`
     : String(day.getFullYear());
+}
+
+/** What a friend is up to: `Playing Some Game`, `Away`, `Online`, `Offline`… */
+export function friendStatus({ online, away, game }: Friend) {
+  if (!online) return 'Offline';
+  if (game) return game.name ? `Playing ${game.name}` : 'In game';
+  if (away === 'snooze') return 'Snooze';
+  return away === 'away' ? 'Away' : 'Online';
 }
 
 /** `5m ago`, `3h ago`, `2d ago`, then the date. */

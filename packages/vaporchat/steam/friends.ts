@@ -1,5 +1,5 @@
 import { Emitter } from '../client/emitter.ts';
-import type { Friend } from '../protocol.ts';
+import type { Friend, PlayedGame, StoreItem } from '../protocol.ts';
 import { EMsg, type SteamCM } from './cm.ts';
 import { decodeProto } from './protos.ts';
 
@@ -12,8 +12,10 @@ const PERSONA_STATUS = 1;
 // which signs the official clients out of friends & chat and empties their friends lists.
 // Steam pushes the status of online friends by itself.
 const PERSONA_FLAGS = 2 | 16;
-// EPersonaState.Offline
+// EPersonaState
 const OFFLINE = 0;
+const AWAY = 3;
+const SNOOZE = 4;
 // steam sends all zeros for accounts that never set an avatar, this is its default picture
 const DEFAULT_AVATAR_HASH = 'fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb';
 
@@ -29,8 +31,19 @@ interface PersonaStateMessage {
     persona_state?: number;
     player_name?: string;
     avatar_hash?: Uint8Array;
+    /** "0" when not playing */
+    gameid?: string;
+    /** 0 for non-Steam games */
+    game_played_app_id?: number;
+    /** only for non-Steam games, empty for Steam's */
+    game_name?: string;
   }[];
 }
+
+/** Names Steam games by appid, see `FriendsList.nameGamesWith`. */
+type GameLookUp = (
+  appids: number[],
+) => Promise<Pick<StoreItem, 'appid' | 'name'>[]>;
 
 /** What a `FriendsList` knew, to show on the next start until Steam sends it again. */
 export interface FriendsSnapshot {
@@ -42,6 +55,7 @@ interface Persona {
   name?: string;
   avatarHash?: string;
   state: number;
+  game: PlayedGame | null;
 }
 
 // SteamID64 of individual account 0, account ids are offsets from it
@@ -49,6 +63,15 @@ const STEAMID64_BASE = 76561197960265728n;
 
 export function steamIdFromAccountId(accountId: number) {
   return (STEAMID64_BASE + BigInt(accountId)).toString();
+}
+
+function playedGame({
+  gameid,
+  game_played_app_id,
+  game_name,
+}: NonNullable<PersonaStateMessage['friends']>[number]): PlayedGame | null {
+  if (gameid === '0') return null;
+  return { appid: game_played_app_id || null, name: game_name || null };
 }
 
 export function hex(bytes: Uint8Array) {
@@ -75,6 +98,9 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   /** what `get` gave out last, the same object until something it shows changes */
   #shown = new Map<string, Friend>();
   #started = false;
+  #lookUpGames: GameLookUp | null = null;
+  /** by appid, null while looked up and for games the store doesn't show */
+  #gameNames = new Map<number, string | null>();
 
   /** Listens to a connection that is about to log on. */
   attach(cm: SteamCM) {
@@ -85,6 +111,11 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     cm.onMessage(EMsg.ClientPersonaState, (_header, body) =>
       this.#receivePersonas(decodeProto('CMsgClientPersonaState', body)),
     );
+  }
+
+  /** How to name the Steam games friends play, Steam sends only their appid. */
+  nameGamesWith(lookUp: GameLookUp) {
+    this.#lookUpGames = lookUp;
   }
 
   /** Once logged on: asks for the personas of everyone known or looked up so far, and of `self`. */
@@ -139,19 +170,33 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   get(steamid: string): Friend {
     const persona = this.#personas.get(steamid);
     const restored = this.#restored.get(steamid);
-    const friend = {
+    const state = persona?.state ?? OFFLINE;
+    // going offline may leave the game out
+    const game = state === OFFLINE ? null : (persona?.game ?? null);
+    const friend: Friend = {
       steamid,
       name: persona?.name ?? restored?.name ?? steamid,
       avatarUrl: persona?.avatarHash
         ? avatarUrl(persona.avatarHash)
         : (restored?.avatarUrl ?? null),
-      online: (persona?.state ?? OFFLINE) !== OFFLINE,
+      online: state !== OFFLINE,
+      away: state === AWAY ? 'away' : state === SNOOZE ? 'snooze' : null,
+      game: game && {
+        appid: game.appid,
+        name:
+          game.name ??
+          (game.appid === null ? null : this.#gameNames.get(game.appid)) ??
+          null,
+      },
     };
     const shown = this.#shown.get(steamid);
     if (
       shown?.name === friend.name &&
       shown.avatarUrl === friend.avatarUrl &&
-      shown.online === friend.online
+      shown.online === friend.online &&
+      shown.away === friend.away &&
+      shown.game?.appid === friend.game?.appid &&
+      shown.game?.name === friend.game?.name
     )
       return shown;
     this.#shown.set(steamid, friend);
@@ -179,8 +224,9 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
 
   #receivePersonas(message: PersonaStateMessage) {
     const flags = message.status_flags ?? 0;
-    // most updates are about what isn't shown (the game played, say)
+    // most updates are about what isn't shown (the lobby joined, say)
     let changed = false;
+    const unnamed = new Set<number>();
     for (const friend of message.friends ?? []) {
       const before = this.get(friend.friendid);
       const known = this.#personas.get(friend.friendid);
@@ -194,10 +240,32 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
           flags & PERSONA_STATUS
             ? (friend.persona_state ?? OFFLINE)
             : (known?.state ?? OFFLINE),
+        // name-only updates leave the game out
+        game:
+          friend.gameid === undefined
+            ? (known?.game ?? null)
+            : playedGame(friend),
       });
-      changed ||= this.get(friend.friendid) !== before;
+      const after = this.get(friend.friendid);
+      const appid = after.game?.appid;
+      if (appid && !this.#gameNames.has(appid)) unnamed.add(appid);
+      changed ||= after !== before;
     }
+    if (unnamed.size > 0) this.#nameGames([...unnamed]);
     if (changed) this.emit('changed', {});
+  }
+
+  async #nameGames(appids: number[]) {
+    if (!this.#lookUpGames) return;
+    for (const appid of appids) this.#gameNames.set(appid, null);
+    try {
+      for (const { appid, name } of await this.#lookUpGames(appids))
+        if (appid !== null) this.#gameNames.set(appid, name);
+      this.emit('changed', {});
+    } catch {
+      // asked again when someone plays one of them next
+      for (const appid of appids) this.#gameNames.delete(appid);
+    }
   }
 
   #requestPersonas(steamids: string[]) {

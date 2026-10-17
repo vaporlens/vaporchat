@@ -169,6 +169,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Refresh token renewal | unit-tested, not live (Steam only renews close to expiry) |
 | Credential login over the Steam connection (no Steam Guard) | live (Bun) |
 | Friends with names, avatars, online state; groups with voice rooms | live (Bun) |
+| Friends' games (Steam games named by the store, non-Steam games), Away and Snooze | live (Android) |
 | Steam Guard codes, approval in the mobile app, cancelling | unit-tested, not live |
 | Group voice: join, two-way audio, per-user streams, leave | live |
 | 1:1 calls: place, ring, connect, two-way audio, hang up | live |

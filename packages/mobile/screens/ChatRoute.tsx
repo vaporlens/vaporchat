@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceTarget } from 'vaporchat/client/voiceSession';
 import type { ChatGroup, ChatTarget } from 'vaporchat/protocol';
+import { friendStatus } from '../format';
 import { Chat } from './Chat';
 import { VoiceChannels } from './VoiceChannels';
 
@@ -21,7 +22,7 @@ function chatHeader(
     const friend = voice.connection.user(chat.steamid);
     return {
       title: friend.name,
-      subtitle: live && friend.online ? 'Online' : 'Offline',
+      subtitle: live ? friendStatus(friend) : 'Offline',
       avatarUrl: friend.avatarUrl,
     };
   }

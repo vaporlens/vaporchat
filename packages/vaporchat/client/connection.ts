@@ -154,6 +154,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
       cm,
       webSession: () => this.#webSession(),
     });
+    friends.nameGamesWith((appids) => this.feeds.getStoreItems(appids));
     friends.on('changed', () => {
       this.#friendsChangedSoon();
       this.#saveFriendsSoon();

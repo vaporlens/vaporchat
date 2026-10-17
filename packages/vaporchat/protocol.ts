@@ -137,6 +137,17 @@ export interface Friend {
   name: string;
   avatarUrl: string | null;
   online: boolean;
+  /** while online: Away after a while idle, Snooze after longer */
+  away: 'away' | 'snooze' | null;
+  /** what they play, null when nothing */
+  game: PlayedGame | null;
+}
+
+export interface PlayedGame {
+  /** null for non-Steam games */
+  appid: number | null;
+  /** null until the store names a Steam game, and when it doesn't */
+  name: string | null;
 }
 
 export interface ChatRoom {

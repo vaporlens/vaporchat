@@ -3,6 +3,7 @@ import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ChatGroup, ChatTarget, Friend } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
+import { friendStatus } from '../format';
 import { colors } from '../theme';
 
 const SHOWN_IN_VOICE = 4;
@@ -145,7 +146,13 @@ export const FriendRow = memo(function FriendRow({
   onOpen: (chat: ChatTarget) => void;
   onCall: (friend: Friend) => void;
 }) {
-  const status = friend.online ? colors.online : colors.offline;
+  const status = !friend.online
+    ? colors.offline
+    : friend.game
+      ? colors.inGame
+      : friend.away
+        ? colors.away
+        : colors.online;
   return (
     <Pressable
       onPress={() => onOpen({ kind: 'friend', steamid: friend.steamid })}
@@ -169,7 +176,7 @@ export const FriendRow = memo(function FriendRow({
           style={[styles.sub, inCall && { color: colors.speaking }]}
           numberOfLines={1}
         >
-          {inCall ? 'In call' : friend.online ? 'Online' : 'Offline'}
+          {inCall ? 'In call' : friendStatus(friend)}
         </Text>
       </View>
       <UnreadBadge count={unread} />

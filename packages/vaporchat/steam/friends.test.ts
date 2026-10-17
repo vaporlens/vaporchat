@@ -98,8 +98,17 @@ describe('FriendsList', () => {
         avatarUrl:
           'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
         online: true,
+        away: null,
+        game: null,
       },
-      { steamid: ALICE, name: 'Alice', avatarUrl: null, online: false },
+      {
+        steamid: ALICE,
+        name: 'Alice',
+        avatarUrl: null,
+        online: false,
+        away: null,
+        game: null,
+      },
     ]);
     expect(list.get(ME).name).toBe('Me');
   });
@@ -133,7 +142,7 @@ describe('FriendsList', () => {
     let changes = 0;
     list.on('changed', () => changes++);
 
-    // what she plays, say, isn't shown
+    // the same again
     steam.personas(STATUS | NAME, [
       { friendid: ALICE, persona_state: 1, player_name: 'Alice' },
     ]);
@@ -143,6 +152,102 @@ describe('FriendsList', () => {
     steam.personas(STATUS, [{ friendid: ALICE, persona_state: 0 }]);
     expect(changes).toBe(1);
     expect(list.get(ALICE)).toEqual({ ...alice, online: false });
+  });
+
+  it('tells Away and Snooze from online', () => {
+    const steam = fakeSteam();
+    const list = new FriendsList();
+    list.attach(steam.cm);
+    steam.friendsList(false, [
+      [ALICE, FRIEND],
+      [BOB, FRIEND],
+    ]);
+
+    steam.personas(STATUS, [
+      { friendid: ALICE, persona_state: 3 },
+      { friendid: BOB, persona_state: 4 },
+    ]);
+
+    expect(list.get(ALICE)).toMatchObject({ online: true, away: 'away' });
+    expect(list.get(BOB)).toMatchObject({ online: true, away: 'snooze' });
+  });
+
+  it('shows the game a friend plays, Steam games named by the store once', async () => {
+    const steam = fakeSteam();
+    const list = new FriendsList();
+    const lookedUp: number[][] = [];
+    let named = (_: { appid: number; name: string }[]) => {};
+    list.nameGamesWith(
+      (appids) =>
+        new Promise((resolve) => {
+          lookedUp.push(appids);
+          named = resolve;
+        }),
+    );
+    list.attach(steam.cm);
+    steam.friendsList(false, [
+      [ALICE, FRIEND],
+      [BOB, FRIEND],
+    ]);
+    let changes = 0;
+    list.on('changed', () => changes++);
+    const playing = { persona_state: 1, gameid: '10', game_played_app_id: 10 };
+
+    steam.personas(STATUS, [{ friendid: ALICE, ...playing }]);
+    steam.personas(STATUS, [{ friendid: BOB, ...playing }]);
+    expect(list.get(ALICE).game).toEqual({ appid: 10, name: null });
+
+    named([{ appid: 10, name: 'Some Game' }]);
+    await Promise.resolve();
+    expect(lookedUp).toEqual([[10]]);
+    expect(list.get(BOB).game).toEqual({ appid: 10, name: 'Some Game' });
+    expect(changes).toBe(3);
+
+    // a rename leaves the game out
+    steam.personas(NAME, [{ friendid: ALICE, player_name: 'Alicia' }]);
+    expect(list.get(ALICE).game).toEqual({ appid: 10, name: 'Some Game' });
+
+    // non-Steam games come named, without an appid
+    steam.personas(STATUS, [
+      {
+        friendid: ALICE,
+        persona_state: 1,
+        gameid: '9876543210',
+        game_played_app_id: 0,
+        game_name: 'A Shortcut',
+      },
+    ]);
+    expect(list.get(ALICE).game).toEqual({ appid: null, name: 'A Shortcut' });
+
+    steam.personas(STATUS, [
+      { friendid: ALICE, persona_state: 1, gameid: '0', game_played_app_id: 0 },
+    ]);
+    expect(list.get(ALICE).game).toBeNull();
+    expect(lookedUp).toEqual([[10]]);
+
+    steam.personas(STATUS, [{ friendid: BOB, persona_state: 0 }]);
+    expect(list.get(BOB).game).toBeNull();
+  });
+
+  it('looks up a game again after the store failed to name it', async () => {
+    const steam = fakeSteam();
+    const list = new FriendsList();
+    let calls = 0;
+    list.nameGamesWith(async () => {
+      calls++;
+      if (calls === 1) throw new Error('offline');
+      return [{ appid: 10, name: 'Some Game' }];
+    });
+    list.attach(steam.cm);
+    steam.friendsList(false, [[ALICE, FRIEND]]);
+    const playing = { persona_state: 1, gameid: '10', game_played_app_id: 10 };
+
+    steam.personas(STATUS, [{ friendid: ALICE, ...playing }]);
+    await Promise.resolve();
+    steam.personas(STATUS, [{ friendid: ALICE, ...playing }]);
+    await Promise.resolve();
+
+    expect(list.get(ALICE).game).toEqual({ appid: 10, name: 'Some Game' });
   });
 
   it('follows friends being added and removed after logon', () => {
