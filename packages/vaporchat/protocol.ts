@@ -256,6 +256,15 @@ export interface UserApps {
   wishlisted: number[];
 }
 
+/** Where a game stands with the user, as its store page shows it. */
+export interface GameInterest {
+  owned: boolean;
+  wishlisted: boolean;
+  following: boolean;
+  /** "not interested", the store stops recommending it */
+  ignored: boolean;
+}
+
 /** A sale, update or announcement posted on Steam by a game or group. Times are milliseconds. */
 export interface SteamEvent {
   id: string;

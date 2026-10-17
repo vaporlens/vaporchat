@@ -1,7 +1,9 @@
+import type { GameInterest } from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
 import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails } from '../steam/gameDetails.ts';
+import { getGameInterest, setGameInterest } from '../steam/gameInterest.ts';
 import { steamLanguage } from '../steam/language.ts';
 import { getLibrary, getUserApps } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
@@ -139,6 +141,24 @@ export class SteamFeeds {
   /** A game's store page: descriptions, screenshots, reviews, tags and features. */
   async getGame(appid: number) {
     return getGameDetails(appid, await this.#country());
+  }
+
+  /** Whether the user owns, wishlisted, follows or ignored a game. */
+  async getGameInterest(appid: number) {
+    return getGameInterest(await this.#requireUser().cm, appid);
+  }
+
+  /**
+   * Wishlists, follows or ignores a game (`on`), or takes that back. Then what Steam has now,
+   * one change can bring others along.
+   */
+  async setGameInterest(
+    appid: number,
+    interest: Exclude<keyof GameInterest, 'owned'>,
+    on: boolean,
+  ) {
+    await setGameInterest(await this.#webSession(), appid, interest, on);
+    return this.getGameInterest(appid);
   }
 
   /** A page of a game's reviews, most helpful first. */

@@ -14,6 +14,7 @@ const SOURCES = [
   'steammessages_auth.steamclient',
   'steammessages_chat.steamclient',
   'steammessages_friendmessages.steamclient',
+  'steammessages_store.steamclient',
   'friends_mobile',
 ];
 
@@ -44,6 +45,7 @@ const SERVICE_METHODS = [
   'VoiceChat.EndOneOnOneChat',
   'VoiceChat.UpdateVoiceChatWebRTCData',
   'UserNews.GetUserNews',
+  'Store.GetUserGameInterestState',
 ];
 
 const MESSAGES = [

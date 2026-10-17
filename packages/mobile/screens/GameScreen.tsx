@@ -1,8 +1,19 @@
 import { Image } from 'expo-image';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
-import type { GameDetails, SteamEvent, StoreItem } from 'vaporchat/protocol';
+import type {
+  GameDetails,
+  GameInterest,
+  SteamEvent,
+  StoreItem,
+} from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { DetailPage } from '../components/DetailPage';
 import { KeepOpened } from '../components/KeepOpened';
@@ -12,6 +23,7 @@ import { SubTabs } from '../components/SubTabs';
 import { releaseDate } from '../format';
 import { openLink } from '../links';
 import { colors, gridGutter } from '../theme';
+import { useMarkWishlisted } from '../userApps';
 import {
   getVaporlensReport,
   type VaporlensReport as Report,
@@ -30,6 +42,13 @@ const DECK = {
 };
 
 type Tab = 'overview' | 'media' | 'about' | 'reviews' | 'news';
+
+// the store page's buttons, off and on
+const ACTIONS = [
+  { interest: 'wishlisted', off: 'Wishlist', on: 'On wishlist' },
+  { interest: 'following', off: 'Follow', on: 'Following' },
+  { interest: 'ignored', off: 'Ignore', on: 'Ignored' },
+] as const;
 
 function reviewColor(percentPositive: number) {
   if (percentPositive >= 70) return colors.positive;
@@ -102,6 +121,70 @@ function Overview({
         />
       )}
     </>
+  );
+}
+
+/** Wishlisting, following and ignoring the game, left out when signed out. */
+function Actions({
+  feeds,
+  appid,
+  onError,
+}: {
+  feeds: SteamFeeds;
+  appid: number;
+  onError: (err: Error) => void;
+}) {
+  const [interest, setInterest] = useState<GameInterest | null>(null);
+  const [changing, setChanging] = useState(false);
+  const markWishlisted = useMarkWishlisted();
+  useEffect(() => {
+    let shown = true;
+    feeds
+      .getGameInterest(appid)
+      .then((loaded) => shown && setInterest(loaded))
+      // signed out, or steam didn't say: the page works without them
+      .catch(() => {});
+    return () => {
+      shown = false;
+    };
+  }, [feeds, appid]);
+  if (!interest) return null;
+
+  const change = (kind: (typeof ACTIONS)[number]['interest']) => {
+    setChanging(true);
+    feeds
+      .setGameInterest(appid, kind, !interest[kind])
+      .then((changed) => {
+        setInterest(changed);
+        markWishlisted(appid, changed.wishlisted);
+      })
+      .catch(onError)
+      .finally(() => setChanging(false));
+  };
+  return (
+    <View style={styles.actions}>
+      {ACTIONS.filter(
+        // an owned game can't be wishlisted
+        ({ interest: kind }) => kind !== 'wishlisted' || !interest.owned,
+      ).map(({ interest: kind, off, on }) => (
+        <Pressable
+          key={kind}
+          disabled={changing}
+          onPress={() => change(kind)}
+          style={({ pressed }) => [
+            styles.action,
+            interest[kind] && styles.actionOn,
+            (pressed || changing) && styles.pressed,
+          ]}
+        >
+          <Text
+            style={[styles.actionText, interest[kind] && styles.actionTextOn]}
+          >
+            {interest[kind] ? `✓ ${on}` : off}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -264,6 +347,7 @@ export function GameScreen({
       titleInContent
     >
       <BuyHeader item={shown} />
+      <Actions feeds={feeds} appid={item.appid} onError={onError} />
       {game ? (
         <Details
           feeds={feeds}
@@ -289,6 +373,17 @@ const styles = StyleSheet.create({
   // spaced like the page's own content
   tab: { gap: 14 },
   muted: { color: colors.muted, fontSize: 13 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  action: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceRaised,
+  },
+  actionOn: { backgroundColor: colors.accentBackground },
+  actionText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  actionTextOn: { color: colors.accent },
+  pressed: { opacity: 0.7 },
   loading: { marginTop: 24 },
   reviews: { color: colors.muted, fontSize: 14 },
   facts: { gap: 6 },
