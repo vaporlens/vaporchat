@@ -98,7 +98,7 @@ export class SteamFeeds {
     return getWishlist(cm.steamid, await this.#webSession(), cm.country, start);
   }
 
-  /** The games the user owns, recently played first. */
+  /** The games the user owns with their playtime, recently played first. */
   async getLibrary() {
     const cm = await this.#requireUser().cm;
     return getLibrary(cm.steamid, await this.#webSession(), cm.country);

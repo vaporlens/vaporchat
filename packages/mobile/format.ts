@@ -21,6 +21,20 @@ export function fullDate(time: number) {
   });
 }
 
+/** `Oct 5` this year, `Oct 5, 2024` before. */
+export function pastDate(time: number) {
+  return new Date(time).getFullYear() === new Date().getFullYear()
+    ? date(time)
+    : fullDate(time);
+}
+
+/** `45 min`, `2.5 h`, `120 h` */
+export function playtime(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${hours.toLocaleString(undefined, { maximumFractionDigits: hours < 10 ? 1 : 0 })} h`;
+}
+
 /** `Oct 5, 2026`, or as precise as Steam knows a coming game's: `December 2026`, `Q2 2027`, `2027`. */
 export function releaseDate({ releasedAt, releaseWindow }: StoreItem) {
   if (releasedAt) return fullDate(releasedAt);

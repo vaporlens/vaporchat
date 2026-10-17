@@ -75,7 +75,7 @@ await feeds.getSaleEvents(); // sales running now
 await feeds.getSpecials(); // the store's top discounts; pages like news
 await feeds.getTopSellers(); // best selling first; pages like news
 const wishlist = await feeds.getWishlist(); // the user's, biggest discounts first; pages like news
-await feeds.getLibrary(); // the games the user owns, recently played first
+await feeds.getLibrary(); // the games the user owns with their playtime and last played, recently played first
 await feeds.getUserApps(); // appids the user owns and wishlisted, to mark games with
 await feeds.getNewReleases(); // popular new releases, newest first; pages like news
 await feeds.getUpcoming(); // popular games coming soon; pages like news
@@ -183,6 +183,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Unread messages from Steam at logon, marking read on Steam, through reconnects | live (Android); chats read on another device unit-tested, not live |
 | Wishlisting, following and ignoring a game and taking it back, the game page's state from Steam | live (Android) |
 | Game page editions, Early Access answers, links, system requirements (structured and older games' text), DLC, More like this | live (Android); older games' requirements text unit-tested and seen from Bun, not on the phone |
+| My games: total playtime, playtime in the last two weeks, last played | live (Android) for total and last played; the two-weeks data mapping unit-tested, its line not seen live (the bot hasn't played lately) |
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |

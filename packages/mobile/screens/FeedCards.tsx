@@ -5,12 +5,20 @@ import type {
   Friend,
   FriendActivity,
   FriendActivityKind,
+  LibraryGame,
   SteamEvent,
   StoreItem,
 } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
-import { date, fullDate, releaseDate, timeAgo } from '../format';
+import {
+  date,
+  fullDate,
+  pastDate,
+  playtime,
+  releaseDate,
+  timeAgo,
+} from '../format';
 import { openLink } from '../links';
 import { colors, gradients, gridGutter, imageFadeMs } from '../theme';
 import { useOwnership } from '../userApps';
@@ -97,29 +105,43 @@ export function BuyHeader({ item }: { item: StoreItem }) {
   );
 }
 
+/** How much and when a game of the library was played. */
+function playedDetail(game: LibraryGame) {
+  if (game.minutesPlayedRecently > 0)
+    return `${playtime(game.minutesPlayedRecently)} past 2 weeks`;
+  if (game.lastPlayedAt) return `Last played ${pastDate(game.lastPlayedAt)}`;
+  // steam has no date for games played before it kept one, their playtime says enough
+  return game.minutesPlayed > 0 ? null : 'Never played';
+}
+
 /**
  * A game with its price. When it was or will be released, or when its discount ends, and
- * whether the user owns or wishlisted it. Half a row of a two-column grid, the rows pad
- * themselves by `gridGutter`. Memoized, lists render again as their search or tabs change.
+ * whether the user owns or wishlisted it. A game of the library has its playtime instead.
+ * Half a row of a two-column grid, the rows pad themselves by `gridGutter`. Memoized, lists
+ * render again as their search or tabs change.
  */
 export const StoreItemCard = memo(function StoreItemCard({
   item,
   show,
   onPress,
 }: {
-  item: StoreItem;
+  item: StoreItem | LibraryGame;
   show: 'released' | 'discountEnds';
   onPress: (item: StoreItem) => void;
 }) {
-  const detail =
-    show === 'released'
+  // lists cached before playtime was loaded have none
+  const played = 'minutesPlayed' in item ? item : null;
+  const detail = played
+    ? playedDetail(played)
+    : show === 'released'
       ? item.releasedAt &&
         (item.releasedAt > Date.now()
           ? `Releases ${fullDate(item.releasedAt)}`
           : `Released ${date(item.releasedAt)}`)
       : item.discountEndsAt && `Offer ends ${date(item.discountEndsAt)}`;
   const ownership = useOwnership(item.appid);
-  const mark = ownership && OWNERSHIP[ownership];
+  // the library's games are all owned, no need to say so
+  const mark = !played && ownership && OWNERSHIP[ownership];
   return (
     <View style={styles.cell}>
       <Pressable
@@ -138,7 +160,15 @@ export const StoreItemCard = memo(function StoreItemCard({
             contentFit="cover"
           />
           <View style={styles.cardPrice}>
-            <Price item={item} />
+            {played ? (
+              played.minutesPlayed > 0 && (
+                <Text style={styles.price}>
+                  {playtime(played.minutesPlayed)}
+                </Text>
+              )
+            ) : (
+              <Price item={item} />
+            )}
           </View>
           {mark && (
             <Text

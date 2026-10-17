@@ -244,6 +244,16 @@ export interface StoreItem {
   free: boolean;
 }
 
+/** A game the user owns, with how much they played it. */
+export interface LibraryGame extends StoreItem {
+  /** all time, in minutes */
+  minutesPlayed: number;
+  /** in the last two weeks, in minutes */
+  minutesPlayedRecently: number;
+  /** null when never played, or played before Steam kept the date */
+  lastPlayedAt: number | null;
+}
+
 /** A month, quarter or year, by its last day like Steam has it. Milliseconds since the epoch. */
 export interface ReleaseWindow {
   at: number;

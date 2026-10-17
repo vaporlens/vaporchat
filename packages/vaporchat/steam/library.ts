@@ -1,4 +1,4 @@
-import type { StoreItem, UserApps } from '../protocol.ts';
+import type { LibraryGame, StoreItem, UserApps } from '../protocol.ts';
 import type { WebSession } from './logOn.ts';
 import { callApi, getGames } from './store.ts';
 import { ASSETS_URL, getJson, STORE_URL } from './web.ts';
@@ -9,16 +9,20 @@ export interface OwnedGame {
   name?: string;
   /** seconds, 0 when never played */
   rtime_last_played?: number;
+  /** minutes */
+  playtime_forever?: number;
+  playtime_2weeks?: number;
 }
 
 /**
- * The games as store items without prices, they're the user's already. Recently played first,
- * then the never played ones by name. Pictures from the games' store items, see `getGames`.
+ * The games as store items without prices, they're the user's already, with how much they were
+ * played. Recently played first, then the never played ones by name. Pictures from the games'
+ * store items, see `getGames`.
  */
 export function libraryItems(
   games: OwnedGame[],
   store: Map<number | null, StoreItem>,
-): StoreItem[] {
+): LibraryGame[] {
   return [...games]
     .sort(
       (a, b) =>
@@ -43,15 +47,20 @@ export function libraryItems(
       releaseWindow: null,
       comingSoon: false,
       free: false,
+      minutesPlayed: game.playtime_forever ?? 0,
+      minutesPlayedRecently: game.playtime_2weeks ?? 0,
+      lastPlayedAt: game.rtime_last_played
+        ? game.rtime_last_played * 1000
+        : null,
     }));
 }
 
-/** The games the user owns, played free games included. */
+/** The games the user owns, played free games included, with their playtime. */
 export async function getLibrary(
   steamid: string,
   { accessToken }: WebSession,
   country: string,
-): Promise<StoreItem[]> {
+): Promise<LibraryGame[]> {
   const { games = [] } = await callApi<{ games?: OwnedGame[] }>(
     'IPlayerService/GetOwnedGames',
     { steamid, include_appinfo: true, include_played_free_games: true },

@@ -21,6 +21,32 @@ describe('libraryItems', () => {
     ]);
   });
 
+  it('says how long and when each game was played, nothing for never played ones', () => {
+    const [played, never] = libraryItems(
+      [
+        {
+          appid: 1,
+          name: 'Played',
+          rtime_last_played: 1_700_000_000,
+          playtime_forever: 600,
+          playtime_2weeks: 90,
+        },
+        { appid: 2, name: 'Never', rtime_last_played: 0 },
+      ],
+      new Map(),
+    );
+    expect(played).toMatchObject({
+      minutesPlayed: 600,
+      minutesPlayedRecently: 90,
+      lastPlayedAt: 1_700_000_000_000,
+    });
+    expect(never).toMatchObject({
+      minutesPlayed: 0,
+      minutesPlayedRecently: 0,
+      lastPlayedAt: null,
+    });
+  });
+
   it("uses the store's picture, the old path for games the store doesn't show", () => {
     const shown = {
       imageUrl: 'https://cdn/apps/1/hash/header.jpg',
