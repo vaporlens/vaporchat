@@ -56,7 +56,7 @@ function messageTime(timestamp = 0, ordinal = 0) {
   return timestamp * 1000 + ordinal;
 }
 
-function fromMessageTime(time: number) {
+export function fromMessageTime(time: number) {
   return { timestamp: Math.floor(time / 1000), ordinal: time % 1000 };
 }
 

@@ -167,6 +167,14 @@ export interface ChatGroup {
   rooms: ChatRoom[];
 }
 
+/** Unread messages, as Steam keeps them for all the account's devices. */
+export interface Unread {
+  /** how many, by the friend's SteamID64 */
+  friends: ReadonlyMap<string, number>;
+  /** `chatKey`s of rooms with unread messages, Steam doesn't count those */
+  rooms: ReadonlySet<string>;
+}
+
 /** A text conversation: with a friend, or in a group chat room. */
 export type ChatTarget =
   | { kind: 'friend'; steamid: string }

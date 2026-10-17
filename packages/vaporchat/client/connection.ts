@@ -39,6 +39,7 @@ import {
   sendMessage,
 } from '../steam/messages.ts';
 import { decodeProto } from '../steam/protos.ts';
+import { UnreadChats } from '../steam/unread.ts';
 import { Emitter } from './emitter.ts';
 import { SteamFeeds } from './feeds.ts';
 
@@ -132,6 +133,8 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   #web: { session: Promise<WebSession>; since: number } | null = null;
   /** Steam's store and client feeds: deals, releases, game pages, news, friends' activity. */
   readonly feeds: SteamFeeds;
+  /** Unread messages per chat, shared with the account's other devices. Counted once logged on. */
+  readonly unread = new UnreadChats();
   /** Settles with the logon, rejecting when it failed. Lost connections after it come as `close`. */
   readonly ready: Promise<void>;
 
@@ -182,6 +185,8 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
       persona_state: ONLINE,
     });
     this.#friends.start(cm.steamid);
+    // without it, messages from now on are still counted
+    this.unread.start(cm).catch(() => {});
   }
 
   /**

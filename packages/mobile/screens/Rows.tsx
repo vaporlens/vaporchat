@@ -106,7 +106,8 @@ export const GroupRow = memo(function GroupRow({
   /** the people in its voice channels */
   inVoice: Friend[];
   connected: boolean;
-  unread: number;
+  /** steam doesn't count a room's unread messages */
+  unread: boolean;
   onOpen: (chat: ChatTarget) => void;
 }) {
   const hasVoice = group.rooms.some((room) => room.voiceAllowed);
@@ -126,7 +127,7 @@ export const GroupRow = memo(function GroupRow({
         </Text>
         {hasVoice && <InVoice people={inVoice} size={20} />}
       </View>
-      <UnreadBadge count={unread} />
+      {unread && <View style={styles.unreadDot} />}
       {connected && <VoicePill connected />}
     </Pressable>
   );
@@ -260,6 +261,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   unreadText: { color: colors.bright, fontSize: 12, fontWeight: '700' },
+  unreadDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.accent,
+  },
   call: {
     width: 38,
     height: 38,

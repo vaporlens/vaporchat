@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -101,6 +102,20 @@ export function Chat({
   useEffect(() => {
     if (!loading) writeCache(cacheKey, messages.slice(-CACHED_MESSAGES));
   }, [cacheKey, messages, loading]);
+
+  // what is on screen is read, on the account's other devices too. Not while the app is away
+  const [active, setActive] = useState(AppState.currentState === 'active');
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) =>
+      setActive(state === 'active'),
+    );
+    return () => subscription.remove();
+  }, []);
+  const newest = messages.at(-1)?.time;
+  useEffect(() => {
+    if (active && newest !== undefined)
+      voice.connection.unread.markRead(chat, newest);
+  }, [voice, chat, newest, active]);
 
   async function loadOlder() {
     if (older === null || loading || loadingOlder) return;

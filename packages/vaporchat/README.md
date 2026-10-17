@@ -62,6 +62,8 @@ const chat = { kind: 'friend', steamid } as const; // or { kind: 'room', groupId
 const history = await voice.connection.getRecentMessages(chat); // last 50, oldest first
 await voice.connection.getRecentMessages(chat, history.next); // older ones, `next` is null at the end
 voice.connection.on('message', ({ chat, message }) => show(chat, message)); // every chat
+voice.connection.unread.on('changed', ({ friends, rooms }) => badge(friends, rooms)); // counts for friends, rooms only unread or not
+voice.connection.unread.markRead(chat, message.time); // read up to it, on the account's other devices too
 await voice.connection.sendMessage(chat, 'hi :steamhappy:'); // resolves with the stored message
 const { emoticons, stickers } = await voice.connection.getEmoticons(); // what the account owns
 await voice.connection.sendMessage(chat, stickers[0]); // a sticker is a message of its own
@@ -175,6 +177,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | 1:1 calls: place, ring, connect, two-way audio, hang up | live |
 | Incoming calls: accept, decline, caller cancels | live |
 | Text chat: friend and room messages, history, sending (brackets escaped), echo dedupe | live (Bun) |
+| Unread messages from Steam at logon, marking read on Steam, through reconnects | live (Android); chats read on another device unit-tested, not live |
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |

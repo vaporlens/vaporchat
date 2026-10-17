@@ -2,6 +2,8 @@
 const TYPE_PREFIXES: Record<string, string> = {
   'Authentication.GenerateAccessTokenForApp':
     'CAuthentication_AccessToken_GenerateForApp',
+  'FriendMessages.GetActiveMessageSessions':
+    'CFriendsMessages_GetActiveMessageSessions',
 };
 
 /** `ChatRoom.JoinVoiceChat#1` → `CChatRoom_JoinVoiceChat_Request` */

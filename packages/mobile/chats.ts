@@ -1,30 +1,19 @@
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
-import type { ChatTarget } from 'vaporchat/protocol';
 import type { ChatImage } from 'vaporchat/steam/imageUpload';
-import { chatKey } from 'vaporchat/steam/messages';
 
-/**
- * Messages from others per chat (by `chatKey`) since the app started, except in the open chat.
- * Opening a chat clears its count.
- */
-export function useUnread(voice: SteamVoice, open: ChatTarget | null) {
-  const [unread, setUnread] = useState<Record<string, number>>({});
-  const openKey = open ? chatKey(open) : null;
+/** Unread messages per chat, shared with the account's other devices. The open chat reads them. */
+export function useUnread(voice: SteamVoice) {
+  const { unread } = voice.connection;
+  const [current, setCurrent] = useState(unread.current);
 
   useEffect(() => {
-    if (openKey) {
-      setUnread(({ [openKey]: _read, ...rest }) => rest);
-    }
-    return voice.connection.on('message', ({ chat, message }) => {
-      const key = chatKey(chat);
-      if (key === openKey || message.sender === voice.me.steamid) return;
-      setUnread((counts) => ({ ...counts, [key]: (counts[key] ?? 0) + 1 }));
-    });
-  }, [voice, openKey]);
+    setCurrent(unread.current);
+    return unread.on('changed', setCurrent);
+  }, [unread]);
 
-  return unread;
+  return current;
 }
 
 /** A photo from the library, ready for `sendImage`. Null when the user cancels. */

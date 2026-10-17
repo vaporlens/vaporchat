@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   NavigationContainer,
-  type NavigationState,
   useNavigationContainerRef,
 } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -79,13 +78,6 @@ function sessionTitle(
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
 
-/** The chat on the stack, its messages aren't unread. */
-function stackedChat(state: NavigationState | undefined) {
-  const route = state?.routes.find((r) => r.name === 'chat');
-  // a route named `chat` has its params
-  return route ? (route.params as Routes['chat']).chat : null;
-}
-
 /**
  * Who you are and the tabs: Steam's deals, new releases, news and friends' activity, and chat
  * with your group chats and friends. Tap one to chat, join a room's voice, call a friend.
@@ -110,11 +102,9 @@ export function Home({
   const [joining, setJoining] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // follows the navigation, see `stackedChat`
-  const [chat, setChat] = useState<ChatTarget | null>(null);
   const [tab, setTab] = useState<Tab>('store');
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
-  const unread = useUnread(voice, chat);
+  const unread = useUnread(voice);
   // stable, the open chat reloads when it changes
   const showError = useCallback((err: Error) => setError(err.message), []);
   const dismissError = useCallback(() => setError(null), []);
@@ -235,12 +225,8 @@ export function Home({
 
   const { push, openGame, back } = usePages(navigation);
 
-  // set along with navigating, in one render, `onStateChange` would only catch up after it
   const openChat = useCallback(
-    (chat: ChatTarget) => {
-      setChat(chat);
-      navigation.navigate('chat', { chat });
-    },
+    (chat: ChatTarget) => navigation.navigate('chat', { chat }),
     [navigation],
   );
   const callFriend = useCallback(
@@ -421,7 +407,7 @@ export function Home({
                   target?.kind === 'group' &&
                   target.groupId === item.group.groupId
                 }
-                unread={unread[item.key] ?? 0}
+                unread={unread.rooms.has(item.key)}
                 onOpen={openChat}
               />
             ) : (
@@ -431,7 +417,7 @@ export function Home({
                   target?.kind === 'friend' &&
                   target.steamid === item.friend.steamid
                 }
-                unread={unread[item.key] ?? 0}
+                unread={unread.friends.get(item.friend.steamid) ?? 0}
                 onOpen={openChat}
                 onCall={callFriend}
               />
@@ -449,11 +435,7 @@ export function Home({
 
   return (
     <View style={styles.screen}>
-      <NavigationContainer
-        ref={navigation}
-        theme={navigationTheme}
-        onStateChange={(state) => setChat(stackedChat(state))}
-      >
+      <NavigationContainer ref={navigation} theme={navigationTheme}>
         <Stack.Navigator
           // covered screens skip renders until they show again
           screenOptions={{ headerShown: false, freezeOnBlur: true }}
