@@ -1,4 +1,5 @@
 import { getLocales } from 'expo-localization';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { retryDelay } from 'vaporchat/client/retryPolicy';
 import { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { SteamGuardHandler } from 'vaporchat/steam/credentialLogin';
 import type { SteamCredentials } from 'vaporchat/steam/logOn';
+import { clearMutedFriends } from './alertSettings';
 import { cacheStore, clearCache, openCache } from './cache';
 import { Appear } from './components/Appear';
 import { Logo } from './components/Logo';
@@ -134,8 +136,10 @@ export default function App() {
     await voice.session?.leave().catch(() => {});
     voice.connection.close();
     await tokenStore.clear();
-    // nor sign in as this one's status
+    // nor sign in as this one's status, or with its friends muted, or see its alerts
     await clearStatus();
+    await clearMutedFriends();
+    await Notifications.dismissAllNotificationsAsync();
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: connects once, at launch

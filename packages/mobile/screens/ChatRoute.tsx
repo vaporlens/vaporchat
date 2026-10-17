@@ -8,6 +8,7 @@ import { chatKey } from 'vaporchat/steam/messages';
 import { friendStatus } from '../format';
 import { colors } from '../theme';
 import { Chat } from './Chat';
+import { AlertsButton, GroupAlertsButton } from './ChatAlerts';
 import { GroupMembers } from './GroupMembers';
 import { RoomTabs } from './RoomTabs';
 import { VoiceChannels } from './VoiceChannels';
@@ -51,8 +52,10 @@ export const ChatRoute = memo(function ChatRoute({
   live,
   target,
   unreadRooms,
+  mutedFriends,
   bottomInset,
   onOpenChat,
+  onToggleMute,
   onBack,
   onError,
 }: {
@@ -63,9 +66,12 @@ export const ChatRoute = memo(function ChatRoute({
   target: VoiceTarget | undefined;
   /** `chatKey`s */
   unreadRooms: ReadonlySet<string>;
+  /** SteamID64s of friends whose messages don't alert */
+  mutedFriends: ReadonlySet<string>;
   bottomInset: number;
   /** in place of this one */
   onOpenChat: (chat: ChatTarget) => void;
+  onToggleMute: (steamid: string) => void;
   onBack: () => void;
   onError: (err: Error) => void;
 }) {
@@ -83,18 +89,39 @@ export const ChatRoute = memo(function ChatRoute({
         chat={chat}
         {...chatHeader(voice, chat, groups, live)}
         headerAction={
-          group && (
-            <Pressable
-              onPress={() => setMembersOpen(true)}
-              accessibilityLabel="Members"
-              hitSlop={8}
-              style={({ pressed }) => [
-                styles.button,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons name="people-outline" size={22} color={colors.muted} />
-            </Pressable>
+          chat.kind === 'friend' ? (
+            <AlertsButton
+              off={mutedFriends.has(chat.steamid)}
+              onPress={() => onToggleMute(chat.steamid)}
+            />
+          ) : (
+            group && (
+              <>
+                <GroupAlertsButton
+                  group={group}
+                  onChange={(alerts) =>
+                    voice.connection
+                      .setGroupAlerts(group.groupId, alerts)
+                      .catch(onError)
+                  }
+                />
+                <Pressable
+                  onPress={() => setMembersOpen(true)}
+                  accessibilityLabel="Members"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.button,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="people-outline"
+                    size={22}
+                    color={colors.muted}
+                  />
+                </Pressable>
+              </>
+            )
           )
         }
         top={

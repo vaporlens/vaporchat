@@ -25,6 +25,8 @@ import type {
 } from 'vaporchat/protocol';
 import { groupTitle } from 'vaporchat/steam/groups';
 import { chatKey } from 'vaporchat/steam/messages';
+import { useMutedFriends, useStayConnected } from '../alertSettings';
+import { useAlerts } from '../alerts';
 import { useCached } from '../cache';
 import { useUnread } from '../chats';
 import { Appear } from '../components/Appear';
@@ -41,6 +43,7 @@ import { ChatRoute, findRoom } from './ChatRoute';
 import { FeedTabs } from './FeedTabs';
 import { IncomingCall } from './IncomingCall';
 import { JoinGroup } from './JoinGroup';
+import { NoticesScreen, useSteamNotices } from './NoticesScreen';
 import { PageScreen } from './PageScreen';
 import { FriendRow, GroupRow, SectionHeader } from './Rows';
 import { SettingsScreen, STATUSES } from './SettingsScreen';
@@ -115,8 +118,11 @@ export function Home({
   const [status, setStatus] = useState(voice.connection.status);
   const { session, incomingCalls, speaker, setSpeaker } = useVoice(voice);
   const unread = useUnread(voice);
+  const unreadNotices = useSteamNotices(voice).filter((n) => !n.read).length;
   // stable, the open chat reloads when it changes
   const showError = useCallback((err: Error) => setError(err.message), []);
+  const { muted, toggle: toggleMute } = useMutedFriends(showError);
+  const stayConnected = useStayConnected(showError);
   const dismissError = useCallback(() => setError(null), []);
 
   const loadGroups = useCallback(() => voice.connection.getGroups(), [voice]);
@@ -245,6 +251,7 @@ export function Home({
       navigation.dispatch(CommonActions.setParams({ chat })),
     [navigation],
   );
+  useAlerts(voice, groups, muted, openChat);
   const callFriend = useCallback(
     (friend: Friend) =>
       void startVoice((mic) => voice.callFriend(friend.steamid, mic)).catch(
@@ -313,6 +320,26 @@ export function Home({
             <Ionicons name="refresh" size={22} color={colors.muted} />
           </Pressable>
         )}
+        <Pressable
+          onPress={() => navigation.navigate('notifications')}
+          accessibilityLabel={`Notifications, ${unreadNotices} unread`}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name="notifications-outline"
+            size={22}
+            color={colors.muted}
+          />
+          {unreadNotices > 0 && (
+            <Text style={styles.badge}>
+              {unreadNotices > 99 ? '99+' : unreadNotices}
+            </Text>
+          )}
+        </Pressable>
         <Pressable
           onPress={() => navigation.navigate('settings')}
           accessibilityLabel="Settings"
@@ -470,6 +497,7 @@ export function Home({
         tab={tab}
         onChange={setTab}
         bottomInset={session ? 0 : insets.bottom}
+        chatUnread={unread.friends.size > 0 || unread.rooms.size > 0}
       />
     </View>
   );
@@ -493,8 +521,10 @@ export function Home({
                 live={live}
                 target={target}
                 unreadRooms={unread.rooms}
+                mutedFriends={muted}
                 bottomInset={session ? 0 : insets.bottom}
                 onOpenChat={switchChat}
+                onToggleMute={toggleMute}
                 onBack={back}
                 onError={showError}
               />
@@ -505,8 +535,22 @@ export function Home({
               <SettingsScreen
                 status={status}
                 onChangeStatus={changeStatus}
+                stayConnected={
+                  stayConnected.available ? stayConnected.on : null
+                }
+                onChangeStayConnected={stayConnected.change}
                 onSignOut={confirmSignOut}
                 onBack={back}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="notifications">
+            {() => (
+              <NoticesScreen
+                voice={voice}
+                onBack={back}
+                onOpenGame={openGame}
+                onError={showError}
               />
             )}
           </Stack.Screen>
@@ -566,6 +610,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   pressed: { opacity: 0.6 },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    overflow: 'hidden',
+    backgroundColor: colors.accent,
+    color: colors.bright,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   search: { paddingHorizontal: 12, paddingTop: 12 },
   sectionAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sectionActionText: { color: colors.accent, fontSize: 13, fontWeight: '600' },

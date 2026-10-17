@@ -13,32 +13,57 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
-private const val CHANNEL = "voice"
+private const val CALL_CHANNEL = "voice"
+private const val CONNECTION_CHANNEL = "connection"
 private const val NOTIFICATION_ID = 1
 
+/** Whether voice is on, or only the connection to Steam is kept, a boolean extra. */
+const val EXTRA_CALL = "call"
+
 /**
- * Keeps the app running while voice is on: Android stops the microphone of apps in the background
- * and freezes them, unless they show a notification for what they do.
+ * Keeps the app running while voice is on, or in the background when asked to stay connected:
+ * Android stops the microphone of apps in the background and freezes them, unless they show a
+ * notification for what they do.
  */
 class CallService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
+  override fun onCreate() {
+    super.onCreate()
+    running = true
+  }
+
+  override fun onDestroy() {
+    running = false
+    super.onDestroy()
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val call = intent?.getBooleanExtra(EXTRA_CALL, true) ?: true
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(CHANNEL, "Voice chat", NotificationManager.IMPORTANCE_LOW)
+      val notifications = getSystemService(NotificationManager::class.java)
+      notifications.createNotificationChannel(
+        NotificationChannel(CALL_CHANNEL, "Voice chat", NotificationManager.IMPORTANCE_LOW)
+      )
+      // the least it can be, folded away at the bottom of the shade
+      notifications.createNotificationChannel(
+        NotificationChannel(
+          CONNECTION_CHANNEL,
+          "Staying connected",
+          NotificationManager.IMPORTANCE_MIN
+        )
       )
     }
     val open = packageManager.getLaunchIntentForPackage(packageName)?.let {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
     }
-    val notification = NotificationCompat.Builder(this, CHANNEL)
+    val notification = NotificationCompat.Builder(this, if (call) CALL_CHANNEL else CONNECTION_CHANNEL)
       .setSmallIcon(R.drawable.call_notification)
-      .setContentTitle("In voice chat")
-      .setContentText("Tap to return to it")
+      .setContentTitle(if (call) "In voice chat" else "Connected to Steam")
+      .setContentText(if (call) "Tap to return to it" else "For alerts while in the background")
       .setContentIntent(open)
       .setOngoing(true)
-      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .setCategory(if (call) NotificationCompat.CATEGORY_CALL else NotificationCompat.CATEGORY_SERVICE)
       .build()
     // the microphone type needs the microphone permission, without it voice joins listen-only
     val microphone = checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
@@ -47,9 +72,17 @@ class CallService : Service() {
       this,
       NOTIFICATION_ID,
       notification,
-      if (microphone) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-      else ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+      when {
+        !call -> ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+        microphone -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        else -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+      }
     )
     return START_NOT_STICKY
+  }
+
+  companion object {
+    var running = false
+      private set
   }
 }

@@ -1,4 +1,5 @@
 import type {
+  ChatAlerts,
   ChatGroup,
   ChatMessage,
   ChatTarget,
@@ -26,6 +27,7 @@ import {
   GROUP_CHANGE_NOTIFICATIONS,
   getGroups,
   joinGroupByInviteLink,
+  setGroupAlerts,
 } from '../steam/groups.ts';
 import { type ChatImage, sendImage } from '../steam/imageUpload.ts';
 import { steamLanguage } from '../steam/language.ts';
@@ -47,6 +49,7 @@ import {
   sendTyping,
 } from '../steam/messages.ts';
 import { decodeProto } from '../steam/protos.ts';
+import { SteamNotices } from '../steam/steamNotifications.ts';
 import { UnreadChats } from '../steam/unread.ts';
 import { Emitter } from './emitter.ts';
 import { SteamFeeds } from './feeds.ts';
@@ -154,6 +157,8 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   readonly feeds: SteamFeeds;
   /** Unread messages per chat, shared with the account's other devices. Counted once logged on. */
   readonly unread = new UnreadChats();
+  /** The account's Steam notifications (gifts, comments, wishlist sales). Loaded once logged on. */
+  readonly notices = new SteamNotices();
   /** Settles with the logon, rejecting when it failed. Lost connections after it come as `close`. */
   readonly ready: Promise<void>;
 
@@ -208,6 +213,7 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
     this.#friends.start(cm.steamid);
     // without it, messages from now on are still counted
     this.unread.start(cm).catch(() => {});
+    this.notices.start(cm).catch(() => {});
   }
 
   #sendStatus(cm: SteamCM) {
@@ -321,6 +327,12 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
   /** Group chats with their rooms. Updates come as `groupsChanged`, fetch again then. */
   async getGroups(): Promise<ChatGroup[]> {
     return getGroups(await this.#cm);
+  }
+
+  /** Sets which of a group's messages alert us on phones, `groupsChanged` follows. */
+  async setGroupAlerts(groupId: string, alerts: ChatAlerts) {
+    await setGroupAlerts(await this.#cm, groupId, alerts);
+    this.emit('groupsChanged', {});
   }
 
   async joinGroupByInviteLink(inviteLink: string) {

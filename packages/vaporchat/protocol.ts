@@ -160,6 +160,12 @@ export interface ChatRoom {
   membersInVoice: string[];
 }
 
+/**
+ * Which of a group's messages alert us on a phone, Steam's mobile setting per group: all, ones
+ * that mention us (or everyone), none.
+ */
+export type ChatAlerts = 'all' | 'mentions' | 'none';
+
 export interface ChatGroup {
   groupId: string;
   /** empty when unnamed, see `groupTitle` */
@@ -168,6 +174,7 @@ export interface ChatGroup {
   /** SteamID64s */
   memberIds: string[];
   rooms: ChatRoom[];
+  alerts: ChatAlerts;
 }
 
 /** Unread messages, as Steam keeps them for all the account's devices. */
@@ -224,6 +231,8 @@ export interface ChatMessage {
 export interface IncomingChatMessage {
   chat: ChatTarget;
   message: ChatMessage;
+  /** a room message mentioning us, everyone or who is here */
+  mentioned: boolean;
 }
 
 /** An emoticon or sticker to put on a message. */
@@ -249,6 +258,36 @@ export interface ReactionChange {
   /** SteamID64 */
   reactor: string;
   added: boolean;
+}
+
+/** What a Steam notification is about, from Steam's notification types. */
+export type SteamNoticeKind =
+  | 'gift'
+  | 'comment'
+  | 'item'
+  | 'friendInvite'
+  | 'sale'
+  | 'wishlist'
+  | 'tradeOffer'
+  | 'general'
+  | 'helpRequest'
+  | 'turn'
+  | 'moderator'
+  | 'family'
+  | 'playtest'
+  | 'other';
+
+/** An entry of the account's Steam notifications, the bell in Steam's clients. */
+export interface SteamNotice {
+  id: string;
+  kind: SteamNoticeKind;
+  /** milliseconds since the epoch */
+  time: number;
+  read: boolean;
+  /** the game it is about, like a wishlisted game on sale */
+  appid: number | null;
+  /** the web page Steam's clients open for it */
+  url: string | null;
 }
 
 /** A game or bundle in the Steam store. Times are milliseconds since the epoch. */

@@ -61,7 +61,7 @@ voice.on('session', (session) => {
 const chat = { kind: 'friend', steamid } as const; // or { kind: 'room', groupId, chatId }
 const history = await voice.connection.getRecentMessages(chat); // last 50, oldest first
 await voice.connection.getRecentMessages(chat, history.next); // older ones, `next` is null at the end
-voice.connection.on('message', ({ chat, message }) => show(chat, message)); // every chat
+voice.connection.on('message', ({ chat, message, mentioned }) => show(chat, message)); // every chat, `mentioned` when a room message names us or everyone
 voice.connection.unread.on('changed', ({ friends, rooms }) => badge(friends, rooms)); // counts for friends, rooms only unread or not
 voice.connection.unread.markRead(chat, message.time); // read up to it, on the account's other devices too
 await voice.connection.sendMessage(chat, 'hi :steamhappy:'); // resolves with the stored message
@@ -73,6 +73,9 @@ voice.connection.on('reaction', (change) => update(applyReaction(message, change
 await voice.connection.sendTyping(steamid); // friends only, every few seconds while typing
 voice.connection.on('typing', ({ steamid }) => showTyping(steamid)); // again every few seconds while they type
 voice.connection.setStatus('away'); // or 'online', 'invisible'; pass `status` to logOn to keep it on reconnects
+await voice.connection.setGroupAlerts(groupId, 'mentions'); // or 'all', 'none': Steam's mobile setting, read as `group.alerts`
+voice.connection.notices.on('changed', (notices) => render(notices)); // Steam's notifications: wishlist sales, gifts, comments
+voice.connection.notices.markAllRead(); // on the account's other devices too
 
 // what Steam's store and client show
 const { feeds } = voice.connection;
@@ -191,12 +194,19 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Unread messages from Steam at logon, marking read on Steam, through reconnects | live (Android); chats read on another device unit-tested, not live |
 | No unread dot for rooms with their unread indicator muted (room or group, as at logon) | unit-tested, not live |
 | Room switcher: pills for all of a group's rooms, unread per room, the group's dot for any of them | live (Android) |
+| A dot on the Chat tab while any chat is unread | live (Android emulator) |
 | Tappable links (`[url]` and typed ones) | live (Android) |
 | Reactions: emoticons and stickers put on and taken off, read from history | live (Android, room); friend chats and others' reactions coming in unit-tested, not live |
 | Typing notices | sending live (Android, Steam accepts them); receiving unit-tested, not live |
 | Group member list, status for friends and you | live (Android) |
 | Own status (Online, Away, Invisible), kept across relaunches | live (Android) |
 | One logon id per install, reconnects replace their own session | unit-tested; relaunches log on again live (Android) |
+| Steam notifications: list with wishlisted games named, unread count, marking read | live (Android); reloading on Steam's push unit-tested, not live |
+| Group alert setting (Steam's mobile level): read, set | live (Android) |
+| Room messages mentioning us, everyone or who is here | unit-tested, not live |
+| Alerts with the app in the background (Android, Stay connected): friend and room messages, incoming calls with the phone's ringtone, tapping one opens its chat | live (Android emulator) |
+| A call coming in during voice beeps instead of ringing (Android) | built, not tried live |
+| Alerts and ringing on iOS | not built or tried (written without a Mac) |
 | Wishlisting, following and ignoring a game and taking it back, the game page's state from Steam | live (Android) |
 | Game page editions, Early Access answers, links, system requirements (structured and older games' text), DLC, More like this | live (Android); older games' requirements text unit-tested and seen from Bun, not on the phone |
 | My games: total playtime, playtime in the last two weeks, last played | live (Android) for total and last played; the two-weeks data mapping unit-tested, its line not seen live (the bot hasn't played lately) |

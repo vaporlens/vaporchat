@@ -97,6 +97,7 @@ describe('incoming messages', () => {
           time: 1_700_000_000_000,
           reactions: [],
         },
+        mentioned: false,
       },
       {
         chat: { kind: 'friend', steamid: ALICE },
@@ -107,6 +108,7 @@ describe('incoming messages', () => {
           time: 1_700_000_000_001,
           reactions: [],
         },
+        mentioned: false,
       },
     ]);
   });
@@ -135,7 +137,31 @@ describe('incoming messages', () => {
           time: 1_700_000_001_000,
           reactions: [],
         },
+        mentioned: false,
       },
+    ]);
+  });
+
+  it('tells room messages that mention us, everyone or who is here', () => {
+    const steam = fakeSteam();
+    const type = 'CChatRoom_IncomingChatMessage_Notification';
+    const mentioning = (mentions: object) =>
+      steam.deliver(ROOM_MESSAGE, type, {
+        chat_group_id: '7',
+        chat_id: '8',
+        steamid_sender: ALICE,
+        message: 'hey',
+        mentions,
+      });
+    mentioning({ mention_accountids: [2] });
+    mentioning({ mention_accountids: [1] });
+    mentioning({ mention_all: true });
+    mentioning({ mention_here: true });
+    expect(steam.received.map((incoming) => incoming.mentioned)).toEqual([
+      false,
+      true,
+      true,
+      true,
     ]);
   });
 });

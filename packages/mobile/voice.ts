@@ -2,7 +2,11 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
-import { resetAudioRoute, setSpeakerOn } from './modules/audio-route';
+import {
+  resetAudioRoute,
+  setRinging,
+  setSpeakerOn,
+} from './modules/audio-route';
 import { setCallActive } from './modules/call-service';
 
 // buzz, pause, repeated while a call rings
@@ -69,7 +73,7 @@ export function useSessionChanges(session: VoiceSession) {
 }
 
 /**
- * The current voice session, incoming calls (the phone vibrates while they ring) and the
+ * The current voice session, incoming calls (the phone rings and vibrates while they do) and the
  * speaker setting, re-rendering when they change. Not on the session's own changes, see
  * `useSessionChanges`.
  */
@@ -93,6 +97,14 @@ export function useVoice(voice: SteamVoice) {
         stopTracks(session.microphone);
       });
     };
+    // in voice chat a call coming in beeps, without ringing and buzzing over it
+    const ring = () => {
+      const ringing = voice.incomingCalls.length > 0;
+      const inCall = voice.session !== null;
+      if (ringing && !inCall) Vibration.vibrate(RING_PATTERN, true);
+      else Vibration.cancel();
+      setRinging(ringing, inCall);
+    };
     if (voice.session) wire(voice.session);
     setCallActive(voice.session !== null);
     const offSession = voice.on('session', (session) => {
@@ -100,17 +112,18 @@ export function useVoice(voice: SteamVoice) {
       setCallActive(session !== null);
       if (session) wire(session);
       else resetAudioRoute();
+      ring();
       rerender();
     });
-    const offIncoming = voice.on('incomingCalls', (calls) => {
-      if (calls.length > 0) Vibration.vibrate(RING_PATTERN, true);
-      else Vibration.cancel();
+    const offIncoming = voice.on('incomingCalls', () => {
+      ring();
       rerender();
     });
     return () => {
       offSession();
       offIncoming();
       Vibration.cancel();
+      setRinging(false, false);
       setCallActive(false);
     };
   }, [voice]);

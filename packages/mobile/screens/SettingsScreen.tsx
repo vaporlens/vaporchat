@@ -1,5 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MyStatus } from 'vaporchat/protocol';
 import { DetailHeader } from '../components/DetailHeader';
@@ -24,15 +31,20 @@ export const STATUSES: Record<
   },
 };
 
-/** What friends see of you, and signing out. */
+/** What friends see of you, alerts in the background, and signing out. */
 export function SettingsScreen({
   status,
   onChangeStatus,
+  stayConnected,
+  onChangeStayConnected,
   onSignOut,
   onBack,
 }: {
   status: MyStatus;
   onChangeStatus: (status: MyStatus) => void;
+  /** null where the app can't stay connected in the background (iOS) */
+  stayConnected: boolean | null;
+  onChangeStayConnected: (on: boolean) => void;
   onSignOut: () => void;
   onBack: () => void;
 }) {
@@ -71,6 +83,27 @@ export function SettingsScreen({
             );
           })}
         </View>
+        {stayConnected !== null && (
+          <>
+            <SectionTitle title="Notifications" />
+            <View style={styles.group}>
+              <View style={styles.row}>
+                <View style={styles.grow}>
+                  <Text style={styles.label}>Stay connected</Text>
+                  <Text style={styles.detail}>
+                    Alerts for messages and calls while Vaporlens is in the
+                    background. Uses more battery
+                  </Text>
+                </View>
+                <Switch
+                  value={stayConnected}
+                  onValueChange={onChangeStayConnected}
+                  trackColor={{ true: colors.accent }}
+                />
+              </View>
+            </View>
+          </>
+        )}
         <SectionTitle title="Account" />
         <View style={styles.group}>
           <Pressable

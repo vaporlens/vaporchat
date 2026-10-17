@@ -4,6 +4,8 @@ interface AudioRouteModule {
   setSpeakerOn(on: boolean): void;
   /** Android only, iOS's audio session ends with WebRTC's */
   reset?(): void;
+  startRinging(inCall: boolean): void;
+  stopRinging(): void;
 }
 
 const AudioRoute = requireOptionalNativeModule<AudioRouteModule>('AudioRoute');
@@ -16,4 +18,13 @@ export function setSpeakerOn(on: boolean) {
 /** Gives the audio back to the rest of the phone once voice is over. */
 export function resetAudioRoute() {
   AudioRoute?.reset?.();
+}
+
+/**
+ * Rings while a call comes in: the phone's ringtone on Android, a bundled ring on iOS. In voice
+ * chat a call waiting beep instead, the way phones do.
+ */
+export function setRinging(on: boolean, inCall: boolean) {
+  if (on) AudioRoute?.startRinging(inCall);
+  else AudioRoute?.stopRinging();
 }

@@ -11,6 +11,7 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
 
   s.source_files = "**/*.{h,m,swift}"
+  s.resource_bundles = { 'AudioRoute' => ['ring.wav', 'beep.wav'] }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'

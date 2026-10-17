@@ -15,11 +15,12 @@ const SOURCES = [
   'steammessages_chat.steamclient',
   'steammessages_friendmessages.steamclient',
   'steammessages_store.steamclient',
+  'steammessages_notifications.steamclient',
   'friends_mobile',
 ];
 
 // services steam-user has no definitions for, copied from SteamDatabase/Protobufs
-const LOCAL_PROTOS = ['userNews.proto'];
+const LOCAL_PROTOS = ['userNews.proto', 'steamNotification.proto'];
 
 const SERVICE_METHODS = [
   'Authentication.GetPasswordRSAPublicKey',
@@ -36,6 +37,7 @@ const SERVICE_METHODS = [
   'ChatRoom.SendChatMessage',
   'ChatRoom.GetMessageHistory',
   'ChatRoom.UpdateMessageReaction',
+  'ChatRoom.SetUserChatGroupPreferences',
   'FriendMessages.SendMessage',
   'FriendMessages.UpdateMessageReaction',
   'FriendMessages.GetRecentMessages',
@@ -48,6 +50,7 @@ const SERVICE_METHODS = [
   'VoiceChat.UpdateVoiceChatWebRTCData',
   'UserNews.GetUserNews',
   'Store.GetUserGameInterestState',
+  'SteamNotification.GetSteamNotifications',
 ];
 
 const MESSAGES = [
@@ -82,6 +85,8 @@ const MESSAGES = [
   'CChatRoom_AckChatMessage_Notification',
   'CFriendMessages_MessageReaction_Notification',
   'CChatRoom_MessageReaction_Notification',
+  'CSteamNotification_MarkNotificationsRead_Notification',
+  'CSteamNotification_NotificationsReceived_Notification',
 ];
 
 const require = createRequire(import.meta.url);

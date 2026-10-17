@@ -1,16 +1,25 @@
 package expo.modules.audioroute
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.os.Build
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class AudioRouteModule : Module() {
-  private val audio
+  private val context
     get() = requireNotNull(appContext.reactContext)
-      .getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+  private val audio
+    get() = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+  private var ringtone: Ringtone? = null
+  private var beeper: ToneGenerator? = null
 
   // off goes back to the default route, a headset when there is one
   private fun route(audio: AudioManager, speakerOn: Boolean) {
@@ -41,6 +50,40 @@ class AudioRouteModule : Module() {
       val audio = audio
       route(audio, false)
       audio.mode = AudioManager.MODE_NORMAL
+    }
+
+    // the phone's ringtone on the ring volume, silent when the phone is. In voice chat the phone's
+    // call waiting beep instead, in the call's audio, repeating until stopped
+    Function("startRinging") { inCall: Boolean ->
+      if (inCall) {
+        ringtone?.stop()
+        ringtone = null
+        beeper = beeper ?: ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80).apply {
+          startTone(ToneGenerator.TONE_SUP_CALL_WAITING)
+        }
+        return@Function
+      }
+      beeper?.release()
+      beeper = null
+      ringtone = ringtone ?: RingtoneManager.getRingtone(
+        context,
+        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+      )?.apply {
+        audioAttributes = AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .build()
+        // older Androids play it once
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true
+        play()
+      }
+    }
+
+    Function("stopRinging") {
+      ringtone?.stop()
+      ringtone = null
+      beeper?.release()
+      beeper = null
     }
   }
 }

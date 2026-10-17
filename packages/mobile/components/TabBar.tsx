@@ -19,10 +19,13 @@ export function TabBar({
   tab,
   onChange,
   bottomInset,
+  chatUnread,
 }: {
   tab: Tab;
   onChange: (tab: Tab) => void;
   bottomInset: number;
+  /** a dot on Chat while any chat has new messages */
+  chatUnread?: boolean;
 }) {
   return (
     <View style={[styles.bar, { paddingBottom: bottomInset + 6 }]}>
@@ -36,7 +39,10 @@ export function TabBar({
             accessibilityState={{ selected: item.tab === tab }}
             style={styles.tab}
           >
-            <Ionicons name={item.icon} size={22} color={color} />
+            <View>
+              <Ionicons name={item.icon} size={22} color={color} />
+              {item.tab === 'chat' && chatUnread && <View style={styles.dot} />}
+            </View>
             <Text style={[styles.title, { color }]}>{item.title}</Text>
           </Pressable>
         );
@@ -55,4 +61,15 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 2 },
   title: { fontSize: 11, fontWeight: '600' },
+  dot: {
+    position: 'absolute',
+    top: -1,
+    right: -4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.accent,
+    borderWidth: 1.5,
+    borderColor: colors.bar,
+  },
 });

@@ -42,6 +42,11 @@ interface RoomMessageNotification {
   ordinal?: number;
   /** joins, kicks and the like, Steam's clients render those themselves */
   server_message?: object;
+  mentions?: {
+    mention_all?: boolean;
+    mention_here?: boolean;
+    mention_accountids?: number[];
+  };
 }
 
 /** History entries of either kind of chat, by account id. */
@@ -238,6 +243,7 @@ export function onChatMessages(
         n.rtime32_server_timestamp,
         n.ordinal,
       ),
+      mentioned: false,
     });
   });
   cm.onMessage(
@@ -248,6 +254,7 @@ export function onChatMessages(
         body,
       );
       if (n.server_message) return;
+      const { mentions = {} } = n;
       handler({
         chat: { kind: 'room', groupId: n.chat_group_id, chatId: n.chat_id },
         message: chatMessage(
@@ -256,6 +263,12 @@ export function onChatMessages(
           n.timestamp,
           n.ordinal,
         ),
+        mentioned:
+          mentions.mention_all === true ||
+          mentions.mention_here === true ||
+          (mentions.mention_accountids ?? []).some(
+            (id) => steamIdFromAccountId(id) === cm.steamid,
+          ),
       });
     },
   );

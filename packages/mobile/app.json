@@ -54,7 +54,14 @@
         }
       ],
       "expo-localization",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#1a9fff"
+        }
+      ]
     ],
     "backgroundColor": "#171d25"
   }
