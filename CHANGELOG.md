@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7 (2026-10-22)
+
+- Mention people in group chats, see link previews, and share games with `/store`.
+- Format messages, send spoiler photos and camera shots, and search a chat.
+- Pick where voice plays, including headsets, and set each person's volume.
+- Browse the store by hub and tag, and filter your wishlist by category.
+- Read comments on news posts and mute a game's news.
+- Add more Steam accounts and switch between them.
+
 ## 0.6 (2026-10-17)
 
 - Get alerts for messages and calls while the app is in the background, and choose per chat which
