@@ -38,16 +38,12 @@ preferences, account settings) weren't enumerated.
 
 | Feature | Steam has it in | API | Effort |
 |---|---|---|---|
-| Quotes, spoilers, code in messages | client | BBCode, flattened to text today | easy |
-| Send a spoiler image | client | `spoiler` flag of the upload, fixed to 0 (`vaporchat/steam/imageUpload.ts`) | easy |
-| Camera capture for photos | Chat app | camera permission blocked in `mobile/app.json` | easy |
-| Date separators, message search | client | client-side | easy |
 | Link previews (store pages, YouTube, images) | client, Chat app | no proto method found; Steam's clients unfurl themselves (unverified) | moderate |
 | @mentions (render, autocomplete, highlight) | client, Chat app | `mentions` on incoming room messages, read today only to alert groups set to mentions; sent as `[mention=…]` BBCode (unverified) | moderate |
 | Create group, invite friends, create invite link | client, Chat app | `CreateChatRoomGroup`, `InviteFriendToChatRoomGroup`, `CreateInviteLink` | moderate |
 | Leave group, rename, tagline, avatar | client, Chat app | `LeaveChatRoomGroup`, `RenameChatRoomGroup` | moderate |
 | Moderation: delete messages, kick, ban | client | `ChatRoom.DeleteChatMessages` (rooms only, no 1:1 delete exists), kick/ban methods | moderate |
-| Slash commands (`/store`, `/sticker` picker, …) | client, Chat app | client-side | moderate |
+| Slash commands beyond formatting (`/store`, `/sticker` picker, …) | client, Chat app | `/code`, `/pre`, `/quote`, `/spoiler` are suggested already and Steam formats them on its side; the rest is unchecked | moderate |
 | Chat filtering (profanity, custom words) | client, Chat app | account setting, client-side filtering (unverified) | moderate |
 | Suspicious-link warnings, report message | client | client-side + web report (unverified) | moderate |
 | Game invites / Remote Play Together invites | client, Chat app | entry types and RPT signalling (unverified) | hard |

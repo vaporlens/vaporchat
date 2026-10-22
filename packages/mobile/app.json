@@ -31,7 +31,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
-        "android.permission.CAMERA",
         "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
@@ -50,7 +49,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Vaporlens sends the photos you pick into Steam chats."
+          "photosPermission": "Vaporlens sends the photos you pick into Steam chats.",
+          "cameraPermission": "Vaporlens sends the photos you take into Steam chats."
         }
       ],
       "expo-localization",

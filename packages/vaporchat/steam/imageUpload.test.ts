@@ -52,6 +52,7 @@ describe('sendImage', () => {
       SESSION,
       { kind: 'room', groupId: '7', chatId: '8' },
       IMAGE,
+      true,
     );
 
     const [begin, put, commit] = requests;
@@ -68,6 +69,7 @@ describe('sendImage', () => {
       timestamp: '123',
       chat_group_id: '7',
       chat_id: '8',
+      spoiler: '1',
     });
     expect(form).not.toHaveProperty('friend_steamid');
   });

@@ -4,28 +4,16 @@ import { AppState } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type {
   ChatGroup,
-  ChatPart,
   ChatTarget,
   IncomingChatMessage,
 } from 'vaporchat/protocol';
 import { chatKey } from 'vaporchat/steam/messages';
+import { messageText } from './chats';
 import { findRoom } from './screens/ChatRoute';
 
 const MESSAGES = 'messages';
 const CALLS = 'calls';
 const CALL_ID = 'call';
-
-function messageText(parts: ChatPart[]) {
-  const text = parts
-    .map((part) => {
-      if (part.kind === 'text' || part.kind === 'link') return part.text;
-      if (part.kind === 'emoticon') return `:${part.name}:`;
-      return part.kind === 'sticker' ? 'Sticker' : 'Image';
-    })
-    .join('')
-    .trim();
-  return text || 'Message';
-}
 
 function alertsFor(
   { chat, mentioned }: IncomingChatMessage,

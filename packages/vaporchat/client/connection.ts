@@ -367,10 +367,11 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
 
   /**
    * Uploads an image and has Steam post it into the chat. It arrives as `message`. Goes through
-   * steamcommunity.com, which browsers can't reach without a proxy (no CORS).
+   * steamcommunity.com, which browsers can't reach without a proxy (no CORS). A spoiler is covered
+   * until tapped.
    */
-  async sendImage(chat: ChatTarget, image: ChatImage) {
-    await sendImage(await this.#webSession(), chat, image);
+  async sendImage(chat: ChatTarget, image: ChatImage, spoiler = false) {
+    await sendImage(await this.#webSession(), chat, image, spoiler);
   }
 
   /** A steamcommunity.com and store login, made once an hour rather than per request. */

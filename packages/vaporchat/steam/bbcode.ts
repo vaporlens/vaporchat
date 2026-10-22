@@ -3,11 +3,14 @@ import type { ChatPart } from '../protocol.ts';
 // the CDN Steam's own chat loads emoticons and stickers from
 const ECONOMY_URL = 'https://community.fastly.steamstatic.com/economy';
 
-// an escaped bracket, an emoticon, a sticker, an image, a link, or any other tag
+// an escaped bracket, an emoticon, a sticker, an image, a link, a quote, a spoiler, code (`/code`
+// and `/pre`), or any other tag. Escaped brackets inside the last three don't end them
 const TOKEN =
-  /\\\[|\[emoticon\]([^[\]]*)\[\/emoticon\]|\[sticker([^\]]*)\][\s\S]*?\[\/sticker\]|\[img([^\]]*)\][\s\S]*?\[\/img\]|\[url(=[^\]]*)?\]([\s\S]*?)\[\/url\]|\[\/?[a-z]+[^\]]*\]/g;
-// tags inside a link's text
-const TAG = /\[\/?[a-z]+[^\]]*\]/g;
+  /\\\[|\[emoticon\]([^[\]]*)\[\/emoticon\]|\[sticker([^\]]*)\][\s\S]*?\[\/sticker\]|\[img([^\]]*)\][\s\S]*?\[\/img\]|\[url(=[^\]]*)?\]([\s\S]*?)\[\/url\]|\[quote[^\]]*\]((?:\\\[|[\s\S])*?)\[\/quote\]|\[spoiler\]((?:\\\[|[\s\S])*?)\[\/spoiler\]|\[(code|pre)\]((?:\\\[|[\s\S])*?)\[\/\8\]|\[\/?[a-z]+[^\]]*\]/g;
+// an emoticon, kept as `:name:` text inside a spoiler
+const EMOTICON = /\[emoticon\]([^[\]]*)\[\/emoticon\]/g;
+// an escaped bracket or a tag, inside a link's text
+const ESCAPE_OR_TAG = /\\\[|\[\/?[a-z]+[^\]]*\]/g;
 // links typed without BBCode, not counting the punctuation that ends a sentence
 const BARE_URL = /https?:\/\/[^\s[\]<>]*[^\s[\]<>.,;:!?'")]/g;
 // `name=value` or `name="value with spaces"`
@@ -35,6 +38,11 @@ export function size(value: string | undefined) {
   return n > 0 ? n : null;
 }
 
+/** Text inside a tag, without the tags in it. */
+function plain(text: string) {
+  return text.replace(ESCAPE_OR_TAG, (found) => (found === '\\[' ? '[' : ''));
+}
+
 /** Text with the links typed into it as link parts. */
 function withLinks(text: string): ChatPart[] {
   const parts: ChatPart[] = [];
@@ -51,8 +59,9 @@ function withLinks(text: string): ChatPart[] {
 }
 
 /**
- * Steam's chat BBCode as parts to render: text, links, emoticons, stickers and images. Other
- * tags (quotes, mentions) are dropped, keeping the text they wrap.
+ * Steam's chat BBCode as parts to render: text, links, emoticons, stickers, images, spoilers,
+ * code and quotes. Other tags (mentions) are dropped, keeping the text they wrap. A quote ends at
+ * its first `[/quote]`, so one quoting another isn't nested.
  */
 export function parseBBCode(bbcode: string): ChatPart[] {
   const parts: ChatPart[] = [];
@@ -66,7 +75,18 @@ export function parseBBCode(bbcode: string): ChatPart[] {
   for (const match of bbcode.matchAll(TOKEN)) {
     addText(bbcode.slice(index, match.index));
     index = match.index + match[0].length;
-    const [token, emoticon, sticker, image, linkTarget, linkText] = match;
+    const [
+      token,
+      emoticon,
+      sticker,
+      image,
+      linkTarget,
+      linkText,
+      quote,
+      spoiler,
+      ,
+      code,
+    ] = match;
     if (token === '\\[') {
       addText('[');
     } else if (emoticon !== undefined) {
@@ -81,13 +101,29 @@ export function parseBBCode(bbcode: string): ChatPart[] {
         parts.push({ kind: 'sticker', name: type, url: stickerUrl(type) });
       }
     } else if (linkText !== undefined) {
-      const text = linkText.replace(TAG, '').replace(/\\\[/g, '[');
+      const text = plain(linkText);
       // `[url=…]text[/url]`, or `[url]…[/url]` with the address as its text
       const url = linkTarget?.slice(1).replace(/^"|"$/g, '') || text;
       // only web pages open, anything else stays text
       if (/^https?:\/\//i.test(url))
         parts.push({ kind: 'link', text: text || url, url });
       else addText(text);
+    } else if (quote !== undefined) {
+      parts.push({ kind: 'quote', parts: parseBBCode(quote) });
+    } else if (spoiler !== undefined) {
+      const inner = parseBBCode(spoiler.replace(EMOTICON, ':$1:'));
+      // a spoiler photo is an image in a spoiler
+      const images = inner.filter((p) => p.kind === 'image');
+      if (images.length > 0)
+        parts.push(...images.map((image) => ({ ...image, spoiler: true })));
+      else
+        parts.push({
+          kind: 'spoiler',
+          parts: inner.filter((p) => p.kind === 'text' || p.kind === 'link'),
+        });
+    } else if (code !== undefined) {
+      // as typed, tags in it are text
+      parts.push({ kind: 'code', text: code.replace(/\\\[/g, '[') });
     } else if (image !== undefined) {
       const { src, thumbnail_src, width, height } = attributes(image);
       if (src) {

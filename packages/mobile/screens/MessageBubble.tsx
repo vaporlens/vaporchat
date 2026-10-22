@@ -1,13 +1,23 @@
 // the app's other pictures share its cache, react-native's Image stays for emoticons inside text
 import { Image as CachedImage } from 'expo-image';
-import { memo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useState } from 'react';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { ChatMessage, ChatPart, ReactionKey } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { openLink } from '../links';
 import { colors } from '../theme';
 
-type InlinePart = Extract<ChatPart, { kind: 'text' | 'link' | 'emoticon' }>;
+type InlinePart = Extract<
+  ChatPart,
+  { kind: 'text' | 'link' | 'emoticon' | 'spoiler' }
+>;
 type Block =
   | { kind: 'inline'; parts: InlinePart[] }
   | Exclude<ChatPart, InlinePart>;
@@ -23,11 +33,16 @@ const timeFormat = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
-/** Text, links and emoticons flow together in one line of text, stickers and images stand alone. */
+/** Text, links, emoticons and spoilers flow together in one line of text, the rest stands alone. */
 function blocks(parts: ChatPart[]) {
   const result: Block[] = [];
   for (const part of parts) {
-    if (part.kind === 'sticker' || part.kind === 'image') {
+    if (
+      part.kind === 'sticker' ||
+      part.kind === 'image' ||
+      part.kind === 'quote' ||
+      part.kind === 'code'
+    ) {
       result.push(part);
       continue;
     }
@@ -36,6 +51,160 @@ function blocks(parts: ChatPart[]) {
     else result.push({ kind: 'inline', parts: [part] });
   }
   return result;
+}
+
+function Link({ text, url }: { text: string; url: string }) {
+  return (
+    <Text onPress={() => openLink(url)} style={styles.link}>
+      {text}
+    </Text>
+  );
+}
+
+/** Covered until tapped, like on Steam. Its links open once shown. */
+function Spoiler({
+  parts,
+}: {
+  parts: Extract<ChatPart, { kind: 'spoiler' }>['parts'];
+}) {
+  const [shown, setShown] = useState(false);
+  if (!shown) {
+    return (
+      <Text
+        onPress={() => setShown(true)}
+        accessibilityHint="Tap to show the spoiler"
+        style={styles.spoiler}
+      >
+        {parts.map((part) => part.text).join('')}
+      </Text>
+    );
+  }
+  return parts.map((part, i) =>
+    part.kind === 'link' ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+      <Link key={i} text={part.text} url={part.url} />
+    ) : (
+      part.text
+    ),
+  );
+}
+
+/** Opens full screen when tapped, a spoiler is blurred until a first tap. */
+function Picture({
+  image,
+  onOpenImage,
+  onLongPress,
+}: {
+  image: Extract<ChatPart, { kind: 'image' }>;
+  onOpenImage: (url: string) => void;
+  onLongPress: () => void;
+}) {
+  const [hidden, setHidden] = useState(image.spoiler === true);
+  return (
+    <Pressable
+      onPress={() => (hidden ? setHidden(false) : onOpenImage(image.url))}
+      // it takes the touch, the bubble wouldn't see it held
+      onLongPress={onLongPress}
+      accessibilityLabel={hidden ? 'Show spoiler image' : 'Open image'}
+    >
+      <CachedImage
+        source={image.thumbnailUrl}
+        blurRadius={hidden ? 40 : 0}
+        style={[
+          styles.image,
+          {
+            aspectRatio:
+              image.width && image.height ? image.width / image.height : 4 / 3,
+          },
+        ]}
+      />
+      {hidden && (
+        <View style={styles.spoilerCover}>
+          <Text style={styles.spoilerLabel}>Spoiler</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/** A message's parts, a quote's inside it. */
+function Blocks({
+  parts,
+  emoticonSize,
+  onOpenImage,
+  onLongPress,
+}: {
+  parts: ChatPart[];
+  emoticonSize: number;
+  onOpenImage: (url: string) => void;
+  onLongPress: () => void;
+}) {
+  return blocks(parts).map((block, index) => {
+    const key = `${block.kind}-${index}`;
+    if (block.kind === 'inline') {
+      return (
+        <Text key={key} style={styles.text} selectable>
+          {block.parts.map((part, i) =>
+            part.kind === 'text' ? (
+              part.text
+            ) : part.kind === 'spoiler' ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+              <Spoiler key={i} parts={part.parts} />
+            ) : part.kind === 'link' ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+              <Link key={i} text={part.text} url={part.url} />
+            ) : (
+              <Image
+                // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+                key={i}
+                source={{ uri: part.url }}
+                accessibilityLabel={`:${part.name}:`}
+                style={{ width: emoticonSize, height: emoticonSize }}
+              />
+            ),
+          )}
+        </Text>
+      );
+    }
+    if (block.kind === 'quote') {
+      return (
+        <View key={key} style={styles.quote}>
+          <Blocks
+            parts={block.parts}
+            emoticonSize={EMOTICON_SIZE}
+            onOpenImage={onOpenImage}
+            onLongPress={onLongPress}
+          />
+        </View>
+      );
+    }
+    if (block.kind === 'code') {
+      return (
+        <Text key={key} style={styles.code} selectable>
+          {block.text}
+        </Text>
+      );
+    }
+    if (block.kind === 'sticker') {
+      // react-native's Image shows only the first frame of animated PNGs
+      return (
+        <CachedImage
+          key={key}
+          source={{ uri: block.url }}
+          accessibilityLabel={`${block.name} sticker`}
+          style={styles.sticker}
+        />
+      );
+    }
+    return (
+      <Picture
+        key={key}
+        image={block}
+        onOpenImage={onOpenImage}
+        onLongPress={onLongPress}
+      />
+    );
+  });
 }
 
 /** Memoized, the chat around it re-renders on every keystroke. Props are plain values for that. */
@@ -103,70 +272,12 @@ export const MessageBubble = memo(function MessageBubble({
           !bare && runEnd && (mine ? styles.tailMine : styles.tailTheirs),
         ]}
       >
-        {blocks(parts).map((block, index) => {
-          const key = `${block.kind}-${index}`;
-          if (block.kind === 'inline') {
-            return (
-              <Text key={key} style={styles.text} selectable>
-                {block.parts.map((part, i) =>
-                  part.kind === 'text' ? (
-                    part.text
-                  ) : part.kind === 'link' ? (
-                    <Text
-                      // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
-                      key={i}
-                      onPress={() => openLink(part.url)}
-                      style={styles.link}
-                    >
-                      {part.text}
-                    </Text>
-                  ) : (
-                    <Image
-                      // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
-                      key={i}
-                      source={{ uri: part.url }}
-                      accessibilityLabel={`:${part.name}:`}
-                      style={{ width: emoticonSize, height: emoticonSize }}
-                    />
-                  ),
-                )}
-              </Text>
-            );
-          }
-          if (block.kind === 'sticker') {
-            // react-native's Image shows only the first frame of animated PNGs
-            return (
-              <CachedImage
-                key={key}
-                source={{ uri: block.url }}
-                accessibilityLabel={`${block.name} sticker`}
-                style={styles.sticker}
-              />
-            );
-          }
-          return (
-            <Pressable
-              key={key}
-              onPress={() => onOpenImage(block.url)}
-              // it takes the touch, the bubble wouldn't see it held
-              onLongPress={() => onPickReaction(message)}
-              accessibilityLabel="Open image"
-            >
-              <CachedImage
-                source={block.thumbnailUrl}
-                style={[
-                  styles.image,
-                  {
-                    aspectRatio:
-                      block.width && block.height
-                        ? block.width / block.height
-                        : 4 / 3,
-                  },
-                ]}
-              />
-            </Pressable>
-          );
-        })}
+        <Blocks
+          parts={parts}
+          emoticonSize={emoticonSize}
+          onOpenImage={onOpenImage}
+          onLongPress={() => onPickReaction(message)}
+        />
         <Text style={[styles.time, mine && !bare && styles.timeMine]}>
           {timeFormat.format(message.time)}
         </Text>
@@ -220,6 +331,35 @@ const styles = StyleSheet.create({
   bare: { paddingHorizontal: 0 },
   text: { color: colors.bright, fontSize: 16 },
   link: { textDecorationLine: 'underline' },
+  spoiler: { color: colors.bar, backgroundColor: colors.bar },
+  spoilerCover: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spoilerLabel: {
+    color: colors.bright,
+    fontSize: 14,
+    fontWeight: '700',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  quote: {
+    gap: 6,
+    borderLeftWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingLeft: 8,
+  },
+  code: {
+    color: colors.bright,
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+    fontSize: 14,
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
   sticker: { width: STICKER_SIZE, height: STICKER_SIZE },
   image: {
     width: IMAGE_WIDTH,

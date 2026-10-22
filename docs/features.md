@@ -34,9 +34,21 @@ untested candidates.
 1:1 and group room chat with history paging (`mobile/screens/Chat.tsx`,
 `vaporchat/steam/messages.ts`):
 
-- emoticons, animated stickers, images with a full-screen viewer, sending photos, an
-  emoticon/sticker picker;
+- emoticons, animated stickers, images with a full-screen viewer, sending photos from the library
+  or the camera (a popup points to Settings while camera access is off), an emoticon/sticker
+  picker;
 - **tappable links:** `[url]` BBCode and typed `http(s)` links, web pages only;
+- **formatting:** `[quote]`, `[spoiler]` (covered until tapped, then its links open), `[code]`
+  and `[pre]` (both monospaced), what the desktop client's `/quote`, `/spoiler`, `/code` and
+  `/pre` send. A quote ends at its first `[/quote]`, so quotes in quotes aren't nested.
+  Notifications show a spoiler as "Spoiler". Typing `/` first lists those four commands to pick from; they're sent as typed and
+  Steam turns them into the BBCode, like `/sticker`;
+- **spoiler photos:** after picking or taking a photo, Send / As spoiler / Cancel. "As spoiler"
+  commits the upload with `spoiler=1` (`vaporchat/steam/imageUpload.ts`), and Steam posts it as
+  `[spoiler][img …][/img][/spoiler]`; incoming ones are blurred until tapped;
+- **date separators** (Today, Yesterday, then the date) and **search** of the loaded messages
+  (header button, matches the text notifications show: text, links, code and quotes, and
+  "Image", "Sticker" or "Spoiler" for those);
 - **reactions:** `FriendMessages.UpdateMessageReaction`, `ChatRoom.UpdateMessageReaction`, pushed
   back as `MessageReaction` / `NotifyMessageReaction`. Emoticons go as `:name:` (Steam denies them
   otherwise), stickers by name. Hold a message to react, tap a reaction to toggle ours;

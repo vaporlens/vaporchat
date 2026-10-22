@@ -52,11 +52,15 @@ async function post<T>(path: string, cookie: string, fields: object) {
   return body;
 }
 
-/** Uploads an image and posts it into the chat, like Steam's own clients. It arrives as a `message`. */
+/**
+ * Uploads an image and posts it into the chat, like Steam's own clients. It arrives as a `message`.
+ * A spoiler is covered until tapped.
+ */
 export async function sendImage(
   { sessionid, cookie }: WebSession,
   chat: ChatTarget,
   image: ChatImage,
+  spoiler = false,
 ) {
   const file = {
     sessionid,
@@ -90,7 +94,7 @@ export async function sendImage(
       ugcid: result.ugcid,
       timestamp: begin.timestamp,
       hmac: begin.hmac,
-      spoiler: 0,
+      spoiler: spoiler ? 1 : 0,
       ...(chat.kind === 'friend'
         ? { friend_steamid: chat.steamid }
         : { chat_group_id: chat.groupId, chat_id: chat.chatId }),

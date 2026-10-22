@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   FlatList,
   Keyboard,
@@ -33,12 +34,15 @@ import {
   mergeMessages,
 } from 'vaporchat/steam/messages';
 import { readCache, writeCache } from '../cache';
-import { pickImage } from '../chats';
+import { messageText, pickImage } from '../chats';
 import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
 import { EmoticonPicker } from '../components/EmoticonPicker';
+import { SearchField } from '../components/Field';
 import { ImageViewer } from '../components/ImageViewer';
 import { useBackHandler } from '../components/useBackHandler';
+import { day } from '../format';
+import { matches } from '../search';
 import { colors } from '../theme';
 import { MessageBubble } from './MessageBubble';
 
@@ -48,6 +52,33 @@ const CACHED_MESSAGES = 50;
 const TYPING_SEND_MS = 5000;
 // how long one notice shows, unless their message comes first
 const TYPING_SHOWN_MS = 8000;
+// the formatting commands of Steam's desktop client, offered as `/` is typed
+const COMMANDS = [
+  { name: 'code', hint: 'Monospaced code' },
+  { name: 'pre', hint: 'Preformatted text' },
+  { name: 'quote', hint: 'A quote' },
+  { name: 'spoiler', hint: 'Hidden until tapped' },
+];
+
+function sameDay(a: number, b: number) {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+/** Sends the photo as it is (false), as a spoiler (true), or not (null), like Steam's preview asks. */
+function confirmPhoto() {
+  return new Promise<boolean | null>((resolve) =>
+    Alert.alert(
+      'Send this photo?',
+      undefined,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'As spoiler', onPress: () => resolve(true) },
+        { text: 'Send', onPress: () => resolve(false) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    ),
+  );
+}
 
 /**
  * A friend's or a room's text chat: recent history, older as it scrolls up, new messages as they
@@ -99,6 +130,8 @@ export function Chat({
   // the message the picker puts a reaction on, instead of into the draft
   const [reactingTo, setReactingTo] = useState<ChatMessage | null>(null);
   const [uploading, setUploading] = useState(false);
+  // searching the loaded messages, null when not
+  const [query, setQuery] = useState<string | null>(null);
   // the friend is typing to us
   const [typing, setTyping] = useState(false);
   const typingSent = useRef(0);
@@ -226,13 +259,15 @@ export function Chat({
     deliver(text, () => setDraft((typed) => (typed === '' ? text : typed)));
   }
 
-  async function sendPhoto() {
+  async function sendPhoto(source: 'library' | 'camera') {
     try {
-      const image = await pickImage();
+      const image = await pickImage(source);
       if (!image) return;
+      const spoiler = await confirmPhoto();
+      if (spoiler === null) return;
       setUploading(true);
       // steam posts it into the chat, it arrives like any other message
-      await voice.connection.sendImage(chat, image);
+      await voice.connection.sendImage(chat, image, spoiler);
     } catch (err) {
       onError(new Error(`Could not send the image: ${(err as Error).message}`));
     } finally {
@@ -279,14 +314,32 @@ export function Chat({
       setReactingTo(null);
       return true;
     }
-    if (!picking) return false;
-    setPicking(false);
+    if (picking) {
+      setPicking(false);
+      return true;
+    }
+    if (query === null) return false;
+    setQuery(null);
     return true;
   });
 
   // the list is inverted so it starts at the newest message
-  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
+  const newestFirst = useMemo(
+    () =>
+      [
+        ...(query === null
+          ? messages
+          : messages.filter((m) => matches(query, messageText(m.parts)))),
+      ].reverse(),
+    [messages, query],
+  );
   const nothingToSend = draft.trim() === '';
+  // the commands starting with what follows a `/` typed first, until a space
+  const typedCommand = /^\/(\w*)$/.exec(draft)?.[1].toLowerCase();
+  const commands =
+    typedCommand === undefined
+      ? []
+      : COMMANDS.filter(({ name }) => name.startsWith(typedCommand));
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
@@ -294,9 +347,40 @@ export function Chat({
         title={title}
         subtitle={typing ? 'typing…' : subtitle}
         avatar={<Avatar url={avatarUrl} name={title} size={36} />}
-        action={headerAction}
+        action={
+          <>
+            <Pressable
+              onPress={() => setQuery(query === null ? '' : null)}
+              accessibilityLabel={
+                query === null ? 'Search messages' : 'Stop searching'
+              }
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={22}
+                color={query === null ? colors.muted : colors.accent}
+              />
+            </Pressable>
+            {headerAction}
+          </>
+        }
         onBack={onBack}
       />
+      {query !== null && (
+        <View style={styles.search}>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search loaded messages"
+            autoFocus
+          />
+        </View>
+      )}
       {top}
       <FlatList
         inverted
@@ -306,8 +390,8 @@ export function Chat({
         // Android can't drag the keyboard down, it closes as the list is dragged instead
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={styles.messages}
-        // inverted, its end is the oldest message
-        onEndReached={() => void loadOlder()}
+        // inverted, its end is the oldest message. Search stays in what's loaded
+        onEndReached={() => query === null && void loadOlder()}
         onEndReachedThreshold={1}
         ListFooterComponent={
           loadingOlder ? (
@@ -319,35 +403,62 @@ export function Chat({
             <ActivityIndicator color={colors.muted} style={styles.empty} />
           ) : (
             <Text style={[styles.empty, styles.emptyText]}>
-              No messages yet. Say hi!
+              {query ? 'No loaded messages match' : 'No messages yet. Say hi!'}
             </Text>
           )
         }
         renderItem={({ item, index }) => {
           const mine = item.sender === me;
-          // a run of someone's messages in a row reads as one
-          const runStart = newestFirst[index + 1]?.sender !== item.sender;
-          const runEnd = newestFirst[index - 1]?.sender !== item.sender;
+          const before = newestFirst[index + 1];
+          const after = newestFirst[index - 1];
+          const startsDay = !before || !sameDay(before.time, item.time);
+          // a run of someone's messages in a row on one day reads as one
+          const runStart = startsDay || before.sender !== item.sender;
+          const runEnd =
+            !after ||
+            !sameDay(after.time, item.time) ||
+            after.sender !== item.sender;
           // in rooms, name the sender where their messages start
           const sender =
             chat.kind === 'room' && !mine && runStart
               ? voice.connection.user(item.sender)
               : null;
           return (
-            <MessageBubble
-              message={item}
-              mine={mine}
-              runStart={runStart}
-              runEnd={runEnd}
-              senderName={sender?.name ?? null}
-              senderAvatarUrl={sender?.avatarUrl ?? null}
-              onOpenImage={setViewing}
-              onPickReaction={pickReaction}
-              onChangeReaction={changeReaction}
-            />
+            <>
+              <MessageBubble
+                message={item}
+                mine={mine}
+                runStart={runStart}
+                runEnd={runEnd}
+                senderName={sender?.name ?? null}
+                senderAvatarUrl={sender?.avatarUrl ?? null}
+                onOpenImage={setViewing}
+                onPickReaction={pickReaction}
+                onChangeReaction={changeReaction}
+              />
+              {/* last, the inverted list shows an item's children bottom up */}
+              {startsDay && <Text style={styles.day}>{day(item.time)}</Text>}
+            </>
           );
         }}
       />
+      {!reactingTo && commands.length > 0 && (
+        <View style={styles.commands}>
+          {commands.map(({ name, hint }) => (
+            <Pressable
+              key={name}
+              onPress={() => setDraft(`/${name} `)}
+              style={({ pressed }) => [
+                styles.command,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.commandName}>/{name}</Text>
+              <Text style={styles.commandHint}>{hint}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
       {reactingTo ? (
         <View style={styles.reacting}>
           <Text style={styles.reactingText}>
@@ -384,7 +495,7 @@ export function Chat({
             />
           </Pressable>
           <Pressable
-            onPress={sendPhoto}
+            onPress={() => sendPhoto('library')}
             disabled={uploading}
             accessibilityLabel="Send a photo"
             hitSlop={6}
@@ -395,6 +506,15 @@ export function Chat({
             ) : (
               <Ionicons name="image-outline" size={26} color={colors.muted} />
             )}
+          </Pressable>
+          <Pressable
+            onPress={() => sendPhoto('camera')}
+            disabled={uploading}
+            accessibilityLabel="Take a photo"
+            hitSlop={6}
+            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+          >
+            <Ionicons name="camera-outline" size={26} color={colors.muted} />
           </Pressable>
           <TextInput
             value={draft}
@@ -449,6 +569,16 @@ export function Chat({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   pressed: { opacity: 0.6 },
+  button: { padding: 4 },
+  search: { padding: 8, backgroundColor: colors.bar },
+  day: {
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   messages: { padding: 12, gap: 6, flexGrow: 1 },
   empty: { marginVertical: 24 },
   emptyText: { color: colors.muted, fontSize: 14, textAlign: 'center' },
@@ -496,4 +626,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   reactingText: { flex: 1, color: colors.text, fontSize: 15 },
+  commands: {
+    backgroundColor: colors.bar,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+  },
+  command: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  commandName: { color: colors.bright, fontSize: 16, fontWeight: '600' },
+  commandHint: { color: colors.muted, fontSize: 14 },
 });

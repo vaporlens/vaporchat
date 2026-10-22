@@ -190,11 +190,26 @@ export type ChatTarget =
   | { kind: 'friend'; steamid: string }
   | { kind: 'room'; groupId: string; chatId: string };
 
-/** A piece of a message, in reading order. Formatting Steam's clients add (links, quotes) is text. */
+/** A piece of a message, in reading order. Formatting Steam's clients add (mentions) is text. */
 export type ChatPart =
   | { kind: 'text'; text: string }
   /** a web page, `text` is what to show */
   | { kind: 'link'; text: string; url: string }
+  /** hidden until tapped */
+  | {
+      kind: 'spoiler';
+      parts: (
+        | { kind: 'text'; text: string }
+        | {
+            kind: 'link';
+            text: string;
+            url: string;
+          }
+      )[];
+    }
+  /** monospaced, as typed */
+  | { kind: 'code'; text: string }
+  | { kind: 'quote'; parts: ChatPart[] }
   | { kind: 'emoticon'; name: string; url: string }
   /** big and often animated (APNG) */
   | { kind: 'sticker'; name: string; url: string }
@@ -205,6 +220,8 @@ export type ChatPart =
       /** pixels, null when Steam didn't say */
       width: number | null;
       height: number | null;
+      /** hidden until tapped */
+      spoiler?: boolean;
     };
 
 export type EmoticonPart = Extract<ChatPart, { kind: 'emoticon' }>;

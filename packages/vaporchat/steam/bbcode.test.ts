@@ -88,6 +88,74 @@ describe('parseBBCode', () => {
         },
       ],
     ],
+    [
+      'quotes, with what is in them',
+      '[quote]see https://example.com[/quote]agreed',
+      [
+        {
+          kind: 'quote',
+          parts: [
+            { kind: 'text', text: 'see ' },
+            {
+              kind: 'link',
+              text: 'https://example.com',
+              url: 'https://example.com',
+            },
+          ],
+        },
+        { kind: 'text', text: 'agreed' },
+      ],
+    ],
+    [
+      'spoilers as their text',
+      'it ends [spoiler]with a [b]twist[/b] \\[x] [emoticon]steamhappy[/emoticon][/spoiler]',
+      [
+        { kind: 'text', text: 'it ends ' },
+        {
+          kind: 'spoiler',
+          parts: [{ kind: 'text', text: 'with a twist [x] :steamhappy:' }],
+        },
+      ],
+    ],
+    [
+      'links in spoilers',
+      '[spoiler]see https://example.com[/spoiler]',
+      [
+        {
+          kind: 'spoiler',
+          parts: [
+            { kind: 'text', text: 'see ' },
+            {
+              kind: 'link',
+              text: 'https://example.com',
+              url: 'https://example.com',
+            },
+          ],
+        },
+      ],
+    ],
+    [
+      'spoiler photos as covered images',
+      `[spoiler]${IMAGE}[/spoiler]`,
+      [
+        {
+          kind: 'image',
+          url: 'https://example.com/full.png',
+          thumbnailUrl: 'https://example.com/full.png?imw=512&&ima=fit',
+          width: 1155,
+          height: 650,
+          spoiler: true,
+        },
+      ],
+    ],
+    [
+      'code and preformatted text as typed',
+      '[code]a[i] = \\[1] \\[/code][/code][pre]  b[/pre]',
+      [
+        { kind: 'code', text: 'a[i] = [1] [/code]' },
+        { kind: 'code', text: '  b' },
+      ],
+    ],
   ])('reads %s', (_name, bbcode, parts) => {
     expect(parseBBCode(bbcode)).toEqual(parts);
   });

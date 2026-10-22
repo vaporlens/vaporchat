@@ -28,6 +28,16 @@ export function pastDate(time: number) {
     : fullDate(time);
 }
 
+/** `Today`, `Yesterday`, then the date. */
+export function day(time: number) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (time >= today.getTime()) return 'Today';
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  return time >= yesterday.getTime() ? 'Yesterday' : pastDate(time);
+}
+
 /** `45 min`, `2.5 h`, `120 h` */
 export function playtime(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
