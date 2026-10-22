@@ -49,7 +49,7 @@ describe('getWishlist', () => {
         },
       });
     });
-    const { items } = await getWishlist('1', SESSION, 'US', null);
+    const { items } = await getWishlist('1', SESSION, 'US', null, null);
     expect(
       items.map(({ appid, addedAt, reviews }) => ({ appid, addedAt, reviews })),
     ).toEqual([

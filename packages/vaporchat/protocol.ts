@@ -190,7 +190,7 @@ export type ChatTarget =
   | { kind: 'friend'; steamid: string }
   | { kind: 'room'; groupId: string; chatId: string };
 
-/** A piece of a message, in reading order. Formatting Steam's clients add (mentions) is text. */
+/** A piece of a message, in reading order. */
 export type ChatPart =
   | { kind: 'text'; text: string }
   /** a web page, `text` is what to show */
@@ -209,6 +209,24 @@ export type ChatPart =
     }
   /** monospaced, as typed */
   | { kind: 'code'; text: string }
+  /** a store page Steam previews, the game is loaded to show it */
+  | { kind: 'storeLink'; appid: number; url: string }
+  /** a web page Steam previews with its title, text and picture */
+  | {
+      kind: 'webPreview';
+      url: string;
+      title: string;
+      description: string;
+      imageUrl: string | null;
+    }
+  | { kind: 'youtube'; url: string; videoId: string }
+  /** someone named in a room message, `text` is how: `@name` */
+  | {
+      kind: 'mention';
+      text: string;
+      /** SteamID64, null for everyone or everyone here */
+      steamid: string | null;
+    }
   | { kind: 'quote'; parts: ChatPart[] }
   | { kind: 'emoticon'; name: string; url: string }
   /** big and often animated (APNG) */
@@ -347,6 +365,13 @@ export interface WishlistGame extends StoreItem {
   reviews: ReviewSummary | null;
 }
 
+/** A category the user sorts their wishlist into. */
+export interface WishlistCategory {
+  id: string;
+  name: string;
+  count: number;
+}
+
 /** A store tag, `Indie` say. */
 export interface StoreTag {
   tagid: number;
@@ -400,6 +425,8 @@ export interface SteamEvent {
   title: string;
   /** the game it's about, null for group events */
   appid: number | null;
+  /** the account id of the group that posted it */
+  clanid: number;
   /** that game's name, when known */
   game: string | null;
   /** 16:9 capsule */
@@ -416,6 +443,14 @@ export interface SteamEvent {
   commentCount: number;
   /** null when it takes no comments */
   commentThread: CommentThread | null;
+}
+
+/** A game or group whose news the user can mute. */
+export interface NewsSource {
+  kind: 'app' | 'group';
+  /** an appid, or a group's account id */
+  id: number;
+  name: string;
 }
 
 /** Where a news post's comments are, see `getComments`. */

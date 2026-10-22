@@ -66,10 +66,21 @@ export async function pickImage(
 
 // spoilers stay hidden
 function partText(part: ChatPart): string {
-  if (part.kind === 'text' || part.kind === 'link' || part.kind === 'code')
+  if (
+    part.kind === 'text' ||
+    part.kind === 'link' ||
+    part.kind === 'code' ||
+    part.kind === 'mention'
+  )
     return part.text;
   if (part.kind === 'quote') return `${part.parts.map(partText).join('')}\n`;
   if (part.kind === 'emoticon') return `:${part.name}:`;
+  if (
+    part.kind === 'storeLink' ||
+    part.kind === 'webPreview' ||
+    part.kind === 'youtube'
+  )
+    return part.url;
   if (part.kind === 'spoiler') return 'Spoiler';
   return part.kind === 'sticker' ? 'Sticker' : 'Image';
 }

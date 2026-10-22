@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Alert, Linking, Vibration } from 'react-native';
+import type { MediaStreamTrack as NativeTrack } from 'react-native-webrtc';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
 import {
-  hasHeadset,
+  type AudioOutput,
+  audioOutputs,
+  onAudioOutputsChange,
   resetAudioRoute,
+  setAudioOutput,
   setRinging,
-  setSpeakerOn,
 } from './modules/audio-route';
 import { onLeaveTapped, setCallActive } from './modules/call-service';
 
@@ -27,11 +30,39 @@ function stopTracks(stream: MediaStream | null) {
   for (const track of stream?.getTracks() ?? []) track.stop();
 }
 
-// react-native-webrtc plays remote audio by itself, deafening means disabling those tracks
+/** How someone in voice plays here: their volume, a gain on what they send, and muted by us. */
+export interface Playback {
+  volume: number;
+  muted: boolean;
+}
+
+const AS_SENT: Playback = { volume: 1, muted: false };
+// by SteamID64, kept across calls while the app runs
+const playbacks = new Map<string, Playback>();
+
+export function playbackOf(steamid: string) {
+  return playbacks.get(steamid) ?? AS_SENT;
+}
+
+/** Sets how someone plays here, only for us: they aren't told. */
+export function setPlayback(
+  session: VoiceSession,
+  steamid: string,
+  playback: Playback,
+) {
+  playbacks.set(steamid, playback);
+  syncPlayback(session);
+}
+
+// react-native-webrtc plays remote audio by itself, deafening or muting someone means
+// disabling their tracks
 function syncPlayback(session: VoiceSession) {
   for (const participant of session.participants) {
+    const { volume, muted } = playbackOf(participant.steamid);
     for (const track of participant.stream?.getAudioTracks() ?? []) {
-      track.enabled = !session.outputMuted;
+      track.enabled = !session.outputMuted && !muted;
+      // registerGlobals made the tracks react-native-webrtc's, which can set a volume
+      (track as unknown as NativeTrack)._setVolume(volume);
     }
   }
 }
@@ -109,25 +140,54 @@ export function useSessionChanges(session: VoiceSession) {
   }, [session]);
 }
 
+function isHeadset(output: AudioOutput) {
+  return output.kind !== 'speaker' && output.kind !== 'earpiece';
+}
+
 /**
- * The current voice session, incoming calls (the phone rings and vibrates while they do), the
- * speaker setting and whether a headset is connected, re-rendering when they change. Not on the
- * session's own changes, see `useSessionChanges`.
+ * The current voice session, incoming calls (the phone rings and vibrates while they do), and where
+ * voice plays, re-rendering when they change. Not on the session's own changes, see
+ * `useSessionChanges`.
  */
 export function useVoice(voice: SteamVoice) {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  // group voice is meant for the loudspeaker, not for holding the phone to your ear, unless a
-  // headset is connected when voice starts
-  const [speaker, setSpeaker] = useState(true);
-  const speakerRef = useRef(speaker);
-  const [headset, setHeadset] = useState(false);
+  const [outputs, setOutputs] = useState<AudioOutput[]>([]);
+  const outputsRef = useRef(outputs);
+  const [output, setOutput] = useState<AudioOutput | null>(null);
+  const outputRef = useRef(output);
 
   useEffect(() => {
+    // group voice is meant for the loudspeaker, not for holding the phone to your ear: a headset
+    // when one is connected, the speaker otherwise. One connecting mid-call takes over like in
+    // phone calls, and when the one playing goes, another headset or the speaker does.
+    // Returns whether that changed where voice plays
+    const follow = () => {
+      const now = audioOutputs();
+      const before = outputsRef.current;
+      const chosen = outputRef.current;
+      const next =
+        now.find((o) => isHeadset(o) && !before.some((b) => b.id === o.id)) ??
+        now.find((o) => o.id === chosen?.id) ??
+        now.find(isHeadset) ??
+        now.find((o) => o.kind === 'speaker') ??
+        null;
+      outputsRef.current = now;
+      setOutputs(now);
+      outputRef.current = next;
+      setOutput(next);
+      return next?.id !== chosen?.id;
+    };
+    const route = () => {
+      if (outputRef.current) setAudioOutput(outputRef.current.id);
+    };
     // sessions also start without a tap (taking over a simultaneous call), so wire them all here
     const wire = (session: VoiceSession) => {
       session.on('state', (state) => {
         // the audio route is only set up once audio flows
-        if (state === 'connected') setSpeakerOn(speakerRef.current);
+        if (state === 'connected') {
+          follow();
+          route();
+        }
       });
       session.on('participants', () => syncPlayback(session));
       session.on('ended', ({ reason }) => {
@@ -146,15 +206,21 @@ export function useVoice(voice: SteamVoice) {
     };
     if (voice.session) wire(voice.session);
     setCallActive(voice.session !== null);
-    let inVoice = voice.session !== null;
+    const followChanges = () =>
+      onAudioOutputsChange(() => {
+        if (voice.session?.state === 'connected' && follow()) route();
+      });
+    let offOutputs = voice.session ? followChanges() : null;
     const offSession = voice.on('session', (session) => {
-      if (session && !inVoice) {
-        const plugged = hasHeadset();
-        speakerRef.current = !plugged;
-        setSpeaker(!plugged);
-        setHeadset(plugged);
+      if (session && !offOutputs) {
+        outputsRef.current = [];
+        outputRef.current = null;
+        follow();
+        offOutputs = followChanges();
+      } else if (!session) {
+        offOutputs?.();
+        offOutputs = null;
       }
-      inVoice = session !== null;
       // null only once the last one ended, a session taking over another keeps voice going
       setCallActive(session !== null);
       if (session) wire(session);
@@ -171,23 +237,24 @@ export function useVoice(voice: SteamVoice) {
       offSession();
       offIncoming();
       offLeave();
+      offOutputs?.();
       Vibration.cancel();
       setRinging(false, false);
       setCallActive(false);
     };
   }, [voice]);
 
-  const changeSpeaker = useCallback((on: boolean) => {
-    speakerRef.current = on;
-    setSpeaker(on);
-    setSpeakerOn(on);
+  const chooseOutput = useCallback((output: AudioOutput) => {
+    outputRef.current = output;
+    setOutput(output);
+    setAudioOutput(output.id);
   }, []);
 
   return {
     session: voice.session,
     incomingCalls: voice.incomingCalls,
-    speaker,
-    setSpeaker: changeSpeaker,
-    headset,
+    outputs,
+    output,
+    setOutput: chooseOutput,
   };
 }

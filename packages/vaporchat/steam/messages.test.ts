@@ -204,6 +204,19 @@ describe('sendMessage', () => {
       '/sticker Big Cat',
     ]);
   });
+
+  it('sends mentions as BBCode, other brackets escaped', async () => {
+    const steam = fakeSteam();
+    const room = { kind: 'room', groupId: '7', chatId: '8' } as const;
+    await sendMessage(
+      steam.cm,
+      room,
+      '[mention=5]@[A] Bob[/mention] and [mention=all]@all[/mention] [x]',
+    );
+    expect(steam.sent[0].message).toBe(
+      '[mention=5]@\\[A] Bob[/mention] and [mention=all]@all[/mention] \\[x]',
+    );
+  });
 });
 
 describe('getRecentMessages', () => {

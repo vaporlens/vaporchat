@@ -1,4 +1,5 @@
 import type { ArticleComment, CommentThread, FeedPage } from '../protocol.ts';
+import { accountIdFromSteamId } from './friends.ts';
 import { parseRichText } from './richText.ts';
 import { postApi } from './store.ts';
 import { COMMUNITY_URL, getJson } from './web.ts';
@@ -6,7 +7,6 @@ import { COMMUNITY_URL, getJson } from './web.ts';
 // a news post's comments are a thread of this type, `ForumTopic` in its event
 const FORUM_TOPIC_THREAD = 7;
 const PAGE_SIZE = 10;
-const STEAMID64_BASE = 76561197960265728n;
 
 interface ApiComment {
   gidcomment: string;
@@ -25,7 +25,7 @@ interface MiniProfile {
  * when it can't be loaded, the comment still shows.
  */
 async function getAuthor(steamid: string) {
-  const accountId = BigInt(steamid) - STEAMID64_BASE;
+  const accountId = accountIdFromSteamId(steamid);
   const { persona_name = '', avatar_url = null } = await getJson<MiniProfile>(
     `${COMMUNITY_URL}miniprofile/${accountId}/json`,
   ).catch((): MiniProfile => ({}));

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type {
@@ -45,6 +45,79 @@ function GameLink({
         {game.name}
       </Text>
       <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+/**
+ * Muting the game's or group's news in the user's feed, or unmuting it. Nothing signed out, or
+ * until Steam said whether it's muted.
+ */
+function MuteSource({
+  feeds,
+  event,
+  onError,
+}: {
+  feeds: SteamFeeds;
+  event: SteamEvent;
+  onError: (err: Error) => void;
+}) {
+  // like the News Hub, the game when the post has one
+  const source =
+    event.appid !== null
+      ? { kind: 'app' as const, id: event.appid }
+      : { kind: 'group' as const, id: event.clanid };
+  const [muted, setMuted] = useState<boolean | null>(null);
+  const [changing, setChanging] = useState(false);
+  useEffect(() => {
+    let shown = true;
+    feeds
+      .getMutedNewsSources()
+      .then(
+        (sources) =>
+          shown &&
+          setMuted(
+            sources.some(
+              ({ kind, id }) => kind === source.kind && id === source.id,
+            ),
+          ),
+      )
+      // signed out, or steam didn't say: the post shows without
+      .catch(() => {});
+    return () => {
+      shown = false;
+    };
+  }, [feeds, source.kind, source.id]);
+  // posts cached before groups were kept have none
+  if (muted === null || !source.id) return null;
+
+  const change = () => {
+    setChanging(true);
+    feeds
+      .setNewsSourceMuted(source, !muted)
+      .then(() => setMuted(!muted))
+      .catch(onError)
+      .finally(() => setChanging(false));
+  };
+  const name = event.appid !== null ? "this game's" : "this group's";
+  return (
+    <Pressable
+      disabled={changing}
+      onPress={change}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.mute,
+        (pressed || changing) && styles.pressed,
+      ]}
+    >
+      <Ionicons
+        name={muted ? 'notifications-outline' : 'notifications-off-outline'}
+        size={16}
+        color={colors.text}
+      />
+      <Text style={styles.muteText} numberOfLines={1}>
+        {muted ? `Unmute ${name} news` : `Mute ${name} news in your feed`}
+      </Text>
     </Pressable>
   );
 }
@@ -158,6 +231,7 @@ export function ArticleScreen({
         <GameLink feeds={feeds} appid={event.appid} onOpenGame={onOpenGame} />
       )}
       <RichText blocks={event.body} onOpenImage={onOpenImage} />
+      <MuteSource feeds={feeds} event={event} onError={onError} />
       {/* posts cached before comments were loaded have no thread */}
       {event.commentThread && (
         <Comments
@@ -187,6 +261,17 @@ const styles = StyleSheet.create({
   gameName: { flex: 1, color: colors.bright, fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.7 },
   muted: { color: colors.muted, fontSize: 13 },
+  mute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  muteText: { flexShrink: 1, color: colors.text, fontSize: 13 },
   counts: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   countGap: { marginLeft: 10 },
   comment: {

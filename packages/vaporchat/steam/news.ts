@@ -1,6 +1,7 @@
 import type { FeedPage, SteamEvent } from '../protocol.ts';
 import { getEvents, toSteamEvent } from './events.ts';
 import type { WebSession } from './logOn.ts';
+import { getMutedSources } from './newsMutes.ts';
 import { getGames } from './store.ts';
 import { getJson, STORE_URL } from './web.ts';
 
@@ -61,14 +62,20 @@ export function yourDocuments({
 
 /**
  * News, updates and events of the games the user owns, wishlisted or follows, like the
- * News Hub's "Your News". Without a session, the news Steam features for everyone. `before`
- * is the `next` of the previous page.
+ * News Hub's "Your News", without the games and groups they muted. Without a session, the news
+ * Steam features for everyone. `before` is the `next` of the previous page.
  */
 export async function getYourNews(
   session: WebSession | null,
   country: string,
   before: number | null,
 ): Promise<FeedPage<SteamEvent>> {
+  // the News Hub leaves muted ones out itself, the timeline has them. The news shows without
+  const muted = session ? await getMutedSources(session).catch(() => []) : [];
+  const isMuted = ({ appid, clanid }: Document) =>
+    muted.some(({ kind, id }) =>
+      kind === 'app' ? id === appid : id === clanid,
+    );
   const documents: Document[] = [];
   let next = before ?? Math.floor(Date.now() / 1000);
   let complete = false;
@@ -83,7 +90,7 @@ export async function getYourNews(
         `&populateEvents=0&eventTypes=${EVENT_TYPES}&l=english`,
       session?.cookie,
     );
-    documents.push(...yourDocuments(calendar));
+    documents.push(...yourDocuments(calendar).filter((doc) => !isMuted(doc)));
     const times = (calendar.documents ?? []).map((doc) => doc.start_time);
     complete = calendar.backwardComplete === true || times.length === 0;
     next = Math.min(...times) - 1;

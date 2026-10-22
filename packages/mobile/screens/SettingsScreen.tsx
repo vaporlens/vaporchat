@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,10 +9,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { MyStatus } from 'vaporchat/protocol';
+import type { SteamFeeds } from 'vaporchat/client/feeds';
+import type { MyStatus, NewsSource } from 'vaporchat/protocol';
+import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { colors } from '../theme';
+import { type SavedAccount, savedAccounts } from '../tokenStore';
 
 /** Each status with what it means for friends and its color, the header and member list show the same. */
 export const STATUSES: Record<
@@ -31,24 +35,85 @@ export const STATUSES: Record<
   },
 };
 
-/** What friends see of you, alerts in the background, and signing out. */
+/** The games and groups whose news is muted in the feed, unmuting them. Nothing while none. */
+function MutedNews({
+  feeds,
+  onError,
+}: {
+  feeds: SteamFeeds;
+  onError: (err: Error) => void;
+}) {
+  const [sources, setSources] = useState<NewsSource[]>([]);
+  useEffect(() => {
+    let shown = true;
+    feeds
+      .getMutedNewsSources()
+      .then((loaded) => shown && setSources(loaded))
+      // steam didn't say: the settings work without
+      .catch(() => {});
+    return () => {
+      shown = false;
+    };
+  }, [feeds]);
+  if (sources.length === 0) return null;
+
+  const unmute = (source: NewsSource) =>
+    feeds
+      .setNewsSourceMuted(source, false)
+      .then(() => setSources((all) => all.filter((s) => s !== source)))
+      .catch(onError);
+  return (
+    <>
+      <SectionTitle title="Muted news" />
+      <View style={styles.group}>
+        {sources.map((source) => (
+          <View key={`${source.kind}-${source.id}`} style={styles.row}>
+            <Text style={[styles.label, styles.grow]} numberOfLines={1}>
+              {source.name}
+            </Text>
+            <Pressable
+              onPress={() => unmute(source)}
+              hitSlop={8}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Text style={styles.action}>Unmute</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </>
+  );
+}
+
+/** What friends see of you, alerts in the background, muted news, and accounts. */
 export function SettingsScreen({
+  feeds,
   status,
   onChangeStatus,
   stayConnected,
   onChangeStayConnected,
+  onSwitchAccount,
   onSignOut,
+  onError,
   onBack,
 }: {
+  feeds: SteamFeeds;
   status: MyStatus;
   onChangeStatus: (status: MyStatus) => void;
   /** null where the app can't stay connected in the background (iOS) */
   stayConnected: boolean | null;
   onChangeStayConnected: (on: boolean) => void;
+  /** to an account signed in here before, or signing in to another with null */
+  onSwitchAccount: (steamid: string | null) => void;
   onSignOut: () => void;
+  onError: (err: Error) => void;
   onBack: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+  useEffect(() => {
+    savedAccounts().then(setAccounts, () => {});
+  }, []);
   return (
     <View style={styles.screen}>
       <DetailHeader title="Settings" onBack={onBack} />
@@ -104,8 +169,30 @@ export function SettingsScreen({
             </View>
           </>
         )}
+        <MutedNews feeds={feeds} onError={onError} />
         <SectionTitle title="Account" />
         <View style={styles.group}>
+          {accounts.map((account) => (
+            <Pressable
+              key={account.steamid}
+              onPress={() => onSwitchAccount(account.steamid)}
+              accessibilityHint="Switches to this account"
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
+              <Avatar url={account.avatarUrl} name={account.name} size={28} />
+              <Text style={[styles.label, styles.grow]} numberOfLines={1}>
+                {account.name}
+              </Text>
+              <Text style={styles.action}>Switch</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => onSwitchAccount(null)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <Ionicons name="person-add-outline" size={22} color={colors.text} />
+            <Text style={styles.label}>Add account</Text>
+          </Pressable>
           <Pressable
             onPress={onSignOut}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
@@ -141,4 +228,5 @@ const styles = StyleSheet.create({
   label: { color: colors.bright, fontSize: 16 },
   detail: { color: colors.muted, fontSize: 13, marginTop: 2 },
   danger: { color: colors.danger },
+  action: { color: colors.accent, fontSize: 15, fontWeight: '600' },
 });

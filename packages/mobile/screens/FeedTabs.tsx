@@ -27,6 +27,7 @@ import { BrowseTab } from './BrowseScreen';
 import { Feed, type Search } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
 import type { Page } from './PageScreen';
+import { WishlistHeader } from './WishlistHeader';
 
 type FeedTab = Exclude<Tab, 'chat'>;
 
@@ -164,12 +165,14 @@ function StoreItems({
   list,
   show,
   header,
+  cacheKey = `feed-${list.tab}`,
   onOpenGame,
   onError,
 }: Props & {
   list: List<StoreItem>;
   show: 'released' | 'discountEnds';
   header: ReactElement;
+  cacheKey?: string;
 }) {
   // the wishlist loads again once a game's page changed it
   const wishlistChanges = useWishlistChanges();
@@ -197,7 +200,7 @@ function StoreItems({
   );
   return (
     <Feed
-      cacheKey={`feed-${list.tab}`}
+      cacheKey={cacheKey}
       load={load}
       keyOf={storeItemKey}
       search={search}
@@ -210,13 +213,48 @@ function StoreItems({
   );
 }
 
+/** The wishlist, all of it or one of the user's categories. */
+function Wishlist(
+  props: Props & { list: List<StoreItem>; header: ReactElement },
+) {
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const list = useMemo<List<StoreItem>>(
+    () => ({
+      ...props.list,
+      load: (feeds, next) => feeds.getWishlist(next, categoryId),
+    }),
+    [props.list, categoryId],
+  );
+  return (
+    <StoreItems
+      {...props}
+      // a category shows its own cached games, not the last one's
+      key={categoryId}
+      list={list}
+      show="discountEnds"
+      cacheKey={`feed-wishlist-${categoryId ?? 'all'}`}
+      header={
+        <WishlistHeader
+          feeds={props.feeds}
+          header={props.header}
+          categoryId={categoryId}
+          onCategory={setCategoryId}
+          onError={props.onError}
+        />
+      }
+    />
+  );
+}
+
 const Store = memo(function Store(props: Props) {
   return (
     <Lists
       lists={STORE_TABS}
       onSignIn={props.onSignIn}
       render={(list, header) =>
-        'load' in list ? (
+        list.tab === 'wishlist' && 'load' in list ? (
+          <Wishlist {...props} list={list} header={header} />
+        ) : 'load' in list ? (
           <StoreItems
             {...props}
             list={list}

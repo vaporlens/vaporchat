@@ -304,10 +304,15 @@ export async function sendMessage(
   chat: ChatTarget,
   content: string | StickerPart,
 ): Promise<ChatMessage> {
-  // steam escapes brackets that aren't BBCode as `\[`, tags we'd send would be dropped anyway
+  // steam escapes brackets that aren't BBCode as `\[`, tags we'd send would be dropped anyway.
+  // Mentions are the BBCode the clients send, `withMentions` adds them
   const message =
     typeof content === 'string'
-      ? content.replace(/\[/g, '\\[')
+      ? content.replace(
+          /(\[mention=[^\]]*\])([\s\S]*?)(\[\/mention\])|\[/g,
+          (_bracket, open?: string, name?: string, close?: string) =>
+            open ? `${open}${name?.replace(/\[/g, '\\[')}${close}` : '\\[',
+        )
       : `/sticker ${content.name}`;
   // echoing shows the message on our other devices, like the official clients do
   const sent =

@@ -23,6 +23,9 @@ export const colors = {
   accept: '#3fb950',
   danger: '#e0473d',
   warning: '#e0b43d',
+  // a mention of us or everyone in a message, gold like steam's
+  mentionText: '#ffd36b',
+  mentionBackground: 'rgba(224, 180, 61, 0.22)',
   // steam's discount badge
   discount: '#beee11',
   discountBackground: '#4c6b22',

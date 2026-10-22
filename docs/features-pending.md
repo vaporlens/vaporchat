@@ -27,47 +27,10 @@ preferences, account settings) weren't enumerated.
   gotcha in [`features.md`](features.md#friends-and-presence). It applies to the member list's
   online members.
 
-## Chat
-
-| Feature | Steam has it in | API | Effort |
-|---|---|---|---|
-| Link previews (store pages, YouTube, images) | client, Chat app | no proto method found; Steam's clients unfurl themselves (unverified) | moderate |
-| @mentions (render, autocomplete, highlight) | client, Chat app | `mentions` on incoming room messages, read today only to alert groups set to mentions; sent as `[mention=…]` BBCode (unverified) | moderate |
-| `/store` slash command | client, Chat app | `/code`, `/pre`, `/quote`, `/spoiler` are suggested already and Steam formats them on its side; stickers have the picker; what `/store` sends is unchecked | moderate |
-
-## Voice
-
-Steam has no mobile voice, so these compare against the desktop client and good phone-call
-behaviour.
-
-| Feature | Notes | Effort |
-|---|---|---|
-| Per-user volume and local mute of a participant | Big Picture's voice tab has per-user sliders | moderate |
-| Bluetooth / headset route picker, switching when one connects mid-call | speaker off plays through the headset connected at that moment, else the earpiece; the default and the button's label are set when voice starts (`mobile/modules/audio-route`, `mobile/voice.ts`) | moderate |
-
 ## Store pages and lists
-
-### Reviews tab
-
-| Feature | API | Effort |
-|---|---|---|
-| Vote helpful / funny, award, comment | web forms; `LoyaltyRewards.AddReaction` for awards | moderate |
 
 ### Wishlist
 
 | Feature | API | Effort |
 |---|---|---|
-| Wishlist categories (Jul 2026) | `GetWishlistCategories` etc. | moderate |
-| Share link | web feature | moderate |
-
-## Feed
-
-| Feature | API | Effort |
-|---|---|---|
-| Mute a game or source | News Hub settings (unverified endpoints) | moderate |
-
-## Account and app shell
-
-| Feature | Steam has it in | Notes | Effort |
-|---|---|---|---|
-| Multiple accounts | Steam Mobile, desktop | the token store holds one | moderate |
+| Share link for a private wishlist | the store's share token: a "server action" `CreateWishlistShareToken(filters)`, POSTed to the wishlist page with `x-valve-request-type: routeAction` and `x-valve-action-type: <route id>:CreateWishlistShareToken`, the route id hashed into its JS bundle and changing with Steam's deploys (unverified, a write); `RevokeWishlistShareTokens` | hard |

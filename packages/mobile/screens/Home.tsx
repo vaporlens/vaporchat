@@ -99,11 +99,14 @@ export function Home({
   link,
   onReconnect,
   onSignOut,
+  onSwitchAccount,
 }: {
   voice: SteamVoice;
   link: Link;
   onReconnect: () => void;
   onSignOut: () => void;
+  /** to an account signed in here before, or signing in to another with null */
+  onSwitchAccount: (steamid: string | null) => void;
 }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigationContainerRef<Routes>();
@@ -116,7 +119,7 @@ export function Home({
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>('store');
   const [status, setStatus] = useState(voice.connection.status);
-  const { session, incomingCalls, speaker, setSpeaker, headset } =
+  const { session, incomingCalls, outputs, output, setOutput } =
     useVoice(voice);
   const unread = useUnread(voice);
   const unreadNotices = useSteamNotices(voice).filter((n) => !n.read).length;
@@ -532,6 +535,7 @@ export function Home({
                 onOpenChat={switchChat}
                 onToggleMute={toggleMute}
                 onBack={back}
+                onOpenGame={openGame}
                 onError={showError}
               />
             )}
@@ -546,6 +550,9 @@ export function Home({
                 }
                 onChangeStayConnected={stayConnected.change}
                 onSignOut={confirmSignOut}
+                onSwitchAccount={onSwitchAccount}
+                feeds={voice.connection.feeds}
+                onError={showError}
                 onBack={back}
               />
             )}
@@ -579,9 +586,9 @@ export function Home({
           voice={voice}
           session={session}
           title={sessionTitle(voice, session, groups)}
-          speaker={speaker}
-          setSpeaker={setSpeaker}
-          headset={headset}
+          outputs={outputs}
+          output={output}
+          setOutput={setOutput}
         />
       )}
       <IncomingCall voice={voice} calls={incomingCalls} onError={showError} />

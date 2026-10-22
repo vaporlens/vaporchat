@@ -27,7 +27,9 @@ import type {
   ChatTarget,
   ReactionKey,
   StickerPart,
+  StoreItem,
 } from 'vaporchat/protocol';
+import { type MentionPick, withMentions } from 'vaporchat/steam/bbcode';
 import {
   applyReaction,
   chatKey,
@@ -44,6 +46,7 @@ import { useBackHandler } from '../components/useBackHandler';
 import { day } from '../format';
 import { matches } from '../search';
 import { colors } from '../theme';
+import { ChatSuggestions } from './ChatSuggestions';
 import { MessageBubble } from './MessageBubble';
 
 // as many as steam's recent history has
@@ -52,13 +55,6 @@ const CACHED_MESSAGES = 50;
 const TYPING_SEND_MS = 5000;
 // how long one notice shows, unless their message comes first
 const TYPING_SHOWN_MS = 8000;
-// the formatting commands of Steam's desktop client, offered as `/` is typed
-const COMMANDS = [
-  { name: 'code', hint: 'Monospaced code' },
-  { name: 'pre', hint: 'Preformatted text' },
-  { name: 'quote', hint: 'A quote' },
-  { name: 'spoiler', hint: 'Hidden until tapped' },
-];
 
 function sameDay(a: number, b: number) {
   return new Date(a).toDateString() === new Date(b).toDateString();
@@ -92,8 +88,10 @@ export function Chat({
   avatarUrl,
   headerAction,
   top,
+  memberIds,
   bottomInset,
   onBack,
+  onOpenGame,
   onError,
 }: {
   voice: SteamVoice;
@@ -105,9 +103,13 @@ export function Chat({
   headerAction?: ReactNode;
   /** above the messages, under the header */
   top?: ReactNode;
+  /** SteamID64s of who can be mentioned, a room's members */
+  memberIds: string[];
   /** room for the home indicator, unless something below the chat takes care of it */
   bottomInset: number;
   onBack: () => void;
+  /** a store link's game */
+  onOpenGame: (item: StoreItem) => void;
   onError: (err: Error) => void;
 }) {
   const cacheKey = `messages-${chatKey(chat)}`;
@@ -124,6 +126,8 @@ export function Chat({
   const [older, setOlder] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [draft, setDraft] = useState('');
+  // the members picked to mention in the draft
+  const [mentions, setMentions] = useState<MentionPick[]>([]);
   const [viewing, setViewing] = useState<string | null>(null);
   // the emoticon and sticker picker, in place of the keyboard
   const [picking, setPicking] = useState(false);
@@ -255,9 +259,14 @@ export function Chat({
   function send() {
     const text = draft.trim();
     if (text === '') return;
+    const picked = mentions;
     setDraft('');
+    setMentions([]);
     // hand the text back to retry, unless something new was typed meanwhile
-    deliver(text, () => setDraft((typed) => (typed === '' ? text : typed)));
+    deliver(withMentions(text, picked), () => {
+      setDraft((typed) => (typed === '' ? text : typed));
+      setMentions((now) => (now.length === 0 ? picked : now));
+    });
   }
 
   async function sendPhoto(source: 'library' | 'camera') {
@@ -335,12 +344,6 @@ export function Chat({
     [messages, query],
   );
   const nothingToSend = draft.trim() === '';
-  // the commands starting with what follows a `/` typed first, until a space
-  const typedCommand = /^\/(\w*)$/.exec(draft)?.[1].toLowerCase();
-  const commands =
-    typedCommand === undefined
-      ? []
-      : COMMANDS.filter(({ name }) => name.startsWith(typedCommand));
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
@@ -428,12 +431,15 @@ export function Chat({
             <>
               <MessageBubble
                 message={item}
+                me={me}
+                feeds={voice.connection.feeds}
                 mine={mine}
                 runStart={runStart}
                 runEnd={runEnd}
                 senderName={sender?.name ?? null}
                 senderAvatarUrl={sender?.avatarUrl ?? null}
                 onOpenImage={setViewing}
+                onOpenGame={onOpenGame}
                 onPickReaction={pickReaction}
                 onChangeReaction={changeReaction}
               />
@@ -443,22 +449,19 @@ export function Chat({
           );
         }}
       />
-      {!reactingTo && commands.length > 0 && (
-        <View style={styles.commands}>
-          {commands.map(({ name, hint }) => (
-            <Pressable
-              key={name}
-              onPress={() => setDraft(`/${name} `)}
-              style={({ pressed }) => [
-                styles.command,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.commandName}>/{name}</Text>
-              <Text style={styles.commandHint}>{hint}</Text>
-            </Pressable>
-          ))}
-        </View>
+      {!reactingTo && (
+        <ChatSuggestions
+          voice={voice}
+          draft={draft}
+          memberIds={memberIds}
+          onDraft={setDraft}
+          onMention={(pick) => setMentions((picked) => [...picked, pick])}
+          onSend={(text) => {
+            setDraft('');
+            setMentions([]);
+            deliver(text);
+          }}
+        />
       )}
       {reactingTo ? (
         <View style={styles.reacting}>
@@ -627,18 +630,4 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   reactingText: { flex: 1, color: colors.text, fontSize: 15 },
-  commands: {
-    backgroundColor: colors.bar,
-    borderTopWidth: 1,
-    borderColor: colors.border,
-  },
-  command: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  commandName: { color: colors.bright, fontSize: 16, fontWeight: '600' },
-  commandHint: { color: colors.muted, fontSize: 14 },
 });

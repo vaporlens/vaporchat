@@ -65,6 +65,10 @@ export function steamIdFromAccountId(accountId: number) {
   return (STEAMID64_BASE + BigInt(accountId)).toString();
 }
 
+export function accountIdFromSteamId(steamid: string) {
+  return Number(BigInt(steamid) - STEAMID64_BASE);
+}
+
 function playedGame({
   gameid,
   game_played_app_id,

@@ -70,6 +70,7 @@ export function toSteamEvent(event: ApiEvent, language: number): SteamEvent {
     id: event.gid,
     title: event.event_name ?? '',
     appid,
+    clanid: Number(clan),
     game: null,
     imageUrl: capsule ? `${CLAN_IMAGES_URL}${clan}/${capsule}` : null,
     summary: summary.slice(0, SUMMARY_LENGTH),

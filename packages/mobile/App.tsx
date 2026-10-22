@@ -17,16 +17,31 @@ import { GuestHome } from './screens/GuestHome';
 import { Home, type Link } from './screens/Home';
 import { SignIn } from './screens/SignIn';
 import { barTouches } from './screens/useHidingBar';
-import { clearStatus, loadStatus } from './statusStore';
+import { clearStatus, loadStatus, saveStatus } from './statusStore';
 import { colors, gradients } from './theme';
-import { deviceLogonId, tokenStore } from './tokenStore';
+import {
+  deviceLogonId,
+  forgetAccount,
+  parkAccount,
+  savedAccounts,
+  tokenStore,
+  unparkAccount,
+} from './tokenStore';
 import { UserAppsProvider } from './userApps';
 
 type State =
   /** reading the stored token */
   | { kind: 'starting' }
-  /** the store anyone sees, with the sign-in screen over it while `signingIn` */
-  | { kind: 'signedOut'; signingIn: boolean; error: string | null }
+  /**
+   * the store anyone sees, with the sign-in screen over it while `signingIn`. Adding an account,
+   * `returnTo` is the one put aside, cancelling opens it again
+   */
+  | {
+      kind: 'signedOut';
+      signingIn: boolean;
+      error: string | null;
+      returnTo: string | null;
+    }
   /** Home shows what was cached while `link` isn't online */
   | { kind: 'signedIn'; voice: SteamVoice; link: Link };
 
@@ -42,9 +57,22 @@ function message(err: unknown) {
 export default function App() {
   const [state, setState] = useState<State>({ kind: 'starting' });
 
-  /** Shows the store anyone sees, the sign-in screen over it while `signingIn`. */
-  function signedOut(signingIn: boolean, error: string | null = null) {
-    setState({ kind: 'signedOut', signingIn, error });
+  /**
+   * Shows the store anyone sees, the sign-in screen over it while `signingIn`. Keeps the account to
+   * return to unless given one.
+   */
+  function signedOut(
+    signingIn: boolean,
+    error: string | null = null,
+    returnTo?: string,
+  ) {
+    setState((current) => ({
+      kind: 'signedOut',
+      signingIn,
+      error,
+      returnTo:
+        returnTo ?? (current.kind === 'signedOut' ? current.returnTo : null),
+    }));
   }
 
   /** Changes how `voice` is connected, unless it was replaced (signed out, reconnected) meanwhile. */
@@ -58,6 +86,8 @@ export default function App() {
 
   function signedIn(voice: SteamVoice, link: Link) {
     openCache(voice.me.steamid);
+    // signed in again to an account put aside, it's open now
+    void forgetAccount(voice.me.steamid);
     voice.connection.on('close', ({ reason }) =>
       setLink(voice, { kind: 'lost', reason, failures: 0 }),
     );
@@ -65,12 +95,14 @@ export default function App() {
   }
 
   /**
-   * Logs on with the stored token while Home shows what was cached, the store anyone sees is for
-   * when there is none (or it stopped working).
+   * Logs on with the stored token while Home shows what was cached. Without one, an account put
+   * aside opens; the store anyone sees is for when there is none (or it stopped working).
    */
   async function connect(failures = 0) {
     if (!(await tokenStore.load())) {
-      signedOut(false);
+      const [next] = await savedAccounts();
+      if (next) await reopen(next.steamid);
+      else signedOut(false);
       return;
     }
     const logonId = await deviceLogonId();
@@ -128,18 +160,46 @@ export default function App() {
     }
   }
 
+  async function disconnect(voice: SteamVoice) {
+    // leaving can fail on a dying connection, steam drops the stale voice session then
+    await voice.session?.leave().catch(() => {});
+    voice.connection.close();
+  }
+
+  /** Opens an account put aside, like at launch, with the status it had. */
+  async function reopen(steamid: string) {
+    setState({ kind: 'starting' });
+    const account = (await savedAccounts()).find((a) => a.steamid === steamid);
+    if (account) await saveStatus(account.status);
+    await unparkAccount(steamid);
+    await connect();
+  }
+
   async function signOut(voice: SteamVoice) {
     signedOut(false);
     // the next account must not see this one's chats
     clearCache();
-    // leaving can fail on a dying connection, steam drops the stale voice session then
-    await voice.session?.leave().catch(() => {});
-    voice.connection.close();
+    await disconnect(voice);
     await tokenStore.clear();
     // nor sign in as this one's status, or with its friends muted, or see its alerts
     await clearStatus();
     await clearMutedFriends();
     await Notifications.dismissAllNotificationsAsync();
+    // another account signed in here opens in its place
+    await connect();
+  }
+
+  /** Puts the open account aside, then opens `to`, or signs in to another with null. */
+  async function switchAccount(voice: SteamVoice, to: string | null) {
+    setState({ kind: 'starting' });
+    await disconnect(voice);
+    const { steamid, name, avatarUrl } = voice.me;
+    await parkAccount({ steamid, name, avatarUrl, status: await loadStatus() });
+    // the next one signs in as itself, not invisible because this one was
+    await clearStatus();
+    await Notifications.dismissAllNotificationsAsync();
+    if (to === null) signedOut(true, null, steamid);
+    else await reopen(to);
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: connects once, at launch
@@ -188,7 +248,9 @@ export default function App() {
               <SignIn
                 error={state.error}
                 onSignIn={signIn}
-                onCancel={() => signedOut(false)}
+                onCancel={() =>
+                  state.returnTo ? reopen(state.returnTo) : signedOut(false)
+                }
               />
             </Appear>
           )}
@@ -204,6 +266,7 @@ export default function App() {
                 state.link.kind === 'lost' && connect(state.link.failures)
               }
               onSignOut={() => signOut(state.voice)}
+              onSwitchAccount={(to) => switchAccount(state.voice, to)}
             />
           </UserAppsProvider>
         </Appear>

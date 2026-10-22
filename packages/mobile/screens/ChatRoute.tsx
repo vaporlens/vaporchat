@@ -3,7 +3,7 @@ import { memo, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceTarget } from 'vaporchat/client/voiceSession';
-import type { ChatGroup, ChatTarget } from 'vaporchat/protocol';
+import type { ChatGroup, ChatTarget, StoreItem } from 'vaporchat/protocol';
 import { chatKey } from 'vaporchat/steam/messages';
 import { friendStatus } from '../format';
 import { colors } from '../theme';
@@ -57,6 +57,7 @@ export const ChatRoute = memo(function ChatRoute({
   onOpenChat,
   onToggleMute,
   onBack,
+  onOpenGame,
   onError,
 }: {
   voice: SteamVoice;
@@ -73,6 +74,7 @@ export const ChatRoute = memo(function ChatRoute({
   onOpenChat: (chat: ChatTarget) => void;
   onToggleMute: (steamid: string) => void;
   onBack: () => void;
+  onOpenGame: (item: StoreItem) => void;
   onError: (err: Error) => void;
 }) {
   const [membersOpen, setMembersOpen] = useState(false);
@@ -143,8 +145,10 @@ export const ChatRoute = memo(function ChatRoute({
             </>
           )
         }
+        memberIds={group?.memberIds ?? []}
         bottomInset={bottomInset}
         onBack={onBack}
+        onOpenGame={onOpenGame}
         onError={onError}
       />
       {group && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBBCode } from './bbcode.ts';
+import { parseBBCode, withMentions } from './bbcode.ts';
 
 const ECONOMY = 'https://community.fastly.steamstatic.com/economy';
 // the shape Steam's clients send images in: bare and quoted attributes, the link repeated inside
@@ -15,9 +15,84 @@ describe('parseBBCode', () => {
       [{ kind: 'text', text: 'see [b]this[/b]' }],
     ],
     [
-      'mentions as their text',
-      '[mention=2]@Alice[/mention] hi',
-      [{ kind: 'text', text: '@Alice hi' }],
+      'mentions of someone and of everyone, by their SteamID64',
+      '[mention=2]@Alice[/mention] and [mention=all]@all[/mention]',
+      [
+        { kind: 'mention', text: '@Alice', steamid: '76561197960265730' },
+        { kind: 'text', text: ' and ' },
+        { kind: 'mention', text: '@all', steamid: null },
+      ],
+    ],
+    [
+      'mentions in spoilers as their text',
+      '[spoiler][mention=2]@Alice[/mention] did it[/spoiler]',
+      [
+        {
+          kind: 'spoiler',
+          parts: [
+            { kind: 'text', text: '@Alice' },
+            { kind: 'text', text: ' did it' },
+          ],
+        },
+      ],
+    ],
+    [
+      'store links Steam previews, as sent from a client',
+      'try [steamstore app="620"]https://store.steampowered.com/app/620/[/steamstore]',
+      [
+        { kind: 'text', text: 'try ' },
+        {
+          kind: 'storeLink',
+          appid: 620,
+          url: 'https://store.steampowered.com/app/620/',
+        },
+      ],
+    ],
+    [
+      'web page and video previews, inside the link or not',
+      '[url=https://example.com/a][og url="https://example.com/a" img="https://example.com/a.png" title="A page" desc="About it"]https://example.com/a[/og][/url] [youtube v="abc_1-2"]https://youtu.be/abc_1-2[/youtube]',
+      [
+        {
+          kind: 'webPreview',
+          url: 'https://example.com/a',
+          title: 'A page',
+          description: 'About it',
+          imageUrl: 'https://example.com/a.png',
+        },
+        { kind: 'text', text: ' ' },
+        {
+          kind: 'youtube',
+          videoId: 'abc_1-2',
+          url: 'https://www.youtube.com/watch?v=abc_1-2',
+        },
+      ],
+    ],
+    [
+      'previews without what they need as their link',
+      '[og url="https://example.com/b"]https://example.com/b[/og]',
+      [
+        {
+          kind: 'link',
+          text: 'https://example.com/b',
+          url: 'https://example.com/b',
+        },
+      ],
+    ],
+    [
+      'previews in spoilers as their link',
+      '[spoiler][steamstore app="620"]https://store.steampowered.com/app/620/[/steamstore][/spoiler]',
+      [
+        {
+          kind: 'spoiler',
+          parts: [
+            {
+              kind: 'link',
+              text: 'https://store.steampowered.com/app/620/',
+              url: 'https://store.steampowered.com/app/620/',
+            },
+          ],
+        },
+      ],
     ],
     [
       'links, with their text or address',
@@ -158,5 +233,26 @@ describe('parseBBCode', () => {
     ],
   ])('reads %s', (_name, bbcode, parts) => {
     expect(parseBBCode(bbcode)).toEqual(parts);
+  });
+});
+
+describe('withMentions', () => {
+  it('marks each picked name up as Steam does, and leaves out ones no longer typed', () => {
+    expect(
+      withMentions('@Alice and @Al, @all look', [
+        { text: '@Al', target: 3 },
+        { text: '@Alice', target: 2 },
+        { text: '@all', target: 'all' },
+        { text: '@Bob', target: 4 },
+      ]),
+    ).toBe(
+      '[mention=2]@Alice[/mention] and [mention=3]@Al[/mention], [mention=all]@all[/mention] look',
+    );
+  });
+
+  it('leaves a longer name typed without picking it as text', () => {
+    expect(withMentions('@Alfred, @Al', [{ text: '@Al', target: 3 }])).toBe(
+      '@Alfred, [mention=3]@Al[/mention]',
+    );
   });
 });

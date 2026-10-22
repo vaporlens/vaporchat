@@ -41,8 +41,20 @@ untested candidates.
 - **formatting:** `[quote]`, `[spoiler]` (covered until tapped, then its links open), `[code]`
   and `[pre]` (both monospaced), what the desktop client's `/quote`, `/spoiler`, `/code` and
   `/pre` send. A quote ends at its first `[/quote]`, so quotes in quotes aren't nested.
-  Notifications show a spoiler as "Spoiler". Typing `/` first lists those four commands to pick from; they're sent as typed and
-  Steam turns them into the BBCode, like `/sticker`;
+  Notifications show a spoiler as "Spoiler". Typing `/` first lists those four commands and
+  `/store` to pick from; they're sent as typed and Steam turns them into the BBCode, like
+  `/sticker`;
+- **@mentions:** `[mention=<account id>]@Name[/mention]`, `[mention=all]` and `here` for
+  everyone; gold when it's us or everyone. Typing `@` in a room suggests its members and @all /
+  @here, picking one sends that BBCode (`withMentions` in `vaporchat/steam/bbcode.ts`). Steam
+  fills the message's `mentions` itself;
+- **link previews:** Steam rewrites a sent link (`SendMessage` answers with `modified_message`).
+  A store page becomes `[steamstore app="…"]link[/steamstore]`, shown as the game's card that
+  opens its page here (`mobile/screens/LinkPreviews.tsx`). Web pages (`[og url img title desc]`)
+  and YouTube (`[youtube v t]`) show as cards too; those two tags come from Steam's chat JS and
+  weren't seen in a real message yet;
+- **`/store` name** suggests the store's games as you type (the name search) and sends the picked
+  one's store link, which Steam turns into a store card, like the desktop client;
 - **spoiler photos:** after picking or taking a photo, Send / As spoiler / Cancel. "As spoiler"
   commits the upload with `spoiler=1` (`vaporchat/steam/imageUpload.ts`), and Steam posts it as
   `[spoiler][img …][/img][/spoiler]`; incoming ones are blurred until tapped;
@@ -70,10 +82,18 @@ clears desktop badges too; reads elsewhere come back as `NotifyAckMessageEcho`.
 ## Voice
 
 Group voice channels and 1:1 calls (place, accept, decline, simultaneous-call takeover); mute,
-deafen and a speaker toggle whose other side is a connected headset or the earpiece (speaker off
-by default with a headset); speaking indicators; reconnect with backoff; an Android foreground
-service, its notification with a Leave button, and iOS background audio.
+deafen; speaking indicators; reconnect with backoff; an Android foreground service, its
+notification with a Leave button, and iOS background audio.
 
+- **Where it plays:** speaker, earpiece, or a wired, USB or Bluetooth headset
+  (`mobile/modules/audio-route` `outputs` / `setOutput`; Android's communication devices, iOS's
+  audio session inputs). A headset when one is connected, else the speaker. One connecting
+  mid-call takes over like in phone calls; when the one playing goes, another headset or the
+  speaker does (`useVoice` in `mobile/voice.ts`). With two outputs the button swaps them, with
+  more it opens a picker. iOS lists Bluetooth headsets only once voice is on.
+- **Someone's volume here:** tapping a participant sets 25–200% or mutes them for us only, they
+  aren't told (react-native-webrtc's `MediaStreamTrack._setVolume`, gain 0–10). Kept per person
+  while the app runs.
 - **Listen-only voice** (microphone permission denied or busy at joining) has "Use mic" in place
   of Mute: it takes the microphone (`VoiceSession.setMicrophone`, which reconnects to send) or
   points to Settings, and moves the Android service to the microphone type.
@@ -136,7 +156,11 @@ Games the user's Steam Family lends them follow, by name, marked "Family shared"
 (`IFamilyGroupsService/GetFamilyGroupForUser`, then `GetSharedLibraryApps` without the user's own
 or excluded games).
 **Wishlist** cards show the review score and the date added (`date_added` of
-`GetWishlistSortedFiltered`, `GetItems` `include_reviews`).
+`GetWishlistSortedFiltered`, `GetItems` `include_reviews`). The user's wishlist categories show as
+pills once they made some (`IWishlistService/GetWishlistCategories`, then
+`GetWishlistSortedFiltered` `filters.category_ids`). Share sends the wishlist's store page,
+`/wishlist/profiles/<steamid>/` with `?categoryids=` for a category, which opens for others only
+while the wishlist is public.
 
 **Browse:** hubs (Free to Play, Demos, Early Access, VR, Steam Deck Verified) and the store's tags,
 most used first (`IStoreService/GetMostPopularTags`), each opening its games, most popular first:
@@ -156,10 +180,24 @@ Comments only carry a steamid, so names and avatars come from each author's
 News ("Your News" sources, featured when signed out), friends' Activity (10 kinds; the first
 three achievements unlocked named and described, the rest as icons), live sale Events.
 
+**Muting a game's or group's news** from its article page, the game when the post has one, like
+the News Hub's menu: the store form `account/optoutappcommunication/` (`allowCommunication` 0 or
+1, `appId` or `clanId`, the session's cookie and `sessionid`). Settings lists the muted ones to
+unmute, read from `account/emailoptout/app` (`g_appidToName`, `g_clanidToName`; the News Hub's
+"Manage muted sources"). The timeline still sends their posts, so News leaves them out itself
+(`vaporchat/steam/newsMutes.ts`); a muted post stays in the feed until it reloads.
+
 ## Account and app shell
 
-Settings: status picker, "Stay connected" (Android) and sign-out. Region and currency follow
-Steam's geolocation; VaporLens prices are always USD.
+Settings: status picker, "Stay connected" (Android), muted news, accounts and sign-out. Region
+and currency follow Steam's geolocation; VaporLens prices are always USD.
+
+**Several accounts:** Settings' "Add account" and each other account's "Switch". The open
+account's token stays where it was; the others are put aside in the keychain under their
+SteamID64 with their name, avatar and status (`mobile/tokenStore.ts`). Switching leaves voice,
+puts the open one aside and opens the other with its own status; cancelling the sign-in of a new
+one opens the last one again; signing out, or launching with none open, opens the next one put
+aside. Sign-out still clears every account's cache and friend mutes, and the open one's status.
 
 Signed out, the store's lists are cached as a guest's, cleared with the rest at sign-out. A load
 still running when the account changes isn't cached (`cacheWriter` in `mobile/cache.ts`), so the
@@ -191,3 +229,6 @@ install (`deviceLogonId`), the library one per process.
   untested for the persona-state gotcha.
 - Family shared games are built from SteamDatabase's protos, untested against a family: the test
   account is in none.
+- Wishlist categories are untested with categories: the test account has none.
+- The audio output picker and headset switching are untested on a phone: the emulator has only
+  its speaker.

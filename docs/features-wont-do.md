@@ -30,6 +30,7 @@ The user decided against these; the notes keep the API found, in case a decision
 | Friends: favorites and custom categories, profiles, reporting a user | `FriendsList.GetCategories/GetFavorites/SetFavorites`; `Player.GetPlayerLinkDetails`, `GetProfileItemsEquipped`, `GetProfileCustomization` (token, JSON); report is a web form (unverified) |
 | Push-to-talk, voice activity threshold | no point on a phone |
 | Writing or editing your own review | web form (unverified) |
+| Voting reviews helpful or funny, awarding and commenting on them | web forms; `LoyaltyRewards.AddReaction` for awards |
 | Store search filters and sorting, suggestions while typing | search is name-only and waits 3.5 s idle (`mobile/screens/Feed.tsx`); Steam has price, tags, features, platform, language and Deck filters |
 | Discovery Queue, personalised store home (Featured & Recommended, wishlist-on-sale, DLC for your games) | `Store.GetDiscoveryQueue`, `SkipDiscoveryQueueItem` (token); `IStoreMarketingService`, `GetDLCForApps` |
 | Charts, curators, store preferences (ignored games, excluded tags, mature content), recommenders | store charts and curator endpoints (unverified); `Store.GetStorePreferences`, `StorePreferences.GetIgnoreList`, `apply_user_filters` on `GetItems` |

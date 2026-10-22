@@ -9,14 +9,21 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { ChatMessage, ChatPart, ReactionKey } from 'vaporchat/protocol';
+import type { SteamFeeds } from 'vaporchat/client/feeds';
+import type {
+  ChatMessage,
+  ChatPart,
+  ReactionKey,
+  StoreItem,
+} from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { openLink } from '../links';
 import { colors } from '../theme';
+import { LinkPreview } from './LinkPreviews';
 
 type InlinePart = Extract<
   ChatPart,
-  { kind: 'text' | 'link' | 'emoticon' | 'spoiler' }
+  { kind: 'text' | 'link' | 'emoticon' | 'spoiler' | 'mention' }
 >;
 type Block =
   | { kind: 'inline'; parts: InlinePart[] }
@@ -33,7 +40,7 @@ const timeFormat = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
-/** Text, links, emoticons and spoilers flow together in one line of text, the rest stands alone. */
+/** Text, links, emoticons, spoilers and mentions flow together in one line of text, the rest stands alone. */
 function blocks(parts: ChatPart[]) {
   const result: Block[] = [];
   for (const part of parts) {
@@ -41,7 +48,10 @@ function blocks(parts: ChatPart[]) {
       part.kind === 'sticker' ||
       part.kind === 'image' ||
       part.kind === 'quote' ||
-      part.kind === 'code'
+      part.kind === 'code' ||
+      part.kind === 'storeLink' ||
+      part.kind === 'webPreview' ||
+      part.kind === 'youtube'
     ) {
       result.push(part);
       continue;
@@ -127,16 +137,22 @@ function Picture({
   );
 }
 
-/** A message's parts, a quote's inside it. */
+/** A message's parts, a quote's inside it. `me` is our SteamID64, mentions of us stand out. */
 function Blocks({
   parts,
+  me,
+  feeds,
   emoticonSize,
   onOpenImage,
+  onOpenGame,
   onLongPress,
 }: {
   parts: ChatPart[];
+  me: string;
+  feeds: SteamFeeds;
   emoticonSize: number;
   onOpenImage: (url: string) => void;
+  onOpenGame: (item: StoreItem) => void;
   onLongPress: () => void;
 }) {
   return blocks(parts).map((block, index) => {
@@ -153,6 +169,18 @@ function Blocks({
             ) : part.kind === 'link' ? (
               // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
               <Link key={i} text={part.text} url={part.url} />
+            ) : part.kind === 'mention' ? (
+              <Text
+                // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+                key={i}
+                style={[
+                  styles.mention,
+                  // everyone, or us
+                  (part.steamid ?? me) === me && styles.mentionMe,
+                ]}
+              >
+                {part.text}
+              </Text>
             ) : (
               <Image
                 // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
@@ -171,8 +199,11 @@ function Blocks({
         <View key={key} style={styles.quote}>
           <Blocks
             parts={block.parts}
+            me={me}
+            feeds={feeds}
             emoticonSize={EMOTICON_SIZE}
             onOpenImage={onOpenImage}
+            onOpenGame={onOpenGame}
             onLongPress={onLongPress}
           />
         </View>
@@ -183,6 +214,21 @@ function Blocks({
         <Text key={key} style={styles.code} selectable>
           {block.text}
         </Text>
+      );
+    }
+    if (
+      block.kind === 'storeLink' ||
+      block.kind === 'webPreview' ||
+      block.kind === 'youtube'
+    ) {
+      return (
+        <LinkPreview
+          key={key}
+          feeds={feeds}
+          part={block}
+          onOpenGame={onOpenGame}
+          onLongPress={onLongPress}
+        />
       );
     }
     if (block.kind === 'sticker') {
@@ -210,16 +256,23 @@ function Blocks({
 /** Memoized, the chat around it re-renders on every keystroke. Props are plain values for that. */
 export const MessageBubble = memo(function MessageBubble({
   message,
+  me,
+  feeds,
   mine,
   runStart,
   runEnd,
   senderName,
   senderAvatarUrl,
   onOpenImage,
+  onOpenGame,
   onPickReaction,
   onChangeReaction,
 }: {
   message: ChatMessage;
+  /** our SteamID64 */
+  me: string;
+  /** loads the games of store links */
+  feeds: SteamFeeds;
   mine: boolean;
   /** the first of the sender's messages in a row, set apart from the ones before */
   runStart: boolean;
@@ -229,6 +282,7 @@ export const MessageBubble = memo(function MessageBubble({
   senderName: string | null;
   senderAvatarUrl: string | null;
   onOpenImage: (url: string) => void;
+  onOpenGame: (item: StoreItem) => void;
   /** held down, to pick a reaction for it */
   onPickReaction: (message: ChatMessage) => void;
   /** a reaction under it tapped: ours put on (`added`) or taken off */
@@ -274,8 +328,11 @@ export const MessageBubble = memo(function MessageBubble({
       >
         <Blocks
           parts={parts}
+          me={me}
+          feeds={feeds}
           emoticonSize={emoticonSize}
           onOpenImage={onOpenImage}
+          onOpenGame={onOpenGame}
           onLongPress={() => onPickReaction(message)}
         />
         <Text style={[styles.time, mine && !bare && styles.timeMine]}>
@@ -331,6 +388,11 @@ const styles = StyleSheet.create({
   bare: { paddingHorizontal: 0 },
   text: { color: colors.bright, fontSize: 16 },
   link: { textDecorationLine: 'underline' },
+  mention: { fontWeight: '700' },
+  mentionMe: {
+    color: colors.mentionText,
+    backgroundColor: colors.mentionBackground,
+  },
   spoiler: { color: colors.bar, backgroundColor: colors.bar },
   spoilerCover: {
     ...StyleSheet.absoluteFill,

@@ -1,4 +1,9 @@
-import type { CommentThread, GameInterest, StoreBrowse } from '../protocol.ts';
+import type {
+  CommentThread,
+  GameInterest,
+  NewsSource,
+  StoreBrowse,
+} from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
 import { getComments } from '../steam/comments.ts';
 import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
@@ -9,6 +14,7 @@ import { steamLanguage } from '../steam/language.ts';
 import { getLibrary, getUserApps } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
+import { getMutedSources, setSourceMuted } from '../steam/newsMutes.ts';
 import { getPersonalCalendar } from '../steam/personalCalendar.ts';
 import { getGameReviews, getReviewHistogram } from '../steam/reviews.ts';
 import { getSalePage } from '../steam/salePage.ts';
@@ -23,7 +29,11 @@ import {
   getUpcoming,
   searchGames,
 } from '../steam/store.ts';
-import { getWishlist } from '../steam/wishlist.ts';
+import {
+  getWishlist,
+  getWishlistCategories,
+  wishlistUrl,
+} from '../steam/wishlist.ts';
 
 /** Who the feeds load the user's own lists for, see `SteamFeeds.anonymous` for no one. */
 interface FeedsUser {
@@ -95,10 +105,43 @@ export class SteamFeeds {
     return getTopSellers(await this.#country(), start);
   }
 
-  /** A page of the user's wishlist, biggest discounts first. */
-  async getWishlist(start: number | null = null) {
+  /** A page of the user's wishlist, biggest discounts first, only `categoryId`'s with one. */
+  async getWishlist(
+    start: number | null = null,
+    categoryId: string | null = null,
+  ) {
     const cm = await this.#requireUser().cm;
-    return getWishlist(cm.steamid, await this.#webSession(), cm.country, start);
+    return getWishlist(
+      cm.steamid,
+      await this.#webSession(),
+      cm.country,
+      start,
+      categoryId,
+    );
+  }
+
+  /** The categories the user sorts their wishlist into. */
+  async getWishlistCategories() {
+    return getWishlistCategories(await this.#webSession());
+  }
+
+  /** The games and groups whose news the user muted. */
+  async getMutedNewsSources() {
+    return getMutedSources(await this.#webSession());
+  }
+
+  /** Mutes a game's or group's news in the user's feed, or unmutes it. */
+  async setNewsSourceMuted(
+    source: Pick<NewsSource, 'kind' | 'id'>,
+    muted: boolean,
+  ) {
+    return setSourceMuted(await this.#webSession(), source, muted);
+  }
+
+  /** The store page of the user's wishlist to share, only `categoryId`'s with one. */
+  async getWishlistUrl(categoryId: string | null) {
+    const cm = await this.#requireUser().cm;
+    return wishlistUrl(cm.steamid, categoryId);
   }
 
   /** The games the user owns with their playtime, recently played first. */
