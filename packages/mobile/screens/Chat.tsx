@@ -33,7 +33,7 @@ import {
   chatKey,
   mergeMessages,
 } from 'vaporchat/steam/messages';
-import { readCache, writeCache } from '../cache';
+import { cacheWriter, readCache } from '../cache';
 import { messageText, pickImage } from '../chats';
 import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
@@ -173,9 +173,10 @@ export function Chat({
     };
   }, [voice, chat, me, onError]);
 
+  const [writeCache] = useState(cacheWriter);
   useEffect(() => {
     if (!loading) writeCache(cacheKey, messages.slice(-CACHED_MESSAGES));
-  }, [cacheKey, messages, loading]);
+  }, [writeCache, cacheKey, messages, loading]);
 
   useEffect(() => {
     if (chat.kind !== 'friend') return;

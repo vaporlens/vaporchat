@@ -1,7 +1,10 @@
-import { requireOptionalNativeModule } from 'expo';
+import { type NativeModule, requireOptionalNativeModule } from 'expo';
 import { AppRegistry, PermissionsAndroid } from 'react-native';
 
-interface CallServiceModule {
+declare class CallServiceModule extends NativeModule<{
+  /** the notification's Leave button was tapped */
+  onLeave: () => void;
+}> {
   /** `call`: voice is on, otherwise it only keeps the connection */
   start(call: boolean): void;
   stop(): void;
@@ -38,6 +41,12 @@ function update() {
 export function setCallActive(on: boolean) {
   callActive = on;
   update();
+}
+
+/** Calls `listener` when the voice notification's Leave button is tapped, returns an unsubscribe. */
+export function onLeaveTapped(listener: () => void) {
+  const subscription = CallService?.addListener('onLeave', listener);
+  return () => subscription?.remove();
 }
 
 /** Keeps the app connected to Steam in the background, for alerts. Android only. */

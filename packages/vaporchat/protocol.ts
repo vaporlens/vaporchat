@@ -332,6 +332,35 @@ export interface StoreItem {
   free: boolean;
 }
 
+/** A game's reviews in short, like the store shows them. */
+export interface ReviewSummary {
+  /** like `Very Positive` */
+  label: string;
+  percentPositive: number;
+  count: number;
+}
+
+/** A game on the user's wishlist. */
+export interface WishlistGame extends StoreItem {
+  addedAt: number;
+  /** null without enough reviews */
+  reviews: ReviewSummary | null;
+}
+
+/** A store tag, `Indie` say. */
+export interface StoreTag {
+  tagid: number;
+  name: string;
+}
+
+/** The store's hubs of one kind of game. */
+export type StoreHub = 'freeToPlay' | 'demos' | 'earlyAccess' | 'vr' | 'deck';
+
+/** Games the store lists by a hub or a tag. */
+export type StoreBrowse =
+  | { kind: 'hub'; hub: StoreHub }
+  | { kind: 'tag'; tag: StoreTag };
+
 /** A game the user owns, with how much they played it. */
 export interface LibraryGame extends StoreItem {
   /** all time, in minutes */
@@ -474,9 +503,9 @@ export interface GameDetails extends StoreItem {
   shortDescription: string;
   developers: string[];
   publishers: string[];
-  /** like `Very Positive`, null without enough reviews */
-  reviews: { label: string; percentPositive: number; count: number } | null;
-  tags: string[];
+  /** null without enough reviews */
+  reviews: ReviewSummary | null;
+  tags: StoreTag[];
   features: GameFeature[];
   screenshots: { url: string; thumbnailUrl: string }[];
   /** `url` is an HLS stream */

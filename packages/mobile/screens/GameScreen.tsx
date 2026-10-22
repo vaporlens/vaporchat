@@ -29,7 +29,8 @@ import {
   type VaporlensReport as Report,
   vaporlensUrl,
 } from '../vaporlens';
-import { BuyHeader } from './FeedCards';
+import { TagChip } from './BrowseScreen';
+import { BuyHeader, reviewColor } from './FeedCards';
 import { GameNews } from './GameNews';
 import { GameReviews } from './GameReviews';
 import {
@@ -66,12 +67,6 @@ const ACTIONS = [
   { interest: 'ignored', off: 'Ignore', on: 'Ignored' },
 ] as const;
 
-function reviewColor(percentPositive: number) {
-  if (percentPositive >= 70) return colors.positive;
-  if (percentPositive >= 40) return colors.mixed;
-  return colors.negative;
-}
-
 function Fact({ label, value }: { label: string; value: string }) {
   if (value === '') return null;
   return (
@@ -86,11 +81,14 @@ function Overview({
   appid,
   game,
   report,
+  onOpenPage,
 }: {
   appid: number;
   game: GameDetails;
   /** null when VaporLens hasn't analyzed the game (or isn't reachable) */
   report: Report | null;
+  /** a tag's games */
+  onOpenPage: (page: Page) => void;
 }) {
   // pages cached before these were loaded have none
   const editions = game.editions ?? [];
@@ -120,7 +118,14 @@ function Overview({
       {/* the game alone is the price above */}
       {editions.length > 1 && <Editions editions={editions} />}
       {game.tags.length > 0 && (
-        <Text style={styles.tags}>{game.tags.join(' · ')}</Text>
+        <View style={styles.tags}>
+          {/* pages cached before tags had ids have their names only */}
+          {game.tags
+            .filter((tag) => typeof tag === 'object')
+            .map((tag) => (
+              <TagChip key={tag.tagid} tag={tag} onOpenPage={onOpenPage} />
+            ))}
+        </View>
       )}
       {/* pages cached before features were loaded have none */}
       {(game.features ?? []).length > 0 && (
@@ -312,7 +317,12 @@ function Details({
         render={(name) => (
           <View style={styles.tab}>
             {name === 'overview' && (
-              <Overview appid={appid} game={game} report={report} />
+              <Overview
+                appid={appid}
+                game={game}
+                report={report}
+                onOpenPage={onOpenPage}
+              />
             )}
             {name === 'media' && (
               <Media media={media} onOpenImage={onOpenImage} />
@@ -465,7 +475,7 @@ const styles = StyleSheet.create({
   fact: { flexDirection: 'row', gap: 12 },
   factLabel: { width: 90, color: colors.muted, fontSize: 13 },
   factValue: { flex: 1, color: colors.text, fontSize: 13 },
-  tags: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   features: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   feature: {
     flexDirection: 'row',

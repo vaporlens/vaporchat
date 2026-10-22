@@ -4,8 +4,10 @@ import type { CacheStore } from 'vaporchat/steam/cacheStore';
 
 // the system may empty it when storage runs low, everything in it gets loaded again anyway
 const directory = new Directory(Paths.cache, 'steam');
+// signed out, the store anyone sees is cached as this account's
+const GUEST = 'guest';
 /** the signed-in account's SteamID64, the app's entries are its */
-let account: string | null = null;
+let account = GUEST;
 /** entries waiting for the app to be idle, by file name: only the last of each is written */
 const pending = new Map<string, () => string>();
 
@@ -36,19 +38,18 @@ function writeText(name: string, text: string) {
 /** The app's entries are this account's from now on. */
 export function openCache(steamid: string) {
   account = steamid;
-  directory.create({ idempotent: true, intermediates: true });
 }
 
-/** On signing out: forgets every account's chats and friends. */
+/** On signing out: forgets every account's chats and friends, the guest's entries from now on. */
 export function clearCache() {
-  account = null;
+  account = GUEST;
   pending.clear();
   if (directory.exists) directory.delete();
 }
 
 /** What was saved under `key` last time, null when nothing was (or it can't be read). */
 export function readCache<T>(key: string): T | null {
-  const text = account && readText(`${account}-${key}`);
+  const text = readText(`${account}-${key}`);
   try {
     return text ? (JSON.parse(text) as T) : null;
   } catch {
@@ -58,6 +59,7 @@ export function readCache<T>(key: string): T | null {
 
 /** Writes what waits while the app stays idle, the rest the next time it is. */
 function writePending(deadline: IdleDeadline) {
+  directory.create({ idempotent: true, intermediates: true });
   for (const [name, text] of pending) {
     pending.delete(name);
     writeText(name, text());
@@ -68,21 +70,34 @@ function writePending(deadline: IdleDeadline) {
 
 /** Writes `text` once the app is idle: making JSON of big lists and writing it blocks the JS thread. */
 function writeSoon(name: string, text: () => string) {
-  // signed out nothing is cached, loads finishing after signing out are dropped
-  if (!account) return;
   if (pending.size === 0) requestIdleCallback(writePending);
   pending.set(name, text);
 }
 
 /** Saves `value` (JSON) to show next time before it loads. */
-export function writeCache<T>(key: string, value: T) {
+function writeCache<T>(key: string, value: T) {
   writeSoon(`${account}-${key}`, () => JSON.stringify(value));
+}
+
+/**
+ * Saves values (JSON) to show next time before they load, as the account open now (when a load
+ * starts, a screen opens): once another one is (signed out meanwhile) it drops them, the guest
+ * doesn't get the account's lists or chats.
+ */
+export function cacheWriter() {
+  const owner = account;
+  return <T>(key: string, value: T) => {
+    if (account === owner) writeCache(key, value);
+  };
 }
 
 /** The library's cache (Steam's servers, friends list), its keys name the account themselves. */
 export const cacheStore: CacheStore = {
   load: async (key) => readText(key),
-  save: async (key, value) => writeSoon(key, () => value),
+  // the connection's saves after signing out are dropped
+  save: async (key, value) => {
+    if (account !== GUEST) writeSoon(key, () => value);
+  },
 };
 
 /**
@@ -101,16 +116,15 @@ export function useCached<T>(key: string, load: () => Promise<T>) {
   }
 
   // results for a key left meanwhile are only cached
-  const reload = useCallback(
-    () =>
-      load().then((data) => {
-        writeCache(key, data);
-        setEntry((shown) =>
-          shown.key === key ? { key, data, error: null } : shown,
-        );
-      }),
-    [key, load],
-  );
+  const reload = useCallback(() => {
+    const write = cacheWriter();
+    return load().then((data) => {
+      write(key, data);
+      setEntry((shown) =>
+        shown.key === key ? { key, data, error: null } : shown,
+      );
+    });
+  }, [key, load]);
 
   useEffect(() => {
     reload().catch((err: Error) =>

@@ -8,6 +8,7 @@ import type {
   LibraryGame,
   SteamEvent,
   StoreItem,
+  WishlistGame,
 } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
@@ -53,6 +54,14 @@ export function Price({
       </View>
     </View>
   );
+}
+
+/** The price as said aloud: what it costs, and off what with a discount. */
+function priceLabel(item: Parameters<typeof Price>[0]['item']) {
+  if (item.free) return 'Free';
+  if (!item.price) return null;
+  if (!item.originalPrice) return item.price;
+  return `${item.price}, ${item.discountPercent}% off ${item.originalPrice}`;
 }
 
 // how a game the user has is shown, steam's store marks them like this
@@ -114,6 +123,13 @@ function playedDetail(game: LibraryGame) {
   return game.minutesPlayed > 0 ? null : 'Never played';
 }
 
+/** Steam's colors for a review score: blue positive, tan mixed, red negative. */
+export function reviewColor(percentPositive: number) {
+  if (percentPositive >= 70) return colors.positive;
+  if (percentPositive >= 40) return colors.mixed;
+  return colors.negative;
+}
+
 /**
  * A game with its price. When it was or will be released, or when its discount ends, and
  * whether the user owns or wishlisted it. A game of the library has its playtime instead.
@@ -125,12 +141,14 @@ export const StoreItemCard = memo(function StoreItemCard({
   show,
   onPress,
 }: {
-  item: StoreItem | LibraryGame;
+  item: StoreItem | LibraryGame | WishlistGame;
   show: 'released' | 'discountEnds';
   onPress: (item: StoreItem) => void;
 }) {
   // lists cached before playtime was loaded have none
   const played = 'minutesPlayed' in item ? item : null;
+  // the same for when wishlist games were added
+  const wished = 'addedAt' in item ? item : null;
   const detail = played
     ? playedDetail(played)
     : show === 'released'
@@ -146,6 +164,20 @@ export const StoreItemCard = memo(function StoreItemCard({
     <View style={styles.cell}>
       <Pressable
         onPress={() => onPress(item)}
+        // the name first, the price over it shows first
+        accessibilityLabel={[
+          item.name,
+          played
+            ? played.minutesPlayed > 0 &&
+              `${playtime(played.minutesPlayed)} played`
+            : priceLabel(item),
+          mark ? mark.label : null,
+          wished?.reviews?.label,
+          wished && wished.addedAt > 0 && `Added ${pastDate(wished.addedAt)}`,
+          detail,
+        ]
+          .filter(Boolean)
+          .join(', ')}
         style={({ pressed }) => [
           styles.card,
           mark && { borderColor: mark.color },
@@ -191,6 +223,22 @@ export const StoreItemCard = memo(function StoreItemCard({
           >
             {item.name}
           </Text>
+          {wished?.reviews && (
+            <Text
+              style={[
+                styles.sub,
+                { color: reviewColor(wished.reviews.percentPositive) },
+              ]}
+              numberOfLines={1}
+            >
+              {wished.reviews.label}
+            </Text>
+          )}
+          {wished && wished.addedAt > 0 && (
+            <Text style={styles.sub} numberOfLines={1}>
+              Added {pastDate(wished.addedAt)}
+            </Text>
+          )}
           {detail ? (
             <Text style={styles.sub} numberOfLines={1}>
               {detail}
@@ -270,6 +318,9 @@ const DOING: Record<
   firstPlay: (_a, game) => `played ${game} for the first time`,
 };
 
+// the first few unlocked are named and described, the rest only shown
+const DESCRIBED_ACHIEVEMENTS = 3;
+
 /** One thing a friend did: who, what, when, and the game. */
 export function ActivityRow({
   activity,
@@ -301,17 +352,39 @@ export function ActivityRow({
         <Text style={styles.text}>
           <Text style={styles.actor}>{actor.name}</Text> {doing}
         </Text>
-        {activity.achievements.length > 0 && (
+        {activity.achievements
+          .slice(0, DESCRIBED_ACHIEVEMENTS)
+          .map((achievement) => (
+            <View key={achievement.name} style={styles.described}>
+              {/* some games have none */}
+              {achievement.iconUrl && (
+                <Image
+                  source={achievement.iconUrl}
+                  transition={imageFadeMs}
+                  style={styles.achievement}
+                />
+              )}
+              <View style={styles.grow}>
+                <Text style={styles.achievementName}>{achievement.name}</Text>
+                {achievement.description !== '' && (
+                  <Text style={styles.sub}>{achievement.description}</Text>
+                )}
+              </View>
+            </View>
+          ))}
+        {activity.achievements.length > DESCRIBED_ACHIEVEMENTS && (
           <View style={styles.achievements}>
-            {activity.achievements.map((achievement) => (
-              <Image
-                key={achievement.name}
-                source={achievement.iconUrl}
-                transition={imageFadeMs}
-                style={styles.achievement}
-                accessibilityLabel={achievement.name}
-              />
-            ))}
+            {activity.achievements
+              .slice(DESCRIBED_ACHIEVEMENTS)
+              .map((achievement) => (
+                <Image
+                  key={achievement.name}
+                  source={achievement.iconUrl}
+                  transition={imageFadeMs}
+                  style={styles.achievement}
+                  accessibilityLabel={achievement.name}
+                />
+              ))}
           </View>
         )}
         <Text style={styles.sub}>{timeAgo(activity.time)}</Text>
@@ -438,6 +511,8 @@ const styles = StyleSheet.create({
   actor: { color: colors.online, fontWeight: '700' },
   achievements: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   achievement: { width: 32, height: 32, borderRadius: 4 },
+  described: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  achievementName: { color: colors.bright, fontSize: 13, fontWeight: '600' },
   gameThumb: {
     width: 92,
     aspectRatio: 460 / 215,

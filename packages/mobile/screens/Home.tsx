@@ -426,6 +426,11 @@ export function Home({
                 ) : section.key === 'offline' && query.trim() === '' && live ? (
                   <Pressable
                     onPress={() => setShowOffline(!showOffline)}
+                    accessibilityLabel={
+                      showOffline
+                        ? 'Hide offline friends'
+                        : 'Show offline friends'
+                    }
                     hitSlop={10}
                     style={styles.sectionAction}
                   >

@@ -37,6 +37,11 @@ export function TabBar({
             onPress={() => onChange(item.tab)}
             accessibilityRole="tab"
             accessibilityState={{ selected: item.tab === tab }}
+            accessibilityLabel={
+              item.tab === 'chat' && chatUnread
+                ? `${item.title}, unread`
+                : item.title
+            }
             style={styles.tab}
           >
             <View>

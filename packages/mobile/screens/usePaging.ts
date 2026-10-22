@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FeedPage } from 'vaporchat/protocol';
-import { readCache, writeCache } from '../cache';
+import { cacheWriter, readCache } from '../cache';
 
 /** Loads a page of a list: the first for null, else the one at the `next` of the last. */
 export type Load<T, Next = number> = (
@@ -46,10 +46,11 @@ export function usePaging<T, Next = number>(
       setNext(null);
       return;
     }
+    const write = cacheWriter();
     const page = await load(null);
     if (current !== generation.current) return;
     const first = { items: unique([], page.items, keyOf), next: page.next };
-    if (cacheKey !== null) writeCache(cacheKey, first);
+    if (cacheKey !== null) write(cacheKey, first);
     setItems(first.items);
     setNext(first.next);
   }, [cacheKey, load, keyOf]);

@@ -7,6 +7,12 @@ function initial(name: string) {
   return Array.from(name.trim())[0]?.toUpperCase() ?? '?';
 }
 
+// it always shows next to the name, screen readers skip it
+const hidden = {
+  accessibilityElementsHidden: true,
+  importantForAccessibility: 'no-hide-descendants',
+} as const;
+
 /**
  * A rounded square picture like Steam's, in a frame of the person's status color.
  * Shows the initial when there is no picture or it doesn't load.
@@ -29,9 +35,14 @@ export function Avatar({
   const box = { width: size, height: size, borderRadius: radius };
   const picture =
     url && !failed ? (
-      <Image source={url} style={box} onError={() => setFailed(true)} />
+      <Image
+        source={url}
+        style={box}
+        onError={() => setFailed(true)}
+        {...hidden}
+      />
     ) : (
-      <View style={[box, styles.initial]}>
+      <View style={[box, styles.initial]} {...hidden}>
         <Text style={[styles.initialText, { fontSize: size * 0.42 }]}>
           {initial(name)}
         </Text>
@@ -40,6 +51,7 @@ export function Avatar({
   if (!frame) return picture;
   return (
     <View
+      {...hidden}
       style={[
         styles.frame,
         {

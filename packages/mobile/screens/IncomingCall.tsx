@@ -1,5 +1,13 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type {
   IncomingCall as Call,
   SteamVoice,
@@ -49,7 +57,7 @@ function Pulse() {
   );
 }
 
-/** A friend calling, over everything else like a phone call. The first of several rings first. */
+/** A friend calling, over everything else like a phone call. Others calling at once show below, a tap answers theirs instead. */
 export function IncomingCall({
   voice,
   calls,
@@ -59,9 +67,13 @@ export function IncomingCall({
   calls: Call[];
   onError: (err: Error) => void;
 }) {
+  const [picked, setPicked] = useState<string | null>(null);
   // the call answered or declined stays shown as the screen slides away
-  const call = useLastShown(calls[0]);
+  const call = useLastShown(
+    calls.find((c) => c.voiceChatId === picked) ?? calls[0],
+  );
   const caller = call ? voice.connection.user(call.steamid) : null;
+  const others = calls.filter((c) => c.voiceChatId !== call?.voiceChatId);
   return (
     <Modal
       visible={calls.length > 0}
@@ -86,6 +98,40 @@ export function IncomingCall({
             </Text>
             <Text style={styles.calling}>is calling you…</Text>
           </View>
+          {others.length > 0 && (
+            <View style={styles.others}>
+              <Text style={styles.kicker}>ALSO CALLING</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.otherList}
+              >
+                {others.map((other) => {
+                  const person = voice.connection.user(other.steamid);
+                  return (
+                    <Pressable
+                      key={other.voiceChatId}
+                      onPress={() => setPicked(other.voiceChatId)}
+                      accessibilityLabel={`${person.name} is calling, show their call`}
+                      style={({ pressed }) => [
+                        styles.other,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Avatar
+                        url={person.avatarUrl}
+                        name={person.name}
+                        size={28}
+                      />
+                      <Text style={styles.otherName} numberOfLines={1}>
+                        {person.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
           <View style={styles.actions}>
             <RoundButton
               icon="call"
@@ -149,6 +195,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   calling: { color: colors.muted, fontSize: 17 },
+  others: { alignItems: 'center', gap: 10, alignSelf: 'stretch' },
+  otherList: { gap: 8, flexGrow: 1, justifyContent: 'center' },
+  other: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: 200,
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: 12,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceRaised,
+  },
+  otherName: { color: colors.bright, fontSize: 15, flexShrink: 1 },
+  pressed: { opacity: 0.6 },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',

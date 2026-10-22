@@ -86,7 +86,10 @@ describe('toGameDetails', () => {
       developers: ['Dev'],
       publishers: ['Pub'],
       reviews: { label: 'Very Positive', percentPositive: 91, count: 120 },
-      tags: ['Indie', 'Puzzle'],
+      tags: [
+        { tagid: 2, name: 'Indie' },
+        { tagid: 1, name: 'Puzzle' },
+      ],
       features: [
         { name: 'Single-player', iconUrl: 'player.png' },
         { name: 'DualSense Controller Support', iconUrl: 'pad.png' },

@@ -1,4 +1,12 @@
-import type { FeedPage, ReleaseWindow, StoreItem } from '../protocol.ts';
+import type {
+  FeedPage,
+  ReleaseWindow,
+  ReviewSummary,
+  StoreBrowse,
+  StoreHub,
+  StoreItem,
+  StoreTag,
+} from '../protocol.ts';
 import {
   API_URL,
   ASSETS_URL,
@@ -32,6 +40,14 @@ export interface ApiStoreItem {
     /** how precise the date of a coming game is: `date_full`, `date_month`, `date_quarter`… */
     coming_soon_display?: string;
     is_coming_soon?: boolean;
+  };
+  /** with `include_reviews` */
+  reviews?: {
+    summary_filtered?: {
+      review_count?: number;
+      percent_positive?: number;
+      review_score_label?: string;
+    };
   };
   best_purchase_option?: {
     formatted_final_price?: string;
@@ -122,6 +138,19 @@ export function toStoreItem(item: ApiStoreItem): StoreItem {
   };
 }
 
+/** Its reviews in short, null without enough of them. */
+export function toReviewSummary(item: ApiStoreItem): ReviewSummary | null {
+  const reviews = item.reviews?.summary_filtered;
+  // an upcoming game's label is `No user reviews`
+  return reviews?.review_score_label && reviews.review_count
+    ? {
+        label: reviews.review_score_label,
+        percentPositive: reviews.percent_positive ?? 0,
+        count: reviews.review_count,
+      }
+    : null;
+}
+
 /** How the store APIs refer to an app, a bundle or a package. */
 export type StoreRef =
   | { appid: number }
@@ -129,14 +158,20 @@ export type StoreRef =
   | { packageid: number };
 
 /** Store items as GetItems describes them, in the order asked. Ones the store doesn't show are left out. */
-export async function fetchStoreItems(refs: StoreRef[], country: string) {
+export async function fetchStoreItems(
+  refs: StoreRef[],
+  country: string,
+  dataRequest: typeof DATA_REQUEST & {
+    include_reviews?: boolean;
+  } = DATA_REQUEST,
+) {
   const items = await inBatches(refs, BATCH_SIZE, async (ids) => {
     const { store_items = [] } = await callApi<{
       store_items?: ApiStoreItem[];
     }>('IStoreBrowseService/GetItems', {
       ids,
       context: context(country),
-      data_request: DATA_REQUEST,
+      data_request: dataRequest,
     });
     return store_items;
   });
@@ -239,4 +274,43 @@ export function searchGames(
   start: number | null,
 ) {
   return searchStore(`term=${encodeURIComponent(term)}`, country, start);
+}
+
+// the store search's filters for each hub, games only (`category1=998`) but for demos
+const HUB_FILTERS: Record<StoreHub, string> = {
+  freeToPlay: 'tags=113&category1=998',
+  demos: 'category1=10',
+  earlyAccess: 'tags=493&category1=998',
+  // 401 is VR only
+  vr: 'vrsupport=402&category1=998',
+  deck: 'deck_compatibility=3&category1=998',
+};
+
+function browseFilter(browse: StoreBrowse) {
+  return browse.kind === 'hub'
+    ? HUB_FILTERS[browse.hub]
+    : `tags=${browse.tag.tagid}&category1=998`;
+}
+
+/** The store's search page listing a hub's or tag's games. */
+export function browseUrl(browse: StoreBrowse) {
+  return `${STORE_URL}search/?${browseFilter(browse)}`;
+}
+
+/** A hub's or tag's games, most popular first, like the store's search for them. */
+export function browseGames(
+  browse: StoreBrowse,
+  country: string,
+  start: number | null,
+) {
+  return searchStore(browseFilter(browse), country, start);
+}
+
+/** The store's tags, the most used first. */
+export async function getPopularTags() {
+  const { tags = [] } = await callApi<{ tags?: StoreTag[] }>(
+    'IStoreService/GetMostPopularTags',
+    { language: 'english' },
+  );
+  return tags;
 }

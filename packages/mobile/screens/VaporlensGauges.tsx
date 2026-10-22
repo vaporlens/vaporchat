@@ -99,6 +99,7 @@ export function VaporlensGauges({
             key={title}
             size={size}
             label={label}
+            accessibilityLabel={`${title}, ${score} of 100, lower is better`}
             fill={(100 - score) / 100}
             color={scanColor(score)}
             onPress={() =>

@@ -11,6 +11,7 @@ import {
   callApi,
   context,
   DATA_REQUEST,
+  toReviewSummary,
   toStoreItem,
 } from './store.ts';
 import { ASSETS_URL, VIDEO_URL } from './web.ts';
@@ -110,13 +111,6 @@ interface ApiGameDetails extends ApiStoreItem {
     short_description?: string;
     developers?: { name?: string }[];
     publishers?: { name?: string }[];
-  };
-  reviews?: {
-    summary_filtered?: {
-      review_count?: number;
-      percent_positive?: number;
-      review_score_label?: string;
-    };
   };
   /** most voted first */
   tags?: { tagid: number }[];
@@ -239,7 +233,6 @@ export function toGameDetails(
   /** in the store's order */
   dlc: number[] = [],
 ): GameDetails {
-  const reviews = item.reviews?.summary_filtered;
   const categories = item.categories ?? {};
   // like the store page lists them: players, then controllers, then the rest
   const listed = [
@@ -258,17 +251,12 @@ export function toGameDetails(
     shortDescription: item.basic_info?.short_description ?? '',
     developers: names(item.basic_info?.developers),
     publishers: names(item.basic_info?.publishers),
-    // an upcoming game's label is `No user reviews`
-    reviews:
-      reviews?.review_score_label && reviews.review_count
-        ? {
-            label: reviews.review_score_label,
-            percentPositive: reviews.percent_positive ?? 0,
-            count: reviews.review_count,
-          }
-        : null,
+    reviews: toReviewSummary(item),
     tags: (item.tags ?? [])
-      .flatMap(({ tagid }) => tagNames.get(tagid) ?? [])
+      .flatMap(({ tagid }) => {
+        const name = tagNames.get(tagid);
+        return name ? [{ tagid, name }] : [];
+      })
       .slice(0, SHOWN_TAGS),
     // a few names are there twice, for different controllers
     features: [

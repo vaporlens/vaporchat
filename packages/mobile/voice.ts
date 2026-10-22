@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { Vibration } from 'react-native';
+import { Alert, Linking, Vibration } from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceSession } from 'vaporchat/client/voiceSession';
 import {
@@ -8,7 +8,7 @@ import {
   setRinging,
   setSpeakerOn,
 } from './modules/audio-route';
-import { setCallActive } from './modules/call-service';
+import { onLeaveTapped, setCallActive } from './modules/call-service';
 
 // buzz, pause, repeated while a call rings
 const RING_PATTERN = [0, 800, 1200];
@@ -47,6 +47,42 @@ export async function startVoice(
     stopTracks(microphone);
     throw err;
   }
+}
+
+/** Takes the microphone in voice that joined listen-only, pointing to Settings when it's not allowed. */
+export async function addMicrophone(session: VoiceSession) {
+  let microphone: MediaStream;
+  try {
+    microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    // react-native-webrtc's name for a permission denied
+    if ((err as Error).name === 'SecurityError') {
+      Alert.alert(
+        'Microphone access is off',
+        'Allow Vaporlens to use the microphone in Settings to talk.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ],
+      );
+    } else {
+      Alert.alert("Couldn't use the microphone", (err as Error).message);
+    }
+    return;
+  }
+  // tapped twice, the first one has it already
+  if (session.microphone) {
+    stopTracks(microphone);
+    return;
+  }
+  await session.setMicrophone(microphone);
+  // the session ended meanwhile and didn't take it
+  if (session.microphone !== microphone) {
+    stopTracks(microphone);
+    return;
+  }
+  // Android stops the microphone in the background unless the call's service says it uses it
+  setCallActive(true);
 }
 
 export function setDeafened(session: VoiceSession, deafened: boolean) {
@@ -130,9 +166,11 @@ export function useVoice(voice: SteamVoice) {
       ring();
       rerender();
     });
+    const offLeave = onLeaveTapped(() => void voice.session?.leave());
     return () => {
       offSession();
       offIncoming();
+      offLeave();
       Vibration.cancel();
       setRinging(false, false);
       setCallActive(false);

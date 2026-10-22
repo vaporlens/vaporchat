@@ -23,6 +23,7 @@ import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
 import { useWishlistChanges } from '../userApps';
+import { BrowseTab } from './BrowseScreen';
 import { Feed, type Search } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
 import type { Page } from './PageScreen';
@@ -93,6 +94,12 @@ const STORE_LISTS: List<StoreItem>[] = [
     signInMessage: 'Sign in with Steam to see your games.',
     filterPlaceholder: 'Search your games',
   },
+];
+
+// the lists, then hubs and tags each opening its games
+const STORE_TABS: (List<StoreItem> | { tab: string; title: string })[] = [
+  ...STORE_LISTS,
+  { tab: 'browse', title: 'Browse' },
 ];
 
 const RELEASE_LISTS: List<StoreItem>[] = [
@@ -206,16 +213,24 @@ function StoreItems({
 const Store = memo(function Store(props: Props) {
   return (
     <Lists
-      lists={STORE_LISTS}
+      lists={STORE_TABS}
       onSignIn={props.onSignIn}
-      render={(list, header) => (
-        <StoreItems
-          {...props}
-          list={list}
-          show="discountEnds"
-          header={header}
-        />
-      )}
+      render={(list, header) =>
+        'load' in list ? (
+          <StoreItems
+            {...props}
+            list={list}
+            show="discountEnds"
+            header={header}
+          />
+        ) : (
+          <BrowseTab
+            feeds={props.feeds}
+            header={header}
+            onOpenPage={props.onOpenPage}
+          />
+        )
+      }
     />
   );
 });

@@ -72,7 +72,13 @@ clears desktop badges too; reads elsewhere come back as `NotifyAckMessageEcho`.
 Group voice channels and 1:1 calls (place, accept, decline, simultaneous-call takeover); mute,
 deafen and a speaker toggle whose other side is a connected headset or the earpiece (speaker off
 by default with a headset); speaking indicators; reconnect with backoff; an Android foreground
-service and iOS background audio.
+service, its notification with a Leave button, and iOS background audio.
+
+- **Listen-only voice** (microphone permission denied or busy at joining) has "Use mic" in place
+  of Mute: it takes the microphone (`VoiceSession.setMicrophone`, which reconnects to send) or
+  points to Settings, and moves the Android service to the microphone type.
+- **Several calls at once:** the first rings full screen, the others as chips under it; tapping
+  one brings that call forward.
 
 **Incoming calls** ring with the phone's ringtone on Android and a bundled ring on iOS
 (`mobile/modules/audio-route`). During voice they beep the phone's call waiting tone instead,
@@ -118,22 +124,35 @@ Access notice, description, facts, editions, tags, features, links, VaporLens), 
   (`store/api/addtowishlist`, `explore/followgame/`, `recommended/ignorerecommendation/`), state
   from `Store.GetUserGameInterestState` over the CM. A change reloads the Wishlist tab.
 
-**Lists:** Store (discounted, top sellers, Wishlist, My games), Releases and name search.
+**Lists:** Store (discounted, top sellers, Wishlist, My games, Browse), Releases and name search.
 **My games** cards show total playtime in the picture's badge and recent playtime or last played
 under the name (`GetOwnedGames` `playtime_forever`, `playtime_2weeks`, `rtime_last_played`).
+**Wishlist** cards show the review score and the date added (`date_added` of
+`GetWishlistSortedFiltered`, `GetItems` `include_reviews`).
+
+**Browse:** hubs (Free to Play, Demos, Early Access, VR, Steam Deck Verified) and the store's tags,
+most used first (`IStoreService/GetMostPopularTags`), each opening its games, most popular first:
+a store search by filter (`tags`, `category1=10` demos, `vrsupport=402`, `deck_compatibility=3`,
+`category1=998` for games only; `vaporchat/steam/store.ts`). A game page's tags open the same
+lists.
 
 Sale pages show the event's summary and its games, bundle pages the bundle's games, article
-pages the article.
+pages the article and a link to its game's page.
 
 ## Feed
 
-News ("Your News" sources, featured when signed out), friends' Activity (10 kinds), live sale
-Events.
+News ("Your News" sources, featured when signed out), friends' Activity (10 kinds; the first
+three achievements unlocked named and described, the rest as icons), live sale Events.
 
 ## Account and app shell
 
 Settings: status picker, "Stay connected" (Android) and sign-out. Region and currency follow
 Steam's geolocation; VaporLens prices are always USD.
+
+Signed out, the store's lists are cached as a guest's, cleared with the rest at sign-out. A load
+still running when the account changes isn't cached (`cacheWriter` in `mobile/cache.ts`), so the
+guest never gets the account's lists. Screen readers get labels on cards (name first), rows,
+pills, gauges and the call dock; avatars are skipped, as a name is always next to them.
 
 **One logon id per install.** Each connection used to log on with a new random
 `obfuscated_private_ip`, so a reload or relaunch couldn't replace its earlier session; they piled

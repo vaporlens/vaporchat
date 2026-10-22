@@ -13,6 +13,7 @@ export function Gauge({
   value,
   fill,
   color = colors.accent,
+  accessibilityLabel,
   onPress,
 }: {
   size: number;
@@ -21,6 +22,8 @@ export function Gauge({
   /** 0 to 1 of the arc drawn in `color` */
   fill?: number;
   color?: string;
+  /** what screen readers say, `label` and `value` by default */
+  accessibilityLabel?: string;
   onPress?: () => void;
 }) {
   const center = size / 2;
@@ -42,6 +45,10 @@ export function Gauge({
     <Pressable
       onPress={onPress}
       disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={
+        accessibilityLabel ?? [label, value].filter(Boolean).join(', ')
+      }
       style={({ pressed }) => [
         styles.gauge,
         { width: size, height: size },

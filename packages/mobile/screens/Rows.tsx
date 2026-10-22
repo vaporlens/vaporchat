@@ -114,6 +114,14 @@ export const GroupRow = memo(function GroupRow({
   return (
     <Pressable
       onPress={() => onOpen(chat)}
+      accessibilityLabel={[
+        group.name,
+        hasVoice && `${inVoice.length} in voice`,
+        unread && 'unread',
+        connected && 'connected',
+      ]
+        .filter(Boolean)
+        .join(', ')}
       style={({ pressed }) => [
         styles.card,
         connected && styles.cardConnected,
@@ -157,6 +165,13 @@ export const FriendRow = memo(function FriendRow({
   return (
     <Pressable
       onPress={() => onOpen({ kind: 'friend', steamid: friend.steamid })}
+      accessibilityLabel={[
+        friend.name,
+        inCall ? 'In call' : friendStatus(friend),
+        unread > 0 && `${unread} unread`,
+      ]
+        .filter(Boolean)
+        .join(', ')}
       style={({ pressed }) => [
         styles.row,
         !friend.online && styles.offline,

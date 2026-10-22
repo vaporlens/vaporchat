@@ -18,6 +18,11 @@ The user decided against these; the notes keep the API found, in case a decision
 | Game page: supported languages, age rating, Steam awards, anti-cheat, AI-content disclosure, review-bomb notice, recent and per-language review scores, achievements count, Metacritic, friends who play, your playtime and achievements, curator reviews, demos, share, community hub links, more than 12 tags and tag voting, accessibility and controller detail | mostly `GetItems` / `include_extra_details` fields and `appreviews` parameters |
 | Add to cart | purchases stay in Steam ("Open in Steam") |
 | Wishlist sorting | `GetWishlistSortedFiltered` `sort_order`, fixed to discount |
+| Reviews tab: filters, funny votes and free / Early Access / Steam-purchase labels, the author's total playtime, developer responses | `appreviews` `review_type`, `filter`, `day_range`, `purchase_type`; the labels and `author.playtime_forever` are in the response (`vaporchat/steam/reviews.ts`); `developer_response` (unverified field name) |
+| Sale page: the event's full body | only `summary` is shown (`mobile/screens/SaleScreen.tsx`) |
+| Hide a notification | `HideNotification` |
+| Wallet balance | `GetWalletDetails` (unverified) |
+| Deep links (`s.team/chat`, store URLs into the app) | they'd clash with the official apps over Steam's links; iOS can't claim Steam's domains anyway |
 | Buttons on list cards (remove from wishlist and the like) | — |
 | My games: sort and filter, achievement progress and lists, remote install / launch / download status | `Player.GetAchievementsProgress` (POST); `ClientComm.*` (token, not in steam-user's protos) |
 | QR-code sign-in | `Authentication.BeginAuthSessionViaQR`, approved in Steam Mobile |

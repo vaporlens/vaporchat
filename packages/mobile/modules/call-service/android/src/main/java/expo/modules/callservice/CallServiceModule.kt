@@ -38,6 +38,16 @@ class CallServiceModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("CallService")
 
+    Events("onLeave")
+
+    OnCreate {
+      CallService.onLeave = { sendEvent("onLeave") }
+    }
+
+    OnDestroy {
+      CallService.onLeave = null
+    }
+
     Function("start") { call: Boolean ->
       val intent = Intent(context, CallService::class.java).putExtra(EXTRA_CALL, call)
       try {

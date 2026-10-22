@@ -1,4 +1,4 @@
-import type { GameInterest } from '../protocol.ts';
+import type { GameInterest, StoreBrowse } from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
 import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
@@ -12,7 +12,9 @@ import { getPersonalCalendar } from '../steam/personalCalendar.ts';
 import { getGameReviews } from '../steam/reviews.ts';
 import { getSalePage } from '../steam/salePage.ts';
 import {
+  browseGames,
   getNewReleases,
+  getPopularTags,
   getSpecials,
   getStoreCountry,
   getStoreItems,
@@ -117,6 +119,16 @@ export class SteamFeeds {
   /** A page of what the store finds for `term`, best matches first. */
   async searchGames(term: string, start: number | null = null) {
     return searchGames(term, await this.#country(), start);
+  }
+
+  /** A page of a hub's or tag's games, most popular first. */
+  async browseGames(browse: StoreBrowse, start: number | null = null) {
+    return browseGames(browse, await this.#country(), start);
+  }
+
+  /** The store's tags to browse by, the most used first. */
+  getPopularTags() {
+    return getPopularTags();
   }
 
   /** A page of popular games coming soon. */

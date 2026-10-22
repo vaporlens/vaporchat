@@ -42,6 +42,13 @@ export function RoomTabs({
             onPress={() => onOpen(chat)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
+            accessibilityLabel={[
+              room.name,
+              room.voiceAllowed && 'voice',
+              !selected && unreadRooms.has(chatKey(chat)) && 'unread',
+            ]
+              .filter(Boolean)
+              .join(', ')}
             style={({ pressed }) => [
               styles.pill,
               selected && styles.selected,

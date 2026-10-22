@@ -55,18 +55,9 @@ behaviour.
 
 | Feature | Notes | Effort |
 |---|---|---|
-| Showing more than one incoming call | only `calls[0]` is shown (`mobile/screens/IncomingCall.tsx`) | easy |
-| Notification actions (mute, hang up) | the Android call notification has none (`mobile/modules/call-service`) | easy |
-| Switching microphone mid-call | the library has `setMicrophone`, the app doesn't expose it | easy |
 | Per-user volume and local mute of a participant | Big Picture's voice tab has per-user sliders | moderate |
 | Bluetooth / headset route picker, switching when one connects mid-call | speaker off plays through the headset connected at that moment, else the earpiece; the default and the button's label are set when voice starts (`mobile/modules/audio-route`, `mobile/voice.ts`) | moderate |
 | Push-to-talk, voice activity threshold | desktop client | moderate |
-
-## Notifications
-
-| Feature | Steam has it in | API | Effort |
-|---|---|---|---|
-| Hide a notification | client, web | `HideNotification` | easy |
 
 ## Store pages and lists
 
@@ -74,10 +65,6 @@ behaviour.
 
 | Feature | API | Effort |
 |---|---|---|
-| Filters: positive/negative, recent, date range, purchase type, playtime | `appreviews` `review_type`, `filter`, `day_range`, `purchase_type` | easy |
-| Funny votes, "received for free", Early Access, Steam purchase labels | already in the response, not read (`vaporchat/steam/reviews.ts`) | easy |
-| Total playtime of the author (only playtime at review shown) | `author.playtime_forever` | easy |
-| Developer responses | `developer_response` in the response (unverified field name) | easy |
 | Histogram of positive/negative over time | `appreviewhistogram/{appid}` | moderate |
 | Vote helpful / funny, award, comment | web forms; `LoyaltyRewards.AddReaction` for awards | moderate |
 | Write or edit your own review | web form (unverified) | moderate |
@@ -86,8 +73,6 @@ behaviour.
 
 | Feature | Notes | Effort |
 |---|---|---|
-| Free to play, demos, Early Access, VR, Steam Deck hubs | `search/results` filters, tag hubs | easy |
-| Tag and genre browsing | `GetTagList` (already loaded) + search by tag | easy |
 | Store search filters and sorting | search is name-only; Steam has price, tags, features, platform, language and Deck filters | moderate |
 | Search suggestions while typing | the query waits 3.5 s idle (`mobile/screens/Feed.tsx`) | moderate |
 | Discovery Queue | `Store.GetDiscoveryQueue`, `SkipDiscoveryQueueItem` (token) | moderate |
@@ -101,7 +86,6 @@ behaviour.
 
 | Feature | API | Effort |
 |---|---|---|
-| Date added, review score on the cards | `date_added` in the response; reviews via `GetItems` | easy |
 | Wishlist categories (Jul 2026) | `GetWishlistCategories` etc. | moderate |
 | Reorder | `Wishlist` service writes (POST) | moderate |
 | Share link | web feature | moderate |
@@ -118,8 +102,6 @@ behaviour.
 
 | Feature | Notes | Effort |
 |---|---|---|
-| Sale page: the event's full body | only `summary` is shown (`mobile/screens/SaleScreen.tsx`) | easy |
-| Article: link to the game's page | `appid` is on the event but unused (`mobile/screens/ArticleScreen.tsx`) | easy |
 | Sale page: tabs, trailers, dynamic sections | dropped on purpose (`vaporchat/steam/salePage.ts`); not checked whether big sales build game lists in ways this drops | moderate |
 | Bundle page: bundle discount explanation, "complete the set" price for owned items | `GetItems` purchase options | moderate |
 | Article: rate-up count, comments | `Community.RateClanAnnouncement`, `GetCommentThread` (POST) | moderate |
@@ -128,7 +110,6 @@ behaviour.
 
 | Feature | API | Effort |
 |---|---|---|
-| Activity: achievement descriptions | fetched but not shown (`mobile/screens/FeedCards.tsx`) | easy |
 | Mute a game or source, follow news curators | News Hub settings (unverified endpoints) | moderate |
 | Event reminders, add to calendar | web feature | moderate |
 | Activity: comment, rate up, open the item in-app | `Community.GetCommentThread`, `PostCommentToThread` | moderate |
@@ -138,10 +119,7 @@ behaviour.
 
 | Feature | Steam has it in | Notes | Effort |
 |---|---|---|---|
-| Deep links (`s.team/chat`, store URLs into the app) | Steam apps | no `scheme`, no URL handler | easy |
-| Wallet balance | Steam Mobile, web | `GetWalletDetails` (unverified) | easy |
-| Accessibility labels on cards, avatars, gauges, badges; dynamic type | — | partial today | easy |
-| Caching for guests | — | the cache is per account, so guest lists reload every launch | easy |
+| Dynamic type | — | labels are done; layouts at large system font sizes are unchecked | easy |
 | Multiple accounts | Steam Mobile, desktop | the token store holds one | moderate |
 | Language setting / localized UI | all apps | UI is English; `client_language: 'english'` at logon (`vaporchat/steam/logOn.ts`) | moderate |
 | Points balance, Points Shop | web, Steam Mobile web view | `LoyaltyRewards.GetSummary`, `QueryRewardItems` | moderate |

@@ -1,8 +1,9 @@
 import { memo, useState } from 'react';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
-import type { SteamEvent, StoreItem } from 'vaporchat/protocol';
+import type { SteamEvent, StoreBrowse, StoreItem } from 'vaporchat/protocol';
 import { ImageViewer } from '../components/ImageViewer';
 import { ArticleScreen } from './ArticleScreen';
+import { BrowseScreen } from './BrowseScreen';
 import { BundleScreen } from './BundleScreen';
 import { GameScreen } from './GameScreen';
 import { SaleScreen } from './SaleScreen';
@@ -12,7 +13,8 @@ export type Page =
   | { kind: 'game'; item: StoreItem & { appid: number } }
   | { kind: 'bundle'; item: StoreItem }
   | { kind: 'article'; event: SteamEvent }
-  | { kind: 'sale'; event: SteamEvent };
+  | { kind: 'sale'; event: SteamEvent }
+  | { kind: 'browse'; browse: StoreBrowse };
 
 /** A pushed screen. Memoized, Home renders again on every friend's status change. */
 export const PageScreen = memo(function PageScreen({
@@ -50,10 +52,20 @@ export const PageScreen = memo(function PageScreen({
           onBack={onBack}
           onOpenGame={onOpenGame}
         />
+      ) : page.kind === 'browse' ? (
+        <BrowseScreen
+          feeds={feeds}
+          browse={page.browse}
+          onBack={onBack}
+          onOpenGame={onOpenGame}
+          onError={onError}
+        />
       ) : page.kind === 'article' ? (
         <ArticleScreen
+          feeds={feeds}
           event={page.event}
           onBack={onBack}
+          onOpenGame={onOpenGame}
           onOpenImage={setViewing}
         />
       ) : (

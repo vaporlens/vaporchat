@@ -12,7 +12,7 @@ import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
 import { type IconName, RoundButton } from '../components/RoundButton';
 import { colors, gradients } from '../theme';
-import { setDeafened, useSessionChanges } from '../voice';
+import { addMicrophone, setDeafened, useSessionChanges } from '../voice';
 
 const STATE_LABELS: Record<VoiceSessionState, string> = {
   connecting: 'Connecting…',
@@ -82,7 +82,17 @@ function Person({
   badge: IconName | null;
 }) {
   return (
-    <View style={styles.person}>
+    <View
+      style={styles.person}
+      accessible
+      accessibilityLabel={[
+        person.name,
+        speaking && 'speaking',
+        badge && BADGE_LABELS[badge],
+      ]
+        .filter(Boolean)
+        .join(', ')}
+    >
       <View>
         <Avatar
           url={person.avatarUrl}
@@ -103,6 +113,11 @@ function Person({
     </View>
   );
 }
+
+const BADGE_LABELS: Partial<Record<IconName, string>> = {
+  'volume-mute': 'deafened',
+  'mic-off': 'muted',
+};
 
 function badgeFor(muted: boolean, deafened: boolean, noMic: boolean) {
   if (deafened) return 'volume-mute';
@@ -181,12 +196,21 @@ export const CallDock = memo(function CallDock({
         ))}
       </ScrollView>
       <View style={styles.controls}>
-        <RoundButton
-          icon={session.micMuted ? 'mic-off' : 'mic'}
-          label={session.micMuted ? 'Unmute' : 'Mute'}
-          active={session.micMuted}
-          onPress={() => session.setMicMuted(!session.micMuted)}
-        />
+        {session.microphone ? (
+          <RoundButton
+            icon={session.micMuted ? 'mic-off' : 'mic'}
+            label={session.micMuted ? 'Unmute' : 'Mute'}
+            active={session.micMuted}
+            onPress={() => session.setMicMuted(!session.micMuted)}
+          />
+        ) : (
+          // joined listen-only, without the permission or with the microphone busy
+          <RoundButton
+            icon="mic-off"
+            label="Use mic"
+            onPress={() => void addMicrophone(session)}
+          />
+        )}
         <RoundButton
           icon="headset"
           label={session.outputMuted ? 'Undeafen' : 'Deafen'}
