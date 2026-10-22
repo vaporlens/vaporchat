@@ -21,7 +21,15 @@ export interface ApiEvent {
   rtime32_end_time?: number;
   /** JSON of its sale page, pictures and summary */
   jsondata?: string;
-  announcement_body?: { body?: string };
+  announcement_body?: {
+    body?: string;
+    voteupcount?: number;
+    commentcount?: number;
+  };
+  /** where its comments are: `ForumTopic` for all seen, with the two ids below */
+  comment_type?: string;
+  gidfeature?: string;
+  gidfeature2?: string;
 }
 
 interface EventJson {
@@ -69,6 +77,18 @@ export function toSteamEvent(event: ApiEvent, language: number): SteamEvent {
     url,
     startsAt: (event.rtime32_start_time ?? 0) * 1000,
     endsAt: event.rtime32_end_time ? event.rtime32_end_time * 1000 : null,
+    votesUp: event.announcement_body?.voteupcount ?? 0,
+    commentCount: event.announcement_body?.commentcount ?? 0,
+    commentThread:
+      event.comment_type === 'ForumTopic' &&
+      event.gidfeature &&
+      event.gidfeature2
+        ? {
+            clanSteamid: event.clan_steamid,
+            gidfeature: event.gidfeature,
+            gidfeature2: event.gidfeature2,
+          }
+        : null,
   };
 }
 

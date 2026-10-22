@@ -11,6 +11,7 @@ describe('libraryItems', () => {
         { appid: 3, name: 'Alpha' },
         { appid: 4, name: 'Recent', rtime_last_played: 200 },
       ],
+      [],
       new Map(),
     );
     expect(items.map((item) => item.name)).toEqual([
@@ -33,6 +34,7 @@ describe('libraryItems', () => {
         },
         { appid: 2, name: 'Never', rtime_last_played: 0 },
       ],
+      [],
       new Map(),
     );
     expect(played).toMatchObject({
@@ -47,6 +49,28 @@ describe('libraryItems', () => {
     });
   });
 
+  it("has the family's games last, by name, marked as shared and with no playtime", () => {
+    const items = libraryItems(
+      [{ appid: 1, name: 'Own', playtime_forever: 60 }],
+      [
+        { appid: 3, name: 'Zeta' },
+        { appid: 2, name: 'Alpha' },
+      ],
+      new Map(),
+    );
+    expect(
+      items.map(({ name, familyShared, minutesPlayed }) => ({
+        name,
+        familyShared,
+        minutesPlayed,
+      })),
+    ).toEqual([
+      { name: 'Own', familyShared: false, minutesPlayed: 60 },
+      { name: 'Alpha', familyShared: true, minutesPlayed: 0 },
+      { name: 'Zeta', familyShared: true, minutesPlayed: 0 },
+    ]);
+  });
+
   it("uses the store's picture, the old path for games the store doesn't show", () => {
     const shown = {
       imageUrl: 'https://cdn/apps/1/hash/header.jpg',
@@ -56,6 +80,7 @@ describe('libraryItems', () => {
         { appid: 1, name: 'New' },
         { appid: 2, name: 'Old' },
       ],
+      [],
       new Map([[1, shown]]),
     );
     expect(items.map((item) => item.imageUrl)).toEqual([

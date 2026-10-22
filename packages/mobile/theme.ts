@@ -30,6 +30,9 @@ export const colors = {
   positive: '#66c0f4',
   mixed: '#b9a074',
   negative: '#a34c25',
+  // the review chart's bars: steam's colors stepped to read as marks on a surface
+  chartPositive: '#3f9ad8',
+  chartNegative: '#c0592b',
 };
 
 export const gradients = {

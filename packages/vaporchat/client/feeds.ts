@@ -1,5 +1,6 @@
-import type { GameInterest, StoreBrowse } from '../protocol.ts';
+import type { CommentThread, GameInterest, StoreBrowse } from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
+import { getComments } from '../steam/comments.ts';
 import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
 import { getGameDetails, getSimilarGames } from '../steam/gameDetails.ts';
@@ -9,7 +10,7 @@ import { getLibrary, getUserApps } from '../steam/library.ts';
 import type { WebSession } from '../steam/logOn.ts';
 import { getYourNews } from '../steam/news.ts';
 import { getPersonalCalendar } from '../steam/personalCalendar.ts';
-import { getGameReviews } from '../steam/reviews.ts';
+import { getGameReviews, getReviewHistogram } from '../steam/reviews.ts';
 import { getSalePage } from '../steam/salePage.ts';
 import {
   browseGames,
@@ -181,6 +182,16 @@ export class SteamFeeds {
   /** A page of a game's reviews, most helpful first. */
   getGameReviews(appid: number, cursor: string | null = null) {
     return getGameReviews(appid, cursor);
+  }
+
+  /** A game's reviews over time: since its release, and the last 30 days. */
+  getReviewHistogram(appid: number) {
+    return getReviewHistogram(appid);
+  }
+
+  /** A page of a news post's comments, newest first. */
+  getComments(thread: CommentThread, start: number | null = null) {
+    return getComments(thread, start);
   }
 
   /** A page of a game's news, newest first. */

@@ -116,6 +116,8 @@ export function BuyHeader({ item }: { item: StoreItem }) {
 
 /** How much and when a game of the library was played. */
 function playedDetail(game: LibraryGame) {
+  // steam doesn't say how much the user played the family's games
+  if (game.familyShared) return 'Family shared';
   if (game.minutesPlayedRecently > 0)
     return `${playtime(game.minutesPlayedRecently)} past 2 weeks`;
   if (game.lastPlayedAt) return `Last played ${pastDate(game.lastPlayedAt)}`;

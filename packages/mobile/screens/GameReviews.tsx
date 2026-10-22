@@ -8,6 +8,7 @@ import { RichText } from '../components/RichText';
 import { fullDate } from '../format';
 import { colors } from '../theme';
 import { PagedList } from './PagedList';
+import { ReviewHistogram } from './ReviewHistogram';
 
 function keyOf(review: GameReview) {
   return review.id;
@@ -58,7 +59,7 @@ const Review = memo(function Review({
   );
 });
 
-/** A game's reviews, most helpful first, the next ones loading once scrolled to the end. */
+/** A game's reviews over time, then the reviews, most helpful first, the next ones loading once scrolled to the end. */
 export function GameReviews({
   feeds,
   appid,
@@ -76,16 +77,19 @@ export function GameReviews({
     [feeds, appid],
   );
   return (
-    <PagedList
-      load={load}
-      keyOf={keyOf}
-      cacheKey={`reviews-${appid}`}
-      empty="No reviews yet"
-      renderItem={(review) => (
-        <Review review={review} onOpenImage={onOpenImage} />
-      )}
-      onError={onError}
-    />
+    <>
+      <ReviewHistogram feeds={feeds} appid={appid} />
+      <PagedList
+        load={load}
+        keyOf={keyOf}
+        cacheKey={`reviews-${appid}`}
+        empty="No reviews yet"
+        renderItem={(review) => (
+          <Review review={review} onOpenImage={onOpenImage} />
+        )}
+        onError={onError}
+      />
+    </>
   );
 }
 

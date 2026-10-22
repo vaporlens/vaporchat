@@ -1,4 +1,9 @@
-import type { FeedPage, GameReview } from '../protocol.ts';
+import type {
+  FeedPage,
+  GameReview,
+  ReviewCounts,
+  ReviewHistogram,
+} from '../protocol.ts';
 import { avatarUrl } from './friends.ts';
 import { parseRichText } from './richText.ts';
 import { getJson, STORE_URL } from './web.ts';
@@ -53,5 +58,40 @@ export async function getGameReviews(
   return {
     items: reviews.map(toGameReview),
     next: reviews.length > 0 && next ? next : null,
+  };
+}
+
+interface ApiReviewCounts {
+  /** seconds since the epoch */
+  date: number;
+  recommendations_up: number;
+  recommendations_down: number;
+}
+
+function toCounts(counts: ApiReviewCounts[] = []): ReviewCounts[] {
+  return counts.map((c) => ({
+    at: c.date * 1000,
+    up: c.recommendations_up,
+    down: c.recommendations_down,
+  }));
+}
+
+/** A game's reviews in all languages over time, the store page's chart. */
+export async function getReviewHistogram(
+  appid: number,
+): Promise<ReviewHistogram> {
+  const { results } = await getJson<{
+    results?: {
+      rollup_type?: string;
+      rollups?: ApiReviewCounts[];
+      recent?: ApiReviewCounts[];
+    };
+  }>(
+    `${STORE_URL}appreviewhistogram/${appid}?l=english&review_score_preference=0`,
+  );
+  return {
+    overall: toCounts(results?.rollups),
+    overallPeriod: results?.rollup_type === 'week' ? 'week' : 'month',
+    recent: toCounts(results?.recent),
   };
 }

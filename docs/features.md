@@ -111,6 +111,11 @@ its latest message, gone once the chat is read here or elsewhere; tapping one op
 Access notice, description, facts, editions, tags, features, links, VaporLens), Media, About
 (Early Access answers, description, system requirements), DLC, Reviews, News, More like this.
 
+- **reviews over time** above the reviews: recommended up, not recommended down, a bar per month
+  since release (per week for young games) or per day for the last 30 days, grouped to fit; tap a
+  bar for its counts (`store.steampowered.com/appreviewhistogram/{appid}`, `rollups` and
+  `recent`). Colors `chartPositive` / `chartNegative` in `mobile/theme.ts`, checked for color
+  blindness against the card surface;
 - editions and bundles that include it, each priced: `GetItems` `include_all_purchase_options`;
 - links: `GetItems` `include_links`, website from `include_extra_details`;
 - Early Access banner and its "why / how long" text: `release.is_early_access`,
@@ -127,6 +132,9 @@ Access notice, description, facts, editions, tags, features, links, VaporLens), 
 **Lists:** Store (discounted, top sellers, Wishlist, My games, Browse), Releases and name search.
 **My games** cards show total playtime in the picture's badge and recent playtime or last played
 under the name (`GetOwnedGames` `playtime_forever`, `playtime_2weeks`, `rtime_last_played`).
+Games the user's Steam Family lends them follow, by name, marked "Family shared", without playtime
+(`IFamilyGroupsService/GetFamilyGroupForUser`, then `GetSharedLibraryApps` without the user's own
+or excluded games).
 **Wishlist** cards show the review score and the date added (`date_added` of
 `GetWishlistSortedFiltered`, `GetItems` `include_reviews`).
 
@@ -137,7 +145,11 @@ a store search by filter (`tags`, `category1=10` demos, `vrsupport=402`, `deck_c
 lists.
 
 Sale pages show the event's summary and its games, bundle pages the bundle's games, article
-pages the article and a link to its game's page.
+pages the article and a link to its game's page, then how many rated it up and its comments,
+newest first, read only (`ICommunityService/GetCommentThread`, POST only, anonymous, thread type
+7 for the event's `ForumTopic` `gidfeature`/`gidfeature2`; `vaporchat/steam/comments.ts`).
+Comments only carry a steamid, so names and avatars come from each author's
+`steamcommunity.com/miniprofile/{accountid}/json`.
 
 ## Feed
 
@@ -152,7 +164,9 @@ Steam's geolocation; VaporLens prices are always USD.
 Signed out, the store's lists are cached as a guest's, cleared with the rest at sign-out. A load
 still running when the account changes isn't cached (`cacheWriter` in `mobile/cache.ts`), so the
 guest never gets the account's lists. Screen readers get labels on cards (name first), rows,
-pills, gauges and the call dock; avatars are skipped, as a name is always next to them.
+pills, gauges and the call dock; avatars are skipped, as a name is always next to them. Text
+follows the system font size; checked up to Android's largest, where voice channels go one per
+row (`mobile/screens/VoiceChannels.tsx`).
 
 **One logon id per install.** Each connection used to log on with a new random
 `obfuscated_private_ip`, so a reload or relaunch couldn't replace its earlier session; they piled
@@ -171,3 +185,9 @@ install (`deviceLogonId`), the library one per process.
 - Friends' activity leaves out status changes and group announcements on purpose
   (`vaporchat/steam/friendsActivity.ts`).
 - The web client (`packages/web`) is a test harness: no presence, no unread.
+- Comment authors' mini profiles are one request each, and Steam refuses bursts of them (429,
+  then 500 for a while); those comments show "Steam user". `ajaxresolveusers` (batched) answers
+  429 to everyone, `GetPlayerSummaries` needs an API key, and `Player.GetPlayerLinkDetails` is
+  untested for the persona-state gotcha.
+- Family shared games are built from SteamDatabase's protos, untested against a family: the test
+  account is in none.

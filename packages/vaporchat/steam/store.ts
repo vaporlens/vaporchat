@@ -73,6 +73,21 @@ export function callApi<T>(
   ).then(({ response }) => response ?? ({} as T));
 }
 
+/** Like `callApi`, anonymously, for the methods Steam answers GET with 405 for. */
+export async function postApi<T>(method: string, request: object) {
+  const form = new FormData();
+  form.append('input_json', JSON.stringify(request));
+  const response = await fetch(`${API_URL}${method}/v1/`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!response.ok) {
+    throw new Error(`Steam answered HTTP ${response.status} for ${method}`);
+  }
+  const { response: result } = (await response.json()) as { response?: T };
+  return result ?? ({} as T);
+}
+
 // without a country the store APIs answer with nothing at all
 export function context(country: string) {
   return { language: 'english', country_code: country };

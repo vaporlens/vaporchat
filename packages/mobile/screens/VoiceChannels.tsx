@@ -1,11 +1,20 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceTarget } from 'vaporchat/client/voiceSession';
 import type { ChatGroup } from 'vaporchat/protocol';
 import { colors } from '../theme';
 import { startVoice } from '../voice';
 import { InVoice, VoicePill } from './Rows';
+
+// in larger text than this, two side by side leave their names no room
+const WIDE_FONT_SCALE = 1.3;
 
 /** A group's voice channels on top of its chat: who is in each, and joining one. */
 export function VoiceChannels({
@@ -20,6 +29,7 @@ export function VoiceChannels({
   target: VoiceTarget | undefined;
   onError: (err: Error) => void;
 }) {
+  const wide = useWindowDimensions().fontScale > WIDE_FONT_SCALE;
   const rooms = group.rooms.filter((room) => room.voiceAllowed);
   if (rooms.length === 0) return null;
   return (
@@ -33,7 +43,11 @@ export function VoiceChannels({
         return (
           <View
             key={room.chatId}
-            style={[styles.channel, connected && styles.channelConnected]}
+            style={[
+              styles.channel,
+              wide && styles.channelWide,
+              connected && styles.channelConnected,
+            ]}
           >
             <View style={styles.grow}>
               <View style={styles.title}>
@@ -93,6 +107,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  channelWide: { width: '100%' },
   channelConnected: { borderColor: colors.speaking },
   grow: { flex: 1, gap: 4 },
   title: { flexDirection: 'row', alignItems: 'center', gap: 6 },

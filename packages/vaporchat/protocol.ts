@@ -369,6 +369,8 @@ export interface LibraryGame extends StoreItem {
   minutesPlayedRecently: number;
   /** null when never played, or played before Steam kept the date */
   lastPlayedAt: number | null;
+  /** lent by the user's Steam Family, without playtime */
+  familyShared: boolean;
 }
 
 /** A month, quarter or year, by its last day like Steam has it. Milliseconds since the epoch. */
@@ -409,6 +411,27 @@ export interface SteamEvent {
   url: string;
   startsAt: number;
   endsAt: number | null;
+  /** how many rated it up */
+  votesUp: number;
+  commentCount: number;
+  /** null when it takes no comments */
+  commentThread: CommentThread | null;
+}
+
+/** Where a news post's comments are, see `getComments`. */
+export interface CommentThread {
+  clanSteamid: string;
+  gidfeature: string;
+  gidfeature2: string;
+}
+
+/** A comment under a news post. */
+export interface ArticleComment {
+  id: string;
+  author: string;
+  avatarUrl: string | null;
+  postedAt: number;
+  body: RichBlock[];
 }
 
 /** A part of a sale event's page: a text, a list of games, or both. */
@@ -554,6 +577,22 @@ export interface GameFeature {
   name: string;
   /** steam's white icon, 52x32 */
   iconUrl: string;
+}
+
+/** How many recommended a game and how many didn't, in a period starting `at` (milliseconds). */
+export interface ReviewCounts {
+  at: number;
+  up: number;
+  down: number;
+}
+
+/** A game's reviews over time, like the store page's chart. */
+export interface ReviewHistogram {
+  /** since the first review, a bar per month (per week for young games) */
+  overall: ReviewCounts[];
+  overallPeriod: 'month' | 'week';
+  /** a bar per day */
+  recent: ReviewCounts[];
 }
 
 /** A player's review of a game in the store. */

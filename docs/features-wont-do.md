@@ -23,6 +23,26 @@ The user decided against these; the notes keep the API found, in case a decision
 | Hide a notification | `HideNotification` |
 | Wallet balance | `GetWalletDetails` (unverified) |
 | Deep links (`s.team/chat`, store URLs into the app) | they'd clash with the official apps over Steam's links; iOS can't claim Steam's domains anyway |
+| Group management: create, invite friends, invite links, leave, rename, tagline, avatar | the aim is using chat, not managing it; `CreateChatRoomGroup`, `InviteFriendToChatRoomGroup`, `CreateInviteLink`, `LeaveChatRoomGroup`, `RenameChatRoomGroup` |
+| Moderation: delete messages, kick, ban | same aim; `ChatRoom.DeleteChatMessages` (rooms only, no 1:1 delete exists), kick/ban methods |
+| Chat filtering, suspicious-link warnings, reporting a message | account setting and client-side filtering, web report (unverified) |
+| Game invites, Remote Play Together invites | entry types and RPT signalling (unverified) |
+| Friends: favorites and custom categories, profiles, reporting a user | `FriendsList.GetCategories/GetFavorites/SetFavorites`; `Player.GetPlayerLinkDetails`, `GetProfileItemsEquipped`, `GetProfileCustomization` (token, JSON); report is a web form (unverified) |
+| Push-to-talk, voice activity threshold | no point on a phone |
+| Writing or editing your own review | web form (unverified) |
+| Store search filters and sorting, suggestions while typing | search is name-only and waits 3.5 s idle (`mobile/screens/Feed.tsx`); Steam has price, tags, features, platform, language and Deck filters |
+| Discovery Queue, personalised store home (Featured & Recommended, wishlist-on-sale, DLC for your games) | `Store.GetDiscoveryQueue`, `SkipDiscoveryQueueItem` (token); `IStoreMarketingService`, `GetDLCForApps` |
+| Charts, curators, store preferences (ignored games, excluded tags, mature content), recommenders | store charts and curator endpoints (unverified); `Store.GetStorePreferences`, `StorePreferences.GetIgnoreList`, `apply_user_filters` on `GetItems` |
+| Wishlist reordering | `Wishlist` service writes (POST) |
+| Library collections and game notes | the client's cloud storage (unverified) |
+| Sale page tabs, trailers, dynamic sections | dropped on purpose (`vaporchat/steam/salePage.ts`) |
+| Bundle discount explanation, "complete the set" price | `GetItems` purchase options |
+| Rating up an article | `Community.RateClanAnnouncement`; the count and comments show read-only, see `features.md` |
+| Feed: follow news curators, event reminders, activity comments, rate-up and opening the item in-app, upcoming-events calendar | News Hub settings (unverified); `Community.GetCommentThread`, `PostCommentToThread`; the sale events endpoint covers live ones only |
+| Localized UI | UI is English; `client_language: 'english'` at logon (`vaporchat/steam/logOn.ts`) |
+| Points, Steam Replay, Family (members, purchase requests, playtime limits) | `LoyaltyRewards.GetSummary`, `QueryRewardItems`; `SaleFeature.GetUserYearInReview`; `FamilyGroups.*` |
+| Authorized devices, privacy settings, profile editing | `Authentication.EnumerateTokens`, `RevokeRefreshToken` (unverified); web pages |
+| Community: guides, Workshop, screenshots, legacy groups, badges, awards, discussions, broadcasts | `PublishedFile.*`, `GetBadges` (key or token), `LoyaltyRewards.AddReaction`; discussions are HTML only (`Forums.GetTopicDetails` exists); broadcasts need Steam's player |
 | Buttons on list cards (remove from wishlist and the like) | — |
 | My games: sort and filter, achievement progress and lists, remote install / launch / download status | `Player.GetAchievementsProgress` (POST); `ClientComm.*` (token, not in steam-user's protos) |
 | QR-code sign-in | `Authentication.BeginAuthSessionViaQR`, approved in Steam Mobile |
