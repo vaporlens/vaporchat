@@ -22,6 +22,7 @@ import type {
   ChatTarget,
   Friend,
   MyStatus,
+  Unread,
 } from 'vaporchat/protocol';
 import { groupTitle } from 'vaporchat/steam/groups';
 import { chatKey } from 'vaporchat/steam/messages';
@@ -70,7 +71,7 @@ type Row = { key: string } & (
 );
 
 interface Section {
-  key: 'groups' | 'online' | 'offline';
+  key: 'unread' | 'groups' | `game-${string}` | 'online' | 'offline';
   title: string;
   count?: number;
   data: Row[];
@@ -89,6 +90,14 @@ function sessionTitle(
 }
 
 const byName = (a: Friend, b: Friend) => a.name.localeCompare(b.name);
+
+/** Whether any of a group's rooms has unread messages. */
+const groupUnread = (group: ChatGroup, unread: Unread) =>
+  group.rooms.some((room) =>
+    unread.rooms.has(
+      chatKey({ kind: 'room', groupId: group.groupId, chatId: room.chatId }),
+    ),
+  );
 
 /**
  * Who you are and the tabs: Steam's deals, new releases, news and friends' activity, and chat
@@ -194,9 +203,9 @@ export function Home({
   // searching shows matching offline friends without having to expand them, and so does
   // not knowing who is online
   const offlineOpen = showOffline || query.trim() !== '' || !live;
-  // only when these change, Home also renders for unread messages and calls
+  // only when these change, Home also renders for calls
   const sections = useMemo((): Section[] => {
-    const groupRows = groups.flatMap((group): Row[] => {
+    const allGroupRows = groups.flatMap((group): Row[] => {
       // a group opens its first text room, its rooms and voice channels are on top of that chat
       const room = group.rooms.find((r) => !r.voiceAllowed) ?? group.rooms[0];
       if (
@@ -214,6 +223,10 @@ export function Home({
       );
       return [{ kind: 'group', key: chatKey(chat), chat, group, inVoice }];
     });
+    const isUnread = (row: Row) =>
+      row.kind === 'group'
+        ? groupUnread(row.group, unread)
+        : unread.friends.has(row.friend.steamid);
     const matching = friends.filter((f) => matches(query, f.name));
     // by name within online and offline already, not knowing who is online makes it one list
     const shown = live
@@ -224,24 +237,73 @@ export function Home({
       key: chatKey({ kind: 'friend', steamid: friend.steamid }),
       friend,
     });
-    const online = shown.filter((f) => f.online).map(friendRow);
-    const offline = shown.filter((f) => !f.online).map(friendRow);
-    return [
+    // chats with unread messages on top of everything, out of their own sections
+    const unreadRows = [...allGroupRows, ...shown.map(friendRow)].filter(
+      isUnread,
+    );
+    const groupRows = allGroupRows.filter((row) => !isUnread(row));
+    const rest = shown.filter((f) => !unread.friends.has(f.steamid));
+    // friends in a game under it, like Steam groups them: games most friends play first
+    const playing = new Map<`game-${string}`, { title: string; rows: Row[] }>();
+    for (const f of rest) {
+      if (!f.online || !f.game) continue;
+      const key = `game-${f.game.appid ?? f.game.name}` as const;
+      const game = playing.get(key) ?? {
+        title: (f.game.name ?? 'In game').toUpperCase(),
+        rows: [],
+      };
+      game.rows.push(friendRow(f));
+      playing.set(key, game);
+    }
+    const games = [...playing]
+      .sort(
+        ([, a], [, b]) =>
+          b.rows.length - a.rows.length || a.title.localeCompare(b.title),
+      )
+      .map(
+        ([key, game]): Section => ({
+          key,
+          title: game.title,
+          count: game.rows.length,
+          data: game.rows,
+        }),
+      );
+    const online = rest.filter((f) => f.online && !f.game).map(friendRow);
+    const offline = rest.filter((f) => !f.online).map(friendRow);
+    const all: Section[] = [];
+    if (unreadRows.length > 0)
+      all.push({
+        key: 'unread',
+        title: 'UNREAD',
+        count: unreadRows.length,
+        data: unreadRows,
+      });
+    all.push(
       { key: 'groups', title: 'GROUP CHATS', data: groupRows },
-      {
+      ...games,
+    );
+    // with everyone online in a game or unread, "none online" would be wrong
+    if (online.length > 0 || !shown.some((f) => f.online))
+      all.push({
         key: 'online',
         title: 'ONLINE',
         count: live ? online.length : undefined,
         data: online,
-      },
-      {
-        key: 'offline',
-        title: 'OFFLINE',
-        count: offline.length,
-        data: offlineOpen ? offline : [],
-      },
-    ];
-  }, [groups, friends, query, live, offlineOpen, voice]);
+      });
+    all.push({
+      key: 'offline',
+      title: 'OFFLINE',
+      count: offline.length,
+      data: offlineOpen ? offline : [],
+    });
+    return all;
+  }, [groups, friends, query, live, offlineOpen, unread, voice]);
+
+  const unreadGroups = sections.some(
+    (section) =>
+      section.key === 'unread' &&
+      section.data.some((row) => row.kind === 'group'),
+  );
 
   const { push, openGame, back } = usePages(navigation);
 
@@ -451,7 +513,10 @@ export function Home({
             />
           )}
           renderSectionFooter={({ section }) =>
-            section.data.length === 0 && section.key !== 'offline' ? (
+            section.data.length === 0 &&
+            section.key !== 'offline' &&
+            // the groups are all in Unread, there are some
+            !(section.key === 'groups' && unreadGroups) ? (
               <Text style={styles.empty}>
                 {query.trim() !== ''
                   ? 'No matches'
@@ -476,15 +541,7 @@ export function Home({
                   target?.kind === 'group' &&
                   target.groupId === item.group.groupId
                 }
-                unread={item.group.rooms.some((room) =>
-                  unread.rooms.has(
-                    chatKey({
-                      kind: 'room',
-                      groupId: item.group.groupId,
-                      chatId: room.chatId,
-                    }),
-                  ),
-                )}
+                unread={groupUnread(item.group, unread)}
                 onOpen={openChat}
               />
             ) : (
