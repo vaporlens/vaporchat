@@ -8,7 +8,12 @@ import {
   View,
 } from 'react-native';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
-import type { GameDetails, Requirements, StoreItem } from 'vaporchat/protocol';
+import type {
+  GameDetails,
+  Requirements,
+  StoreItem,
+  StoreRef,
+} from 'vaporchat/protocol';
 import { useCached } from '../cache';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
@@ -47,21 +52,6 @@ export function EarlyAccessAnswers({
         <View key={question} style={styles.answer}>
           <Text style={styles.question}>{question}</Text>
           <RichText blocks={answer} onOpenImage={onOpenImage} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** Each way to buy the game, with its price. */
-export function Editions({ editions }: { editions: GameDetails['editions'] }) {
-  return (
-    <View style={styles.section}>
-      <SectionTitle title="Editions" />
-      {editions.map((edition) => (
-        <View key={edition.name} style={styles.edition}>
-          <Text style={styles.editionName}>{edition.name}</Text>
-          <Price item={edition} />
         </View>
       ))}
     </View>
@@ -142,7 +132,8 @@ export function SystemRequirementsList({
   );
 }
 
-function DlcRow({
+/** A DLC, edition or bundle: its picture, name and price. */
+function ItemRow({
   item,
   onPress,
 }: {
@@ -199,9 +190,46 @@ export function GameDlc({
       keyOf={(item) => item.url}
       cacheKey={`dlc-${appid}`}
       empty="No DLC"
-      renderItem={(item) => <DlcRow item={item} onPress={onOpenGame} />}
+      renderItem={(item) => <ItemRow item={item} onPress={onOpenGame} />}
       onError={onError}
     />
+  );
+}
+
+/** The game's other editions and the bundles with it, opening as a game or bundle. */
+export function Editions({
+  feeds,
+  appid,
+  editions,
+  onOpenGame,
+}: {
+  feeds: SteamFeeds;
+  appid: number;
+  editions: StoreRef[];
+  onOpenGame: (item: StoreItem) => void;
+}) {
+  // a string: the game's list is a new array each time it loads
+  const refs = JSON.stringify(editions);
+  const load = useCallback(
+    () => feeds.getStoreItemsByRef(JSON.parse(refs) as StoreRef[]),
+    [feeds, refs],
+  );
+  const { data: items, error } = useCached(`editions-${appid}`, load);
+  if (!items) {
+    return error ? (
+      <Text style={styles.muted}>{error}</Text>
+    ) : (
+      <ActivityIndicator color={colors.muted} style={styles.loading} />
+    );
+  }
+  return (
+    <View style={styles.section}>
+      <SectionTitle title="Editions" />
+      {items.map((item) => (
+        // an edition of the game alone has the game's page, not its own
+        <ItemRow key={item.name} item={item} onPress={onOpenGame} />
+      ))}
+    </View>
   );
 }
 
@@ -289,15 +317,6 @@ const styles = StyleSheet.create({
   noticeText: { color: colors.text, fontSize: 13, lineHeight: 18 },
   answer: { gap: 6 },
   question: { color: colors.bright, fontSize: 14, fontWeight: '700' },
-  edition: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
-  editionName: { flex: 1, color: colors.text, fontSize: 14 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: {
     paddingHorizontal: 14,

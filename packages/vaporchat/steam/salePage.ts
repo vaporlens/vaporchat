@@ -1,13 +1,13 @@
-import type { RichBlock, SaleSection, StoreItem } from '../protocol.ts';
+import type {
+  RichBlock,
+  SaleSection,
+  StoreItem,
+  StoreRef,
+} from '../protocol.ts';
 import { getEvents } from './events.ts';
 import { localized } from './language.ts';
 import { parseRichText } from './richText.ts';
-import {
-  type ApiStoreItem,
-  fetchStoreItems,
-  type StoreRef,
-  toStoreItem,
-} from './store.ts';
+import { type ApiStoreItem, fetchStoreItems, toStoreItem } from './store.ts';
 
 /** A section of a sale page as its event's JSON describes it, only what we use. */
 interface ApiSaleSection {

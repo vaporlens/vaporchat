@@ -5,6 +5,7 @@ import type {
   StoreBrowse,
   StoreHub,
   StoreItem,
+  StoreRef,
   StoreTag,
 } from '../protocol.ts';
 import {
@@ -34,7 +35,12 @@ export interface ApiStoreItem {
   name?: string;
   store_url_path?: string;
   is_free?: boolean;
-  assets?: { asset_url_format?: string; header?: string };
+  /** packages have only `package_header` */
+  assets?: {
+    asset_url_format?: string;
+    header?: string;
+    package_header?: string;
+  };
   release?: {
     steam_release_date?: number;
     /** how precise the date of a coming game is: `date_full`, `date_month`, `date_quarter`… */
@@ -50,6 +56,7 @@ export interface ApiStoreItem {
     };
   };
   best_purchase_option?: {
+    packageid?: number;
     formatted_final_price?: string;
     formatted_original_price?: string;
     discount_pct?: number;
@@ -119,6 +126,7 @@ const WINDOWS: Record<string, ReleaseWindow['precision'] | undefined> = {
 
 export function toStoreItem(item: ApiStoreItem): StoreItem {
   const { assets, best_purchase_option: offer } = item;
+  const header = assets?.header ?? assets?.package_header;
   const discounted = (offer?.discount_pct ?? 0) > 0;
   const endsAt = offer?.active_discounts?.[0]?.discount_end_date;
   const { steam_release_date: released, coming_soon_display: precision } =
@@ -130,10 +138,10 @@ export function toStoreItem(item: ApiStoreItem): StoreItem {
     name: item.name ?? '',
     url: STORE_URL + (item.store_url_path ?? ''),
     imageUrl:
-      assets?.asset_url_format && assets.header
+      assets?.asset_url_format && header
         ? ASSETS_URL +
           // biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
-          assets.asset_url_format.replace('${FILENAME}', assets.header)
+          assets.asset_url_format.replace('${FILENAME}', header)
         : null,
     price: item.is_free ? null : (offer?.formatted_final_price ?? null),
     originalPrice: discounted
@@ -165,12 +173,6 @@ export function toReviewSummary(item: ApiStoreItem): ReviewSummary | null {
       }
     : null;
 }
-
-/** How the store APIs refer to an app, a bundle or a package. */
-export type StoreRef =
-  | { appid: number }
-  | { bundleid: number }
-  | { packageid: number };
 
 /** Store items as GetItems describes them, in the order asked. Ones the store doesn't show are left out. */
 export async function fetchStoreItems(

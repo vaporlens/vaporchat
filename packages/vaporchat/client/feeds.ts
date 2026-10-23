@@ -3,6 +3,7 @@ import type {
   GameInterest,
   NewsSource,
   StoreBrowse,
+  StoreRef,
 } from '../protocol.ts';
 import type { SteamCM } from '../steam/cm.ts';
 import { getComments } from '../steam/comments.ts';
@@ -20,6 +21,7 @@ import { getGameReviews, getReviewHistogram } from '../steam/reviews.ts';
 import { getSalePage } from '../steam/salePage.ts';
 import {
   browseGames,
+  fetchStoreItems,
   getNewReleases,
   getPopularTags,
   getSpecials,
@@ -28,6 +30,7 @@ import {
   getTopSellers,
   getUpcoming,
   searchGames,
+  toStoreItem,
 } from '../steam/store.ts';
 import {
   getWishlist,
@@ -192,6 +195,13 @@ export class SteamFeeds {
   /** Games by appid, in the order asked, a bundle's `includedAppids` say. */
   async getStoreItems(appids: number[]) {
     return getStoreItems(appids, await this.#country());
+  }
+
+  /** Store items in the order asked, a game's `editions` say. */
+  async getStoreItemsByRef(refs: StoreRef[]) {
+    return (await fetchStoreItems(refs, await this.#country())).map(
+      toStoreItem,
+    );
   }
 
   /** A game's store page: descriptions, screenshots, reviews, tags, features, editions, requirements. */

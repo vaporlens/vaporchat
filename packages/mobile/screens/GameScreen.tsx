@@ -19,6 +19,7 @@ import { DetailPage } from '../components/DetailPage';
 import { KeepOpened } from '../components/KeepOpened';
 import { type MediaItem, MediaTile, mediaCount } from '../components/MediaTile';
 import { RichText } from '../components/RichText';
+import { SectionTitle } from '../components/SectionTitle';
 import { SubTabs } from '../components/SubTabs';
 import { releaseDate } from '../format';
 import { openLink } from '../links';
@@ -93,7 +94,6 @@ function Overview({
 }) {
   const fit = useGameFit(appid);
   // pages cached before these were loaded have none
-  const editions = game.editions ?? [];
   const links = game.links ?? [];
   return (
     <>
@@ -117,8 +117,6 @@ function Overview({
             .join(' · ')}
         />
       </View>
-      {/* the game alone is the price above */}
-      {editions.length > 1 && <Editions editions={editions} />}
       {game.tags.length > 0 && (
         <View style={styles.tags}>
           {/* pages cached before tags had ids have their names only */}
@@ -279,6 +277,7 @@ function Details({
   // pages cached before these were loaded have none
   const requirements = game.requirements ?? [];
   const dlc = game.dlc ?? [];
+  const editions = game.editions ?? [];
   const tabs = (
     [
       { tab: 'overview', title: 'Overview', shown: true },
@@ -291,7 +290,11 @@ function Details({
           !!game.earlyAccess?.length ||
           requirements.length > 0,
       },
-      { tab: 'dlc', title: 'DLC', shown: dlc.length > 0 },
+      {
+        tab: 'dlc',
+        title: 'DLC & editions',
+        shown: dlc.length > 0 || editions.length > 0,
+      },
       { tab: 'reviews', title: 'Reviews', shown: true },
       { tab: 'news', title: 'News', shown: true },
       { tab: 'similar', title: 'More like this', shown: true },
@@ -349,13 +352,28 @@ function Details({
               </>
             )}
             {name === 'dlc' && (
-              <GameDlc
-                feeds={feeds}
-                appid={appid}
-                dlc={dlc}
-                onOpenGame={onOpenGame}
-                onError={onError}
-              />
+              <>
+                {editions.length > 0 && (
+                  <Editions
+                    feeds={feeds}
+                    appid={appid}
+                    editions={editions}
+                    onOpenGame={onOpenGame}
+                  />
+                )}
+                {dlc.length > 0 && (
+                  <View style={styles.section}>
+                    <SectionTitle title="DLC" />
+                    <GameDlc
+                      feeds={feeds}
+                      appid={appid}
+                      dlc={dlc}
+                      onOpenGame={onOpenGame}
+                      onError={onError}
+                    />
+                  </View>
+                )}
+              </>
             )}
             {name === 'reviews' && (
               <GameReviews
@@ -388,7 +406,7 @@ function Details({
   );
 }
 
-/** A game's store page: price and reviews over tabs of its facts, media, description, DLC, reviews, news and games like it. */
+/** A game's store page: price and reviews over tabs of its facts, media, description, DLC and editions, reviews, news and games like it. */
 export function GameScreen({
   feeds,
   item,
@@ -403,7 +421,7 @@ export function GameScreen({
   item: StoreItem & { appid: number };
   onBack: () => void;
   onOpenImage: (url: string) => void;
-  /** a DLC or a game like it */
+  /** a DLC, an edition or a game like it */
   onOpenGame: (item: StoreItem) => void;
   /** a news post */
   onOpenPage: (page: Page) => void;
@@ -462,6 +480,7 @@ const styles = StyleSheet.create({
   bleed: { marginHorizontal: -16 },
   // spaced like the page's own content
   tab: { gap: 14 },
+  section: { gap: 8 },
   muted: { color: colors.muted, fontSize: 13 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   action: {

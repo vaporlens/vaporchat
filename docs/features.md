@@ -128,8 +128,9 @@ its latest message, gone once the chat is read here or elsewhere; tapping one op
 ## Store pages and lists
 
 **Game page:** price/discount/ownership header, "Open in Steam", review summary, Overview (Early
-Access notice, description, facts, editions, tags, features, links, VaporLens), Media, About
-(Early Access answers, description, system requirements), DLC, Reviews, News, More like this.
+Access notice, description, facts, tags, features, links, VaporLens), Media, About
+(Early Access answers, description, system requirements), DLC & editions, Reviews, News, More like
+this.
 
 - **reviews over time** above the reviews: recommended up, not recommended down, a bar per month
   since release (per week for young games) or per day for the last 30 days, grouped to fit; tap a
@@ -142,7 +143,9 @@ Access notice, description, facts, editions, tags, features, links, VaporLens), 
   analysis", which adds the game to its queue or votes for it (`/api/mobile/fit`, `/api/mobile/queue`);
 - **More like this:** the games VaporLens reads alike (the report's `similar`, turned into store
   items with `GetItems`) above Steam's suggestions, which leave those out;
-- editions and bundles that include it, each priced: `GetItems` `include_all_purchase_options`;
+- editions and bundles that include it, above the DLC, each priced and opening as a bundle:
+  `GetItems` `include_all_purchase_options` gives their package and bundle ids, `GetItems` on
+  those the items (packages' picture is `package_header`);
 - links: `GetItems` `include_links`, website from `include_extra_details`;
 - Early Access banner and its "why / how long" text: `release.is_early_access`,
   `include_extra_details` → `early_access`;

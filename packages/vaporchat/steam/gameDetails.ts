@@ -1,8 +1,8 @@
 import type {
   GameDetails,
-  GameEdition,
   GameFeature,
   Requirements,
+  StoreRef,
   SystemRequirements,
 } from '../protocol.ts';
 import { parseRichText } from './richText.ts';
@@ -87,12 +87,7 @@ interface ApiRequirements {
 /** What GetItems says about a game's page, besides the store item itself. */
 interface ApiGameDetails extends ApiStoreItem {
   release?: ApiStoreItem['release'] & { is_early_access?: boolean };
-  purchase_options?: {
-    purchase_option_name?: string;
-    formatted_final_price?: string;
-    formatted_original_price?: string;
-    discount_pct?: number;
-  }[];
+  purchase_options?: { packageid?: number; bundleid?: number }[];
   links?: { url?: string }[];
   extra_details?: {
     early_access?: Partial<
@@ -207,18 +202,12 @@ function toRequirements(
   return rows.length > 0 || text.length > 0 ? { rows, text } : null;
 }
 
-function toEdition(
-  option: NonNullable<ApiGameDetails['purchase_options']>[number],
-): GameEdition {
-  const discounted = (option.discount_pct ?? 0) > 0;
-  return {
-    name: option.purchase_option_name ?? '',
-    price: option.formatted_final_price ?? null,
-    originalPrice: discounted
-      ? (option.formatted_original_price ?? null)
-      : null,
-    discountPercent: option.discount_pct ?? 0,
-  };
+function toEdition({
+  packageid,
+  bundleid,
+}: NonNullable<ApiGameDetails['purchase_options']>[number]): StoreRef[] {
+  if (bundleid) return [{ bundleid }];
+  return packageid ? [{ packageid }] : [];
 }
 
 /** A link's site, like `discord.gg`. */
@@ -305,7 +294,12 @@ export function toGameDetails(
       item.full_description_bbcode ?? '',
       item.appid ?? null,
     ),
-    editions: (item.purchase_options ?? []).map(toEdition),
+    // the game alone is its best option, its price is the item's
+    editions: (item.purchase_options ?? [])
+      .filter(
+        ({ packageid }) => packageid !== item.best_purchase_option?.packageid,
+      )
+      .flatMap(toEdition),
     dlc,
     earlyAccess: item.release?.is_early_access
       ? EARLY_ACCESS_QUESTIONS.flatMap(([field, question]) => {

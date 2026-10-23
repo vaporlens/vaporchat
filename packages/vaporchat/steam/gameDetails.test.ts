@@ -165,18 +165,14 @@ describe('toGameDetails', () => {
       {
         success: 1,
         appid: 10,
+        best_purchase_option: { packageid: 1 },
         purchase_options: [
-          {
-            purchase_option_name: 'Game',
-            formatted_final_price: '9,99€',
-            formatted_original_price: '19,99€',
-            discount_pct: 50,
-          },
-          {
-            purchase_option_name: 'Game Deluxe',
-            formatted_final_price: '29,99€',
-            formatted_original_price: '29,99€',
-          },
+          // the game alone
+          { packageid: 1 },
+          { packageid: 2 },
+          { bundleid: 3 },
+          // neither, nothing to open
+          {},
         ],
         links: [
           { url: 'https://discord.gg/game' },
@@ -208,20 +204,7 @@ describe('toGameDetails', () => {
       new Map(),
       new Map(),
     );
-    expect(game.editions).toEqual([
-      {
-        name: 'Game',
-        price: '9,99€',
-        originalPrice: '19,99€',
-        discountPercent: 50,
-      },
-      {
-        name: 'Game Deluxe',
-        price: '29,99€',
-        originalPrice: null,
-        discountPercent: 0,
-      },
-    ]);
+    expect(game.editions).toEqual([{ packageid: 2 }, { bundleid: 3 }]);
     expect(game.links).toEqual([
       { label: 'Website', url: 'https://game.example.com' },
       { label: 'discord.gg', url: 'https://discord.gg/game' },

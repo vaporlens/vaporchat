@@ -67,6 +67,22 @@ describe('toStoreItem', () => {
     ).toMatchObject({ appid: null, includedAppids: [10, 20] });
   });
 
+  it("has a package's header picture", () => {
+    expect(
+      toStoreItem({
+        item_type: 1,
+        id: 5,
+        assets: {
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
+          asset_url_format: 'steam/subs/5/${FILENAME}?t=1',
+          package_header: 'abc/header.jpg',
+        },
+      }).imageUrl,
+    ).toBe(
+      'https://shared.fastly.steamstatic.com/store_item_assets/steam/subs/5/abc/header.jpg?t=1',
+    );
+  });
+
   it('has no original price or discount end without a discount', () => {
     const item = toStoreItem({
       appid: 10,

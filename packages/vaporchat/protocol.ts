@@ -325,6 +325,12 @@ export interface SteamNotice {
   url: string | null;
 }
 
+/** How the store APIs refer to an app, a bundle or a package. */
+export type StoreRef =
+  | { appid: number }
+  | { bundleid: number }
+  | { packageid: number };
+
 /** A game or bundle in the Steam store. Times are milliseconds since the epoch. */
 export interface StoreItem {
   /** null for bundles and packages */
@@ -572,8 +578,8 @@ export interface GameDetails extends StoreItem {
   platforms: string[];
   steamDeck: 'verified' | 'playable' | 'unsupported' | null;
   description: RichBlock[];
-  /** each way to buy it, like the store page lists them: the game alone, editions, bundles */
-  editions: GameEdition[];
+  /** each other way to buy it, like the store page lists them: editions, bundles */
+  editions: StoreRef[];
   /** its DLC's appids, in the store's order */
   dlc: number[];
   /** what its developers say about Early Access, null when it isn't in Early Access */
@@ -582,15 +588,6 @@ export interface GameDetails extends StoreItem {
   links: { label: string; url: string }[];
   /** per platform it runs on */
   requirements: SystemRequirements[];
-}
-
-/** A way to buy a game, its price after any discount. */
-export interface GameEdition {
-  name: string;
-  price: string | null;
-  /** only when discounted */
-  originalPrice: string | null;
-  discountPercent: number;
 }
 
 /** What a game needs on one platform. */
