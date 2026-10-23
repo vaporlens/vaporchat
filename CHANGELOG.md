@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8 (2026-10-23)
+
+- Sign in to VaporLens with your Steam account: see how well a game fits your taste, request
+  analysis of games it hasn't covered, and import your library and wishlist from Settings.
+- Show games VaporLens finds similar first in "More like this".
+- Open a game's editions and bundles as their own pages, from the new DLC & editions tab.
+- Share a game's store link. Games you own show "In library" in place of the wishlist button.
+- Hide games you own or have wishlisted from the store's lists, in Settings.
+- Search within a hub or tag, and find tags by name in Browse.
+- Show chats with unread messages in an Unread section on top, and group friends by the game
+  they're playing.
+- Mute a game's news next to its link in a post. Settings no longer lists muted news.
+
 ## 0.7 (2026-10-22)
 
 - Mention people in group chats, see link previews, and share games with `/store`.
