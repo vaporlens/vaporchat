@@ -99,12 +99,17 @@ function MuteSource({
       .catch(onError)
       .finally(() => setChanging(false));
   };
-  const name = event.appid !== null ? "this game's" : "this group's";
+  const kind = event.appid !== null ? 'game' : 'group';
   return (
     <Pressable
       disabled={changing}
       onPress={change}
       accessibilityRole="button"
+      accessibilityLabel={
+        muted
+          ? `Unmute this ${kind}'s news`
+          : `Mute this ${kind}'s news in your feed`
+      }
       style={({ pressed }) => [
         styles.mute,
         (pressed || changing) && styles.pressed,
@@ -116,7 +121,7 @@ function MuteSource({
         color={colors.text}
       />
       <Text style={styles.muteText} numberOfLines={1}>
-        {muted ? `Unmute ${name} news` : `Mute ${name} news in your feed`}
+        {muted ? `Unmute ${kind}` : `Mute ${kind}`}
       </Text>
     </Pressable>
   );
@@ -227,11 +232,13 @@ export function ArticleScreen({
       imageRatio={16 / 9}
     >
       <Text style={styles.title}>{event.title}</Text>
-      {event.appid !== null && (
-        <GameLink feeds={feeds} appid={event.appid} onOpenGame={onOpenGame} />
-      )}
+      <View style={styles.links}>
+        {event.appid !== null && (
+          <GameLink feeds={feeds} appid={event.appid} onOpenGame={onOpenGame} />
+        )}
+        <MuteSource feeds={feeds} event={event} onError={onError} />
+      </View>
       <RichText blocks={event.body} onOpenImage={onOpenImage} />
-      <MuteSource feeds={feeds} event={event} onError={onError} />
       {/* posts cached before comments were loaded have no thread */}
       {event.commentThread && (
         <Comments
@@ -248,7 +255,10 @@ export function ArticleScreen({
 
 const styles = StyleSheet.create({
   title: { color: colors.bright, fontSize: 22, fontWeight: '800' },
+  // the game's link and muting it, side by side
+  links: { flexDirection: 'row', gap: 8 },
   game: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -261,15 +271,17 @@ const styles = StyleSheet.create({
   gameName: { flex: 1, color: colors.bright, fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.7 },
   muted: { color: colors.muted, fontSize: 13 },
+  // as tall as the game's link beside it
   mute: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   muteText: { flexShrink: 1, color: colors.text, fontSize: 13 },
   counts: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -168,9 +168,13 @@ export class SteamFeeds {
     return searchGames(term, await this.#country(), start);
   }
 
-  /** A page of a hub's or tag's games, most popular first. */
-  async browseGames(browse: StoreBrowse, start: number | null = null) {
-    return browseGames(browse, await this.#country(), start);
+  /** A page of a hub's or tag's games, most popular first, or those found for `term`. */
+  async browseGames(
+    browse: StoreBrowse,
+    start: number | null = null,
+    term = '',
+  ) {
+    return browseGames(browse, await this.#country(), start, term);
   }
 
   /** The store's tags to browse by, the most used first. */

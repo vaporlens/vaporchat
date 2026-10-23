@@ -11,6 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -33,12 +34,13 @@ export function useScrolledPast(offset: number) {
   return { past, onScroll };
 }
 
-/** The bar over a pushed screen: back, its picture and title, and opening it on Steam. */
+/** The bar over a pushed screen: back, its picture and title, sharing it and opening it on Steam. */
 export function DetailHeader({
   title,
   subtitle,
   avatar,
   steamUrl,
+  shareable = false,
   action,
   titleShown = true,
   onBack,
@@ -47,6 +49,8 @@ export function DetailHeader({
   subtitle?: string;
   avatar?: ReactNode;
   steamUrl?: string;
+  /** a button sharing `steamUrl` */
+  shareable?: boolean;
   /** a button of the screen's own, at the end */
   action?: ReactNode;
   /** fades the title out, while the page shows it big itself */
@@ -83,6 +87,16 @@ export function DetailHeader({
           </Text>
         ) : null}
       </Animated.View>
+      {steamUrl && shareable && (
+        <Pressable
+          onPress={() => void Share.share({ message: steamUrl })}
+          accessibilityLabel="Share"
+          hitSlop={8}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+        >
+          <Ionicons name="share-outline" size={22} color={colors.muted} />
+        </Pressable>
+      )}
       {steamUrl && (
         <Pressable
           onPress={() => openLink(steamUrl)}

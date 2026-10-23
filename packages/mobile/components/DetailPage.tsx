@@ -16,6 +16,7 @@ export function DetailPage({
   title,
   subtitle,
   steamUrl,
+  shareable,
   onBack,
   imageUrl,
   imageRatio,
@@ -25,6 +26,8 @@ export function DetailPage({
   title: string;
   subtitle?: string;
   steamUrl: string;
+  /** a button in the header sharing `steamUrl` */
+  shareable?: boolean;
   onBack: () => void;
   imageUrl: string | null;
   /** width / height */
@@ -43,6 +46,7 @@ export function DetailPage({
         title={title}
         subtitle={subtitle}
         steamUrl={steamUrl}
+        shareable={shareable}
         titleShown={!titleInContent || pastImage.past}
         onBack={onBack}
       />

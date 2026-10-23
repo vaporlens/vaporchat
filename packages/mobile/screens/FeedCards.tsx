@@ -70,13 +70,8 @@ const OWNERSHIP = {
   wishlisted: { label: 'Wishlisted', color: colors.accent },
 };
 
-/**
- * A game's or bundle's name over its price, whether the user owns or wishlisted it, and
- * opening it on Steam to buy it.
- */
+/** A game's or bundle's name over its price, and opening it on Steam to buy it. */
 export function BuyHeader({ item }: { item: StoreItem }) {
-  const ownership = useOwnership(item.appid);
-  const mark = ownership && OWNERSHIP[ownership];
   const releases = releaseDate(item);
   return (
     <>
@@ -92,11 +87,6 @@ export function BuyHeader({ item }: { item: StoreItem }) {
           )}
           {item.comingSoon && releases && (
             <Text style={styles.offerEnds}>Releases {releases}</Text>
-          )}
-          {mark && (
-            <Text style={[styles.mark, { backgroundColor: mark.color }]}>
-              {mark.label}
-            </Text>
           )}
           {item.discountEndsAt && (
             <Text style={styles.offerEnds}>

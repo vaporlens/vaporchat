@@ -129,8 +129,8 @@ its latest message, gone once the chat is read here or elsewhere; tapping one op
 
 ## Store pages and lists
 
-**Game page:** price/discount/ownership header, "Open in Steam", review summary, Overview (Early
-Access notice, description, facts, tags, features, links, VaporLens), Media, About
+**Game page:** price/discount header, "Open in Steam", sharing its store link, review summary,
+Overview (Early Access notice, description, facts, tags, features, links, VaporLens), Media, About
 (Early Access answers, description, system requirements), DLC & editions, Reviews, News, More like
 this.
 
@@ -158,7 +158,8 @@ this.
 - more like this: `StoreQuery.MoreLikeThis` (anonymous, returns priced items);
 - **wishlist, follow, ignore** and undoing each: the store page's forms
   (`store/api/addtowishlist`, `explore/followgame/`, `recommended/ignorerecommendation/`), state
-  from `Store.GetUserGameInterestState` over the CM. A change reloads the Wishlist tab.
+  from `Store.GetUserGameInterestState` over the CM. A change reloads the Wishlist tab. An owned
+  game has a green "In library" in place of the wishlist button.
 
 **Lists:** Store (discounted, top sellers, Wishlist, My games, Browse), Releases and name search.
 **My games** cards show total playtime in the picture's badge and recent playtime or last played
@@ -174,10 +175,15 @@ pills once they made some (`IWishlistService/GetWishlistCategories`, then
 while the wishlist is public.
 
 **Browse:** hubs (Free to Play, Demos, Early Access, VR, Steam Deck Verified) and the store's tags,
-most used first (`IStoreService/GetMostPopularTags`), each opening its games, most popular first:
-a store search by filter (`tags`, `category1=10` demos, `vrsupport=402`, `deck_compatibility=3`,
-`category1=998` for games only; `vaporchat/steam/store.ts`). A game page's tags open the same
-lists.
+most used first (`IStoreService/GetMostPopularTags`, searched by name in the app),
+each opening its games, most popular first: a store search by filter (`tags`, `category1=10`
+demos, `vrsupport=402`, `deck_compatibility=3`, `category1=998` for games only;
+`vaporchat/steam/store.ts`). A game page's tags open the same lists. Each list's search bar
+searches the store within it (the filter plus `term`).
+
+**Hiding the user's games:** Settings' "Hide games in your library" and "Hide wishlisted games"
+leave them out of the store's lists, Releases and Browse (not Wishlist, My games or searches),
+from the same owned and wishlisted sets that mark the cards; kept on the device.
 
 Sale pages show the event's summary and its games, bundle pages the bundle's games, article
 pages the article and a link to its game's page, then how many rated it up and its comments,
@@ -191,17 +197,19 @@ Comments only carry a steamid, so names and avatars come from each author's
 News ("Your News" sources, featured when signed out), friends' Activity (10 kinds; the first
 three achievements unlocked named and described, the rest as icons), live sale Events.
 
-**Muting a game's or group's news** from its article page, the game when the post has one, like
-the News Hub's menu: the store form `account/optoutappcommunication/` (`allowCommunication` 0 or
-1, `appId` or `clanId`, the session's cookie and `sessionid`). Settings lists the muted ones to
-unmute, read from `account/emailoptout/app` (`g_appidToName`, `g_clanidToName`; the News Hub's
-"Manage muted sources"). The timeline still sends their posts, so News leaves them out itself
-(`vaporchat/steam/newsMutes.ts`); a muted post stays in the feed until it reloads.
+**Muting a game's or group's news** from its article page, beside the game's link: the post's
+game, or its group when it has none, like the News Hub's menu, through the store form
+`account/optoutappcommunication/` (`allowCommunication` 0 or 1, `appId` or `clanId`, the
+session's cookie and `sessionid`). The timeline still sends their posts, so News leaves them out
+itself: it reads the muted ones from `account/emailoptout/app` (`g_appidToName`,
+`g_clanidToName`; the News Hub's "Manage muted sources", `vaporchat/steam/newsMutes.ts`). A muted
+post stays in the feed until it reloads.
 
 ## Account and app shell
 
-Settings: status picker, "Stay connected" (Android), muted news, VaporLens imports, accounts and
-sign-out. Region and currency follow Steam's geolocation; VaporLens prices are always USD.
+Settings: status picker, "Stay connected" (Android), games hidden in the store, VaporLens imports,
+accounts and sign-out. Region and currency follow Steam's geolocation; VaporLens prices are
+always USD.
 
 **Signed in to vaporlens.app automatically through Steam OpenID; the Steam token never leaves for
 vaporlens.** The app signs in on Steam's OpenID page with its web session, posts the sign-in form

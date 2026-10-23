@@ -53,6 +53,7 @@ export function Feed<T>({
   empty,
   header,
   search,
+  hide,
   extraData,
   onError,
 }: {
@@ -69,6 +70,8 @@ export function Feed<T>({
   /** over the rows, shown while they load too */
   header?: ReactElement;
   search?: Search<T>;
+  /** items the list leaves out, Steam's search results keep them */
+  hide?: (item: T) => boolean;
   /** rows render again when it changes */
   extraData?: unknown;
   onError: (err: Error) => void;
@@ -93,21 +96,23 @@ export function Feed<T>({
   );
   const list = usePaging(load, keyOf, cacheKey, onError);
   const found = usePaging(findSent, keyOf, null, onError);
-  const shown = find && searching ? found : list;
+  const finding = find !== null && searching;
+  const shown = finding ? found : list;
   const filtering = textOf !== null && searching;
-  const items = useMemo(
-    () =>
-      filtering
-        ? shown.items?.filter((item) => matches(query, textOf(item)))
-        : shown.items,
-    [filtering, query, textOf, shown.items],
-  );
+  const items = useMemo(() => {
+    const listed = filtering
+      ? shown.items?.filter((item) => matches(query, textOf(item)))
+      : shown.items;
+    return hide && !finding ? listed?.filter((item) => !hide(item)) : listed;
+  }, [filtering, finding, hide, query, textOf, shown.items]);
 
+  // pages whose items are all hidden show nothing, the next one loads in their place
+  const allHidden = hide !== undefined && !finding && items?.length === 0;
   // a filter goes through the whole list, it loads the rest a page at a time. Failing stops it
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per page loaded
   useEffect(() => {
-    if (filtering) void list.loadMore();
-  }, [filtering, list.next]);
+    if (filtering || allHidden) void list.loadMore();
+  }, [filtering, allHidden, list.next]);
 
   const bar = useHidingBar<T>(SEARCH_HEIGHT, searching);
   // stable, rows don't render again on every letter typed

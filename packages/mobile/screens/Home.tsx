@@ -608,8 +608,6 @@ export function Home({
                 onChangeStayConnected={stayConnected.change}
                 onSignOut={confirmSignOut}
                 onSwitchAccount={onSwitchAccount}
-                feeds={voice.connection.feeds}
-                onError={showError}
                 onBack={back}
               />
             )}

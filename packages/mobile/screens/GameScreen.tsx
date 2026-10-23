@@ -197,27 +197,33 @@ function Actions({
   };
   return (
     <View style={styles.actions}>
-      {ACTIONS.filter(
-        // an owned game can't be wishlisted
-        ({ interest: kind }) => kind !== 'wishlisted' || !interest.owned,
-      ).map(({ interest: kind, off, on }) => (
-        <Pressable
-          key={kind}
-          disabled={changing}
-          onPress={() => change(kind)}
-          style={({ pressed }) => [
-            styles.action,
-            interest[kind] && styles.actionOn,
-            (pressed || changing) && styles.pressed,
-          ]}
-        >
-          <Text
-            style={[styles.actionText, interest[kind] && styles.actionTextOn]}
+      {ACTIONS.map(({ interest: kind, off, on }) =>
+        // an owned game can't be wishlisted, its button says it's owned
+        kind === 'wishlisted' && interest.owned ? (
+          <View key={kind} style={[styles.action, styles.actionOwned]}>
+            <Text style={[styles.actionText, styles.actionTextOwned]}>
+              ✓ In library
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            key={kind}
+            disabled={changing}
+            onPress={() => change(kind)}
+            style={({ pressed }) => [
+              styles.action,
+              interest[kind] && styles.actionOn,
+              (pressed || changing) && styles.pressed,
+            ]}
           >
-            {interest[kind] ? `✓ ${on}` : off}
-          </Text>
-        </Pressable>
-      ))}
+            <Text
+              style={[styles.actionText, interest[kind] && styles.actionTextOn]}
+            >
+              {interest[kind] ? `✓ ${on}` : off}
+            </Text>
+          </Pressable>
+        ),
+      )}
     </View>
   );
 }
@@ -448,6 +454,7 @@ export function GameScreen({
     <DetailPage
       title={item.name}
       steamUrl={item.url}
+      shareable
       onBack={onBack}
       imageUrl={shown.imageUrl}
       imageRatio={460 / 215}
@@ -492,6 +499,8 @@ const styles = StyleSheet.create({
   actionOn: { backgroundColor: colors.accentBackground },
   actionText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   actionTextOn: { color: colors.accent },
+  actionOwned: { backgroundColor: colors.accept },
+  actionTextOwned: { color: colors.bright },
   pressed: { opacity: 0.7 },
   loading: { marginTop: 24 },
   reviews: { color: colors.muted, fontSize: 14 },

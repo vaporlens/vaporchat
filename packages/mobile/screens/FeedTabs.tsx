@@ -22,7 +22,7 @@ import { SignInPrompt } from '../components/SignInPrompt';
 import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
 import { openLink } from '../links';
-import { useWishlistChanges } from '../userApps';
+import { useHideInStore, useWishlistChanges } from '../userApps';
 import { BrowseTab } from './BrowseScreen';
 import { Feed, type Search } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
@@ -188,6 +188,7 @@ function StoreItems({
     ),
     [show, onOpenGame],
   );
+  const hide = useHideInStore();
   const search = useMemo<Search<StoreItem>>(
     () =>
       list.filterPlaceholder
@@ -204,6 +205,8 @@ function StoreItems({
       load={load}
       keyOf={storeItemKey}
       search={search}
+      // the user's own lists show all of theirs
+      hide={list.filterPlaceholder ? undefined : hide}
       columns={2}
       renderItem={renderItem}
       header={header}

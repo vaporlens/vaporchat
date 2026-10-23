@@ -314,13 +314,22 @@ export function browseUrl(browse: StoreBrowse) {
   return `${STORE_URL}search/?${browseFilter(browse)}`;
 }
 
-/** A hub's or tag's games, most popular first, like the store's search for them. */
+/**
+ * A hub's or tag's games, most popular first, like the store's search for them. With `term`,
+ * those the store finds for it, best matches first.
+ */
 export function browseGames(
   browse: StoreBrowse,
   country: string,
   start: number | null,
+  term = '',
 ) {
-  return searchStore(browseFilter(browse), country, start);
+  const filter = browseFilter(browse);
+  return searchStore(
+    term ? `${filter}&term=${encodeURIComponent(term)}` : filter,
+    country,
+    start,
+  );
 }
 
 /** The store's tags, the most used first. */

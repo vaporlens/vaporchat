@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { type ReactElement, useCallback } from 'react';
+import { type ReactElement, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,10 +19,13 @@ import type {
 import { browseUrl } from 'vaporchat/steam/store';
 import { useCached } from '../cache';
 import { DetailHeader } from '../components/DetailHeader';
+import { SearchField } from '../components/Field';
 import type { IconName } from '../components/RoundButton';
 import { SectionTitle } from '../components/SectionTitle';
+import { matches } from '../search';
 import { colors } from '../theme';
-import { Feed } from './Feed';
+import { useHideInStore } from '../userApps';
+import { Feed, type Search } from './Feed';
 import { StoreItemCard } from './FeedCards';
 import type { Page } from './PageScreen';
 
@@ -68,7 +71,7 @@ export function TagChip({
   );
 }
 
-/** The Store tab's hubs and tags, each opening its games. */
+/** The Store tab's hubs and tags, each opening its games, and searching the tags by name. */
 export function BrowseTab({
   feeds,
   header,
@@ -80,8 +83,14 @@ export function BrowseTab({
 }) {
   const loadTags = useCallback(() => feeds.getPopularTags(), [feeds]);
   const { data: tags, error } = useCached('popular-tags', loadTags);
+  const [query, setQuery] = useState('');
+  const found = tags?.filter((tag) => matches(query, tag.name));
   return (
-    <ScrollView contentContainerStyle={styles.tab}>
+    <ScrollView
+      contentContainerStyle={styles.tab}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       {header}
       <View style={styles.section}>
         <View style={styles.hubs}>
@@ -100,12 +109,21 @@ export function BrowseTab({
           ))}
         </View>
         <SectionTitle title="Popular tags" />
-        {tags ? (
-          <View style={styles.chips}>
-            {tags.map((tag) => (
-              <TagChip key={tag.tagid} tag={tag} onOpenPage={onOpenPage} />
-            ))}
-          </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search tags"
+        />
+        {found ? (
+          found.length > 0 ? (
+            <View style={styles.chips}>
+              {found.map((tag) => (
+                <TagChip key={tag.tagid} tag={tag} onOpenPage={onOpenPage} />
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.muted}>No tags match.</Text>
+          )
         ) : error ? (
           <Text style={styles.muted}>{error}</Text>
         ) : (
@@ -116,7 +134,7 @@ export function BrowseTab({
   );
 }
 
-/** A hub's or tag's games, most popular first. */
+/** A hub's or tag's games, most popular first, and searching them. */
 export function BrowseScreen({
   feeds,
   browse,
@@ -133,6 +151,14 @@ export function BrowseScreen({
   const insets = useSafeAreaInsets();
   const load = useCallback(
     (next: number | null) => feeds.browseGames(browse, next),
+    [feeds, browse],
+  );
+  const hide = useHideInStore();
+  const search = useMemo<Search<StoreItem>>(
+    () => ({
+      placeholder: `Search ${browseTitle(browse)}`,
+      find: (query, next) => feeds.browseGames(browse, next, query),
+    }),
     [feeds, browse],
   );
   const renderItem = useCallback(
@@ -153,6 +179,8 @@ export function BrowseScreen({
         cacheKey={`browse-${id}`}
         load={load}
         keyOf={storeItemKey}
+        search={search}
+        hide={hide}
         columns={2}
         renderItem={renderItem}
         empty="No games here."
