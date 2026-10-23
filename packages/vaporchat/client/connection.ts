@@ -48,6 +48,7 @@ import {
   sendMessage,
   sendTyping,
 } from '../steam/messages.ts';
+import { openIdSignIn } from '../steam/openId.ts';
 import { decodeProto } from '../steam/protos.ts';
 import { SteamNotices } from '../steam/steamNotifications.ts';
 import { UnreadChats } from '../steam/unread.ts';
@@ -372,6 +373,11 @@ export class VoiceConnection extends Emitter<ConnectionEvents> {
    */
   async sendImage(chat: ChatTarget, image: ChatImage, spoiler = false) {
     await sendImage(await this.#webSession(), chat, image, spoiler);
+  }
+
+  /** Signs in to a website with Steam OpenID as this account, see `openIdSignIn`. */
+  async openIdSignIn(realm: string, returnTo: string, fetchImpl: typeof fetch) {
+    return openIdSignIn(await this.#webSession(), realm, returnTo, fetchImpl);
   }
 
   /** A steamcommunity.com and store login, made once an hour rather than per request. */

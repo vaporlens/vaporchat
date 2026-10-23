@@ -3,7 +3,7 @@ import { Gauge } from '../components/Gauge';
 import { InfoDetails } from '../components/InfoDetails';
 import type { Info } from '../components/InfoSheet';
 import { colors } from '../theme';
-import type { VaporlensReport as Report } from '../vaporlens';
+import type { GameFit, VaporlensReport as Report } from '../vaporlens';
 
 // vaporlens's names for its scans, shorter on the gauges
 const SCANS: {
@@ -46,6 +46,17 @@ function duration(value: number | null | undefined) {
     .join(' ');
 }
 
+// what vaporlens.app says under its "Your fit" gauge
+function fitText(fit: GameFit | null) {
+  if (!fit)
+    return 'Login and import your library into VaporLens to see your fit.';
+  if (!fit.user.hasTasteProfile)
+    return 'Import your library in Settings → VaporLens to see your fit.';
+  if (fit.fit === null)
+    return 'A fit score is not available for this game yet.';
+  return `This is ${Math.round(fit.fit)}% similar to what you play.`;
+}
+
 function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
@@ -62,15 +73,18 @@ const PLAYTIMES = [
 ] as const;
 
 /**
- * VaporLens's gauges of a game: its scans, the price players find fair, playtime and time to fun.
- * Tapping one shows what VaporLens shows for it.
+ * VaporLens's gauges of a game: the user's fit, its scans, the price players find fair, playtime
+ * and time to fun. Tapping one shows what VaporLens shows for it.
  */
 export function VaporlensGauges({
   report,
+  fit,
   originalPrice,
   onInfo,
 }: {
   report: Report;
+  /** null while signed out of vaporlens.app or loading */
+  fit: GameFit | null;
   /** the game's price before any discount */
   originalPrice: string | null;
   onInfo: (info: Info) => void;
@@ -90,8 +104,20 @@ export function VaporlensGauges({
     return scan && scan.score !== -1 ? [{ ...config, scan }] : [];
   });
 
+  const fitPercent =
+    fit?.fit == null ? null : Math.min(100, Math.max(0, Math.round(fit.fit)));
+
   return (
     <View style={styles.gauges}>
+      <Gauge
+        size={size}
+        label="Your fit"
+        accessibilityLabel={`Your fit, ${fitText(fit)}`}
+        fill={fitPercent === null ? undefined : fitPercent / 100}
+        // on the scans' scale like vaporlens.app shows it, where lower is better
+        color={fitPercent === null ? undefined : scanColor(100 - fitPercent)}
+        onPress={() => onInfo({ title: 'Your fit', body: fitText(fit) })}
+      />
       {scans.map(({ label, title, scan }) => {
         const score = Math.min(100, Math.max(0, Math.round(scan.score)));
         return (

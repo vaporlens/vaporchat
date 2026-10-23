@@ -17,8 +17,9 @@ export function fetchWithCookie(
   url: string,
   cookie: string,
   init: RequestInit = {},
+  fetchImpl: typeof fetch = fetch,
 ) {
-  return fetch(url, {
+  return fetchImpl(url, {
     ...init,
     headers: { ...init.headers, cookie },
     // with credentials, React Native on iOS sends the cookies it stored instead of this header

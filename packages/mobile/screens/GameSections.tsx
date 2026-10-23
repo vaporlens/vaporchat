@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useCallback } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -205,31 +205,37 @@ export function GameDlc({
   );
 }
 
-/** Games like this one, two to a row. */
+/** Games like this one, two to a row: VaporLens's first when it analyzed the game, then Steam's. */
 export function SimilarGames({
   feeds,
   appid,
+  vaporlensSimilar,
   onOpenGame,
 }: {
   feeds: SteamFeeds;
   appid: number;
+  /** appids from VaporLens's report, closest first */
+  vaporlensSimilar: number[] | undefined;
   onOpenGame: (item: StoreItem) => void;
 }) {
   const load = useCallback(() => feeds.getSimilarGames(appid), [feeds, appid]);
   const { data: games, error } = useCached(`similar-${appid}`, load);
-  if (!games) {
-    return error ? (
-      <Text style={styles.muted}>{error}</Text>
-    ) : (
-      <ActivityIndicator color={colors.muted} style={styles.loading} />
-    );
-  }
-  if (games.length === 0) {
-    return <Text style={styles.muted}>Steam suggests no games like it</Text>;
-  }
-  return (
+  // a string: the report's list is a new array each time it loads
+  const ids = vaporlensSimilar?.join(',') ?? '';
+  const loadVaporlens = useCallback(
+    async () => (ids ? feeds.getStoreItems(ids.split(',').map(Number)) : []),
+    [feeds, ids],
+  );
+  // failing leaves Steam's alone
+  const { data: vaporlensGames } = useCached(
+    `vaporlens-similar-${appid}`,
+    loadVaporlens,
+  );
+  const ours = vaporlensGames ?? [];
+  const shownAbove = new Set(ours.map((game) => game.appid));
+  const grid = (items: StoreItem[]) => (
     <View style={styles.grid}>
-      {games.map((game) => (
+      {items.map((game) => (
         <StoreItemCard
           key={game.url}
           item={game}
@@ -238,6 +244,33 @@ export function SimilarGames({
         />
       ))}
     </View>
+  );
+
+  let steam: ReactNode;
+  if (!games) {
+    steam = error ? (
+      <Text style={styles.muted}>{error}</Text>
+    ) : (
+      <ActivityIndicator color={colors.muted} style={styles.loading} />
+    );
+  } else if (games.length === 0) {
+    steam = <Text style={styles.muted}>Steam suggests no games like it</Text>;
+  } else {
+    steam = grid(games.filter((game) => !shownAbove.has(game.appid)));
+  }
+  if (ours.length === 0) return steam;
+  return (
+    <>
+      <SectionTitle title="Similar by reviews" />
+      {grid(ours)}
+      {/* none left once VaporLens's are taken out */}
+      {games?.some((game) => !shownAbove.has(game.appid)) !== false && (
+        <>
+          <SectionTitle title="Similar on Steam" />
+          {steam}
+        </>
+      )}
+    </>
   );
 }
 

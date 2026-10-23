@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,7 @@ import { DetailHeader } from '../components/DetailHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { colors } from '../theme';
 import { type SavedAccount, savedAccounts } from '../tokenStore';
+import { importSteamGames, type VaporlensAnswer } from '../vaporlens';
 
 /** Each status with what it means for friends and its color, the header and member list show the same. */
 export const STATUSES: Record<
@@ -85,7 +87,67 @@ function MutedNews({
   );
 }
 
-/** What friends see of you, alerts in the background, muted news, and accounts. */
+/** Has vaporlens.app import the library and wishlist, the library makes the taste profile. */
+function VaporlensImport() {
+  const [answers, setAnswers] = useState<VaporlensAnswer[]>([]);
+  const [importing, setImporting] = useState(false);
+  const run = () => {
+    setImporting(true);
+    Promise.all([importSteamGames('library'), importSteamGames('wishlist')])
+      .then(setAnswers)
+      .finally(() => setImporting(false));
+  };
+  const [library, wishlist] = answers;
+  // the taste profile failed or got no game: the server says why, in place of the counts
+  const unprofiled = library?.imported !== undefined && !library.profiled;
+  const summary = unprofiled
+    ? ''
+    : [
+        library?.imported !== undefined && `Library ${library.imported}`,
+        wishlist?.imported !== undefined && `Wishlist ${wishlist.imported}`,
+        library?.profiled !== undefined &&
+          `${library.profiled} in taste profile`,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+  // signed out, both say so: once is enough
+  const errors = [
+    ...new Set([
+      ...answers.flatMap((answer) => answer.error ?? []),
+      ...(unprofiled && library.message ? [library.message] : []),
+    ]),
+  ];
+  return (
+    <>
+      <SectionTitle title="VaporLens" />
+      <View style={styles.group}>
+        <Pressable
+          disabled={importing}
+          onPress={run}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        >
+          <View style={styles.grow}>
+            <Text style={styles.label}>Import library and wishlist</Text>
+            {summary === '' && errors.length === 0 && (
+              <Text style={styles.detail}>
+                VaporLens reads them from your public Steam profile
+              </Text>
+            )}
+            {summary !== '' && <Text style={styles.detail}>{summary}</Text>}
+            {errors.map((error) => (
+              <Text key={error} style={[styles.detail, styles.danger]}>
+                {error}
+              </Text>
+            ))}
+          </View>
+          {importing && <ActivityIndicator color={colors.muted} />}
+        </Pressable>
+      </View>
+    </>
+  );
+}
+
+/** What friends see of you, alerts in the background, muted news, VaporLens imports, and accounts. */
 export function SettingsScreen({
   feeds,
   status,
@@ -170,6 +232,7 @@ export function SettingsScreen({
           </>
         )}
         <MutedNews feeds={feeds} onError={onError} />
+        <VaporlensImport />
         <SectionTitle title="Account" />
         <View style={styles.group}>
           {accounts.map((account) => (

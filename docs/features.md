@@ -136,6 +136,12 @@ Access notice, description, facts, editions, tags, features, links, VaporLens), 
   bar for its counts (`store.steampowered.com/appreviewhistogram/{appid}`, `rollups` and
   `recent`). Colors `chartPositive` / `chartNegative` in `mobile/theme.ts`, checked for color
   blindness against the card surface;
+- **VaporLens, signed in:** "Your fit" first among the analysis' gauges, like vaporlens.app's "Your
+  fit": on the scans' scale, tapping it says "N% similar to what you play", or asks to log in and
+  import the library; on games VaporLens hasn't analyzed, "Request
+  analysis", which adds the game to its queue or votes for it (`/api/mobile/fit`, `/api/mobile/queue`);
+- **More like this:** the games VaporLens reads alike (the report's `similar`, turned into store
+  items with `GetItems`) above Steam's suggestions, which leave those out;
 - editions and bundles that include it, each priced: `GetItems` `include_all_purchase_options`;
 - links: `GetItems` `include_links`, website from `include_extra_details`;
 - Early Access banner and its "why / how long" text: `release.is_early_access`,
@@ -189,8 +195,17 @@ unmute, read from `account/emailoptout/app` (`g_appidToName`, `g_clanidToName`; 
 
 ## Account and app shell
 
-Settings: status picker, "Stay connected" (Android), muted news, accounts and sign-out. Region
-and currency follow Steam's geolocation; VaporLens prices are always USD.
+Settings: status picker, "Stay connected" (Android), muted news, VaporLens imports, accounts and
+sign-out. Region and currency follow Steam's geolocation; VaporLens prices are always USD.
+
+**Signed in to vaporlens.app automatically through Steam OpenID; the Steam token never leaves for
+vaporlens.** The app signs in on Steam's OpenID page with its web session, posts the sign-in form
+back like the "Sign In" button, and hands vaporlens.app only Steam's signed redirect, fetched
+without Steam's cookie (`vaporchat/steam/openId.ts`). The session token lives in SecureStore
+next to the Steam token, is renewed a day before it expires, and is dropped on sign-out and when
+switching accounts. Settings' VaporLens section imports the library (which makes the taste
+profile behind the fit score) and the wishlist; vaporlens.app fetches them from Steam itself, so
+the profile has to be public.
 
 **Several accounts:** Settings' "Add account" and each other account's "Switch". The open
 account's token stays where it was; the others are put aside in the keychain under their

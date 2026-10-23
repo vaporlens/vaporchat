@@ -44,6 +44,7 @@ import {
 } from './GameSections';
 import type { Page } from './PageScreen';
 import { VaporlensReport } from './VaporlensReport';
+import { RequestAnalysis, useGameFit } from './VaporlensUser';
 
 const DECK = {
   verified: 'Steam Deck Verified',
@@ -90,6 +91,7 @@ function Overview({
   /** a tag's games */
   onOpenPage: (page: Page) => void;
 }) {
+  const fit = useGameFit(appid);
   // pages cached before these were loaded have none
   const editions = game.editions ?? [];
   const links = game.links ?? [];
@@ -143,9 +145,11 @@ function Overview({
         </View>
       )}
       {links.length > 0 && <Links links={links} />}
+      <RequestAnalysis appid={appid} />
       {report && (
         <VaporlensReport
           report={report}
+          fit={fit}
           originalPrice={game.originalPrice ?? game.price}
           onOpenFull={() => openLink(vaporlensUrl(appid))}
         />
@@ -373,6 +377,7 @@ function Details({
               <SimilarGames
                 feeds={feeds}
                 appid={appid}
+                vaporlensSimilar={report?.similar}
                 onOpenGame={onOpenGame}
               />
             )}

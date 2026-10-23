@@ -28,6 +28,7 @@ import {
   unparkAccount,
 } from './tokenStore';
 import { UserAppsProvider } from './userApps';
+import { clearVaporlensSession, signInToVaporlens } from './vaporlens';
 
 type State =
   /** reading the stored token */
@@ -91,6 +92,10 @@ export default function App() {
     voice.connection.on('close', ({ reason }) =>
       setLink(voice, { kind: 'lost', reason, failures: 0 }),
     );
+    voice.connection.ready.then(
+      () => signInToVaporlens(voice),
+      () => {},
+    );
     setState({ kind: 'signedIn', voice, link });
   }
 
@@ -120,6 +125,7 @@ export default function App() {
       await tokenStore.clear();
       signedOut(true, message(err));
       clearCache();
+      void clearVaporlensSession();
       return;
     }
     signedIn(voice, { kind: 'connecting' });
@@ -137,6 +143,7 @@ export default function App() {
       } else {
         signedOut(true, 'Steam signed you out, please sign in again.');
         clearCache();
+        void clearVaporlensSession();
       }
     }
   }
@@ -177,8 +184,9 @@ export default function App() {
 
   async function signOut(voice: SteamVoice) {
     signedOut(false);
-    // the next account must not see this one's chats
+    // the next account must not see this one's chats, nor use its vaporlens session
     clearCache();
+    await clearVaporlensSession();
     await disconnect(voice);
     await tokenStore.clear();
     // nor sign in as this one's status, or with its friends muted, or see its alerts
@@ -192,6 +200,8 @@ export default function App() {
   /** Puts the open account aside, then opens `to`, or signs in to another with null. */
   async function switchAccount(voice: SteamVoice, to: string | null) {
     setState({ kind: 'starting' });
+    // the next account signs in to vaporlens as itself
+    await clearVaporlensSession();
     await disconnect(voice);
     const { steamid, name, avatarUrl } = voice.me;
     await parkAccount({ steamid, name, avatarUrl, status: await loadStatus() });

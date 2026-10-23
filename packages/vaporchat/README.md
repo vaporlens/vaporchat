@@ -213,6 +213,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | My games: total playtime, playtime in the last two weeks, last played | live (Android) for total and last played; the two-weeks data mapping unit-tested, its line not seen live (the bot hasn't played lately) |
 | Receiving emoticons, stickers, images; listing and sending owned emoticons and stickers | live (Bun) |
 | Sending images to friends and rooms | live (Bun) |
+| Steam OpenID sign-in to a website (vaporlens.app), no cookie sent to it | live (Bun, Android emulator, against a local vaporlens); form parsing unit-tested |
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |
 | Store feeds: top sellers, upcoming, wishlist (private too), personal calendar, library, owned and wishlisted appids | live (Bun), wishlist paging not tried (bot's fits one page) |
 | Game pages; store descriptions and news posts as rich text | live (Bun) |

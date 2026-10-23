@@ -6,7 +6,11 @@ import { InfoDetails } from '../components/InfoDetails';
 import { type Info, InfoSheet } from '../components/InfoSheet';
 import { emotionColor } from '../emotionColors';
 import { colors } from '../theme';
-import type { VaporlensReport as Report, ReviewPoint } from '../vaporlens';
+import type {
+  GameFit,
+  VaporlensReport as Report,
+  ReviewPoint,
+} from '../vaporlens';
 import { HardwareCohorts, OUTCOMES } from './HardwareCohorts';
 import { VaporlensGauges } from './VaporlensGauges';
 
@@ -104,10 +108,13 @@ function Chips({ label, children }: { label: string; children: ReactNode }) {
 /** VaporLens's take on a game's Steam reviews as part of its page, the explanations in a sheet when tapped. */
 export function VaporlensReport({
   report,
+  fit,
   originalPrice,
   onOpenFull,
 }: {
   report: Report;
+  /** null while signed out of vaporlens.app or loading */
+  fit: GameFit | null;
   /** the game's price before any discount */
   originalPrice: string | null;
   onOpenFull: () => void;
@@ -145,6 +152,7 @@ export function VaporlensReport({
       ) : null}
       <VaporlensGauges
         report={report}
+        fit={fit}
         originalPrice={originalPrice}
         onInfo={setInfo}
       />
