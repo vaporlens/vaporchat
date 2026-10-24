@@ -1,8 +1,7 @@
 import type { ArticleComment, CommentThread, FeedPage } from '../protocol.ts';
-import { accountIdFromSteamId } from './friends.ts';
 import { parseRichText } from './richText.ts';
 import { postApi } from './store.ts';
-import { COMMUNITY_URL, getJson } from './web.ts';
+import { COMMUNITY_URL, getText } from './web.ts';
 
 // a news post's comments are a thread of this type, `ForumTopic` in its event
 const FORUM_TOPIC_THREAD = 7;
@@ -15,21 +14,22 @@ interface ApiComment {
   text?: string;
 }
 
-interface MiniProfile {
-  persona_name?: string;
-  avatar_url?: string | null;
-}
-
 /**
- * Who wrote a comment or review, from their mini profile: those only have their steamid.
- * Nameless when it can't be loaded, what they wrote still shows.
+ * Who wrote a comment or review, from their profile's XML: those only have their steamid. Their
+ * mini profiles' JSON fails after a dozen or so at once. Nameless when it can't be loaded, what
+ * they wrote still shows.
  */
 export async function getAuthor(steamid: string) {
-  const accountId = accountIdFromSteamId(steamid);
-  const { persona_name = '', avatar_url = null } = await getJson<MiniProfile>(
-    `${COMMUNITY_URL}miniprofile/${accountId}/json`,
-  ).catch((): MiniProfile => ({}));
-  return { name: persona_name, avatarUrl: avatar_url };
+  const xml = await getText(`${COMMUNITY_URL}profiles/${steamid}/?xml=1`).catch(
+    () => '',
+  );
+  // the profile's own come first, its groups' pictures follow
+  const field = (tag: string) =>
+    xml.match(new RegExp(`<${tag}><!\\[CDATA\\[(.*?)\\]\\]>`))?.[1];
+  return {
+    name: field('steamID') ?? '',
+    avatarUrl: field('avatarFull') ?? null,
+  };
 }
 
 /** A page of a news post's comments, newest first. `start` is the `next` of the previous page. */

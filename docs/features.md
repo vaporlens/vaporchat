@@ -136,7 +136,7 @@ this.
 
 - **reviews:** English ones, most helpful first like the store page, paged by cursor
   (`IUserReviewsService/GetAppReviews`, keyless; it replaced `appreviews`, switched off on 22 Oct
-  2026); authors' names and pictures from their mini profiles, like comments;
+  2026); authors' names and pictures from their profiles, like comments;
 - **reviews over time** above the reviews: recommended up, not recommended down, a bar per month
   since release (per week for young games) or per day for the last 30 days, grouped to fit; tap a
   bar for its counts (`store.steampowered.com/appreviewhistogram/{appid}`, `rollups` and
@@ -192,7 +192,8 @@ pages the article and a link to its game's page, then how many rated it up and i
 newest first, read only (`ICommunityService/GetCommentThread`, POST only, anonymous, thread type
 7 for the event's `ForumTopic` `gidfeature`/`gidfeature2`; `vaporchat/steam/comments.ts`).
 Comments only carry a steamid, so names and avatars come from each author's
-`steamcommunity.com/miniprofile/{accountid}/json`.
+`steamcommunity.com/profiles/{steamid}/?xml=1`, keyless and fine with a hundred at once.
+`miniprofile/{accountid}/json` answers 500 after about 16 at once, for about 45 seconds.
 A `[dynamiclink]` to a YouTube video shows its frame like chat's previews, in an article one to a
 store page shows the game's card; other links stay links. Links typed into the text are tappable.
 
@@ -256,10 +257,6 @@ install (`deviceLogonId`), the library one per process.
 - Friends' activity leaves out status changes and group announcements on purpose
   (`vaporchat/steam/friendsActivity.ts`).
 - The web client (`packages/web`) is a test harness: no presence, no unread.
-- Comment authors' mini profiles are one request each, and Steam refuses bursts of them (429,
-  then 500 for a while); those comments show "Steam user". `ajaxresolveusers` (batched) answers
-  429 to everyone, `GetPlayerSummaries` needs an API key, and `Player.GetPlayerLinkDetails` is
-  untested for the persona-state gotcha.
 - Family shared games are built from SteamDatabase's protos, untested against a family: the test
   account is in none.
 - Wishlist categories are untested with categories: the test account has none.

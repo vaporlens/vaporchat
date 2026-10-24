@@ -19,9 +19,11 @@ describe('getComments', () => {
           },
         });
       }
-      // account 1's profile loads, account 2's doesn't
-      return url.includes('/miniprofile/1/')
-        ? Response.json({ persona_name: 'Ann', avatar_url: 'https://a.jpg' })
+      // the first author's profile loads, the second's doesn't
+      return url.includes('/profiles/76561197960265729/?xml=1')
+        ? new Response(
+            '<profile><steamID><![CDATA[Ann]]></steamID><avatarFull><![CDATA[https://a.jpg]]></avatarFull></profile>',
+          )
         : new Response(null, { status: 429 });
     });
     const { items, next } = await getComments(THREAD, null);
@@ -43,7 +45,7 @@ describe('getComments', () => {
               comments: [{ gidcomment: 'c', steamid: '76561197960265729' }],
             },
           })
-        : Response.json({ persona_name: 'Ann' }),
+        : new Response('<profile></profile>'),
     );
     expect((await getComments(THREAD, 2)).next).toBeNull();
   });

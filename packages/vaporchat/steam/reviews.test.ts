@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getGameReviews } from './reviews.ts';
 
-// account id 1
 const AUTHOR = '76561197960265729';
 const REVIEW = {
   recommendationid: '7',
@@ -12,7 +11,7 @@ const REVIEW = {
   votes_up: 3,
 };
 
-/** Answers the reviews API with `reviews` and `cursor`, mini profiles with `profile`, records the requests. */
+/** Answers the reviews API with `reviews` and `cursor`, profiles with `profile`, records the requests. */
 function stubSteam(
   page: (cursor: string) => { reviews: object[]; cursor: string },
   profile: () => Response,
@@ -21,7 +20,7 @@ function stubSteam(
   vi.stubGlobal('fetch', async (url: string) => {
     const parsed = new URL(url);
     asked.push(parsed);
-    if (parsed.pathname.includes('/miniprofile/')) return profile();
+    if (parsed.pathname.startsWith('/profiles/')) return profile();
     const { cursor } = JSON.parse(parsed.searchParams.get('input_json')!);
     return Response.json({ response: page(cursor) });
   });
@@ -35,7 +34,9 @@ describe('getGameReviews', () => {
     const asked = stubSteam(
       () => ({ reviews: [REVIEW], cursor: 'a+b=' }),
       () =>
-        Response.json({ persona_name: 'Player', avatar_url: 'https://a.jpg' }),
+        new Response(
+          '<profile><steamID><![CDATA[Player]]></steamID><avatarFull><![CDATA[https://a.jpg]]></avatarFull></profile>',
+        ),
     );
 
     expect(await getGameReviews(10, null)).toEqual({
@@ -68,7 +69,9 @@ describe('getGameReviews', () => {
       num_per_page: 20,
       cursor: '*',
     });
-    expect(profile?.pathname).toBe('/miniprofile/1/json');
+    expect(profile?.href).toBe(
+      `https://steamcommunity.com/profiles/${AUTHOR}/?xml=1`,
+    );
   });
 
   it('passes the cursor on, ends on a page without reviews and shows a review whose author did not load', async () => {
