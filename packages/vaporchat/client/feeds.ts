@@ -32,11 +32,7 @@ import {
   searchGames,
   toStoreItem,
 } from '../steam/store.ts';
-import {
-  getWishlist,
-  getWishlistCategories,
-  wishlistUrl,
-} from '../steam/wishlist.ts';
+import { getWishlist, getWishlistCategories } from '../steam/wishlist.ts';
 
 /** Who the feeds load the user's own lists for, see `SteamFeeds.anonymous` for no one. */
 interface FeedsUser {
@@ -139,12 +135,6 @@ export class SteamFeeds {
     muted: boolean,
   ) {
     return setSourceMuted(await this.#webSession(), source, muted);
-  }
-
-  /** The store page of the user's wishlist to share, only `categoryId`'s with one. */
-  async getWishlistUrl(categoryId: string | null) {
-    const cm = await this.#requireUser().cm;
-    return wishlistUrl(cm.steamid, categoryId);
   }
 
   /** The games the user owns with their playtime, recently played first. */

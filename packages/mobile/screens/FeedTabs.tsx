@@ -242,7 +242,6 @@ function Wishlist(
           header={props.header}
           categoryId={categoryId}
           onCategory={setCategoryId}
-          onError={props.onError}
         />
       }
     />

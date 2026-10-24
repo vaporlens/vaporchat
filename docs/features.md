@@ -170,9 +170,7 @@ or excluded games).
 **Wishlist** cards show the review score and the date added (`date_added` of
 `GetWishlistSortedFiltered`, `GetItems` `include_reviews`). The user's wishlist categories show as
 pills once they made some (`IWishlistService/GetWishlistCategories`, then
-`GetWishlistSortedFiltered` `filters.category_ids`). Share sends the wishlist's store page,
-`/wishlist/profiles/<steamid>/` with `?categoryids=` for a category, which opens for others only
-while the wishlist is public.
+`GetWishlistSortedFiltered` `filters.category_ids`).
 
 **Browse:** hubs (Free to Play, Demos, Early Access, VR, Steam Deck Verified) and the store's tags,
 most used first (`IStoreService/GetMostPopularTags`, searched by name in the app),

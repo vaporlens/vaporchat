@@ -8,7 +8,6 @@ import {
   toReviewSummary,
   toStoreItem,
 } from './store.ts';
-import { STORE_URL } from './web.ts';
 
 const PAGE_SIZE = 50;
 // biggest discounts first, then in the user's ranking
@@ -69,13 +68,4 @@ export async function getWishlistCategories({
     name: category.name,
     count: category.item_count ?? 0,
   }));
-}
-
-/**
- * The store page of someone's wishlist, showing only `categoryId` with one. It opens for others
- * only while the wishlist is public.
- */
-export function wishlistUrl(steamid: string, categoryId: string | null) {
-  const url = `${STORE_URL}wishlist/profiles/${steamid}/`;
-  return categoryId === null ? url : `${url}?categoryids=${categoryId}`;
 }
