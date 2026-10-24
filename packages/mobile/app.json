@@ -10,7 +10,7 @@
       "bundleIdentifier": "org.vaporlens.Vaporlens",
       "buildNumber": "12",
       "appleTeamId": "EA3F6PEEAV",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
       },

@@ -18,8 +18,6 @@ still open. Building and uploading the binaries is in [`testflight.md`](testflig
       SteamID and, after an import, their library and wishlist. Apple treats that as account
       creation, so the app has to offer a way to delete that data, at least a link to a web page
       that does it. The app has none today.
-- [ ] **`ios.supportsTablet` is `true`**, so App Store Connect will ask for iPad screenshots. Set
-      it to `false` to submit with the iPhone sets only.
 - [ ] **"Stay connected" foreground service type.** With no call running, `CallService.kt` runs as
       `remoteMessaging`. Play's use case for that type is relaying text messages to another device
       (texts sent from a web client), which keeping a Steam chat connection alive doesn't match
