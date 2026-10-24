@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10 (2026-10-24)
+
+- Show a splash screen while the app starts.
+- Fix the app crashing on Android when someone leaves a voice chat and joins again.
+- Run on iPad as an iPhone app.
+
 ## 0.9 (2026-10-24)
 
 - Ignore a game as played on another platform, or as not interested.
