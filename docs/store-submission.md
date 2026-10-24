@@ -98,10 +98,19 @@ reviews,summary,worth it,pros cons,chat,call,friends,wishlist,deals,pc gaming,li
 - Notes:
 
   ```
-  Vaporlens is an unofficial client for Steam, not affiliated with Valve. Sign in with the Steam
-  account above; Steam Guard is off for it. The game summaries (VaporLens section of a game's
-  page) come from vaporlens.app, our own service. To try voice: Chat tab, open the group, Join on
-  a voice channel. The microphone is used only while in voice.
+  Vaporlens is an unofficial Steam companion app, not affiliated with Valve. Game review summaries come from VaporLens (vaporlens.app), our own service.
+
+  SIGNING IN
+  Store, Releases, Feed and game pages work without signing in. Chat, voice, Wishlist and My games need a Steam account: tap "Sign in" and use the demo account above. Steam Guard is off for it, so no code is asked. The password goes only to Steam.
+
+  VAPORLENS (main feature)
+  Open any game, e.g. search "Clair Obscur" in the Store tab. The VaporLens section on the game's Overview tab shows the review summary and scores. Tap a score for its details. "Your fit" works for the demo account, whose library is already imported.
+
+  VOICE
+  Chat tab > "Voice Test Group" > "Join" on a voice channel. iOS asks for the microphone the first time. You can join alone to see it work. The friend rows' call button places a 1:1 call. The background audio mode keeps an active call going with the app in the background or the screen locked. It is only used during calls.
+
+  PURCHASES
+  The app sells nothing. Prices are those of PC games on Steam. "Open in Steam" opens the game's Steam page in the Steam app or Safari.
   ```
 
 **Age rating questionnaire:** answer from what the app does:
