@@ -61,6 +61,14 @@
           "icon": "./assets/android-icon-monochrome.png",
           "color": "#1a9fff"
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 288,
+          "backgroundColor": "#171d25"
+        }
       ]
     ],
     "backgroundColor": "#171d25"
