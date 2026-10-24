@@ -68,4 +68,15 @@ describe('PlanBToUnifiedPlan', () => {
     expect(joined).toContain('a=mid:0-3');
     expect(joined).toContain('a=ssrc:400 ');
   });
+
+  // libwebrtc gives an msid-less main section a shared default stream whenever no section
+  // signals msid, and announces it only once: a peer leaving then rejoining removed that
+  // stream twice, which aborts react-native-webrtc on Android
+  it('signals the main section as streamless in every description, with or without peers', () => {
+    const converter = new PlanBToUnifiedPlan();
+    for (const streams of [[], ['Peer-1-2-200'], [], ['Peer-1-2-200']]) {
+      const [main] = sections(converter.convert(steamOffer(streams)));
+      expect(main).toMatch(/^a=msid:-\r?$/m);
+    }
+  });
 });

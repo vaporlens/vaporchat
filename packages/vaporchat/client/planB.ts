@@ -107,9 +107,13 @@ export class PlanBToUnifiedPlan {
         : line,
     );
 
+    // "-" is no stream: without any msid in a description, libwebrtc puts the main section's
+    // track in a default stream it announces once but removes each time msid reappears
+    // (a peer leaving then rejoining), which aborts react-native-webrtc on Android
     return `${[
       ...sessionLines,
       ...template,
+      'a=msid:-',
       ...peerSections.flat(),
       ...rest.flatMap(lines),
     ].join('\r\n')}\r\n`;
