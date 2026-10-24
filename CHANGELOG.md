@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9 (2026-10-24)
+
+- Ignore a game as played on another platform, or as not interested.
+- Show wishlist, follow and ignore as outlined buttons with icons.
+- Play YouTube videos inside news posts, and show games a post links to as cards. Links typed
+  into posts and comments are tappable.
+- Include news from games you follow or have wishlisted in News.
+- Keep the selected pill in view when switching lists in Store.
+- Fix game reviews not loading after Steam switched off its old reviews API.
+- Fix comment and review authors showing as "Steam user".
+
 ## 0.8 (2026-10-23)
 
 - Sign in to VaporLens with your Steam account: see how well a game fits your taste, request
