@@ -28,6 +28,18 @@ describe('setGameInterest', () => {
     ['following', false, 'explore/followgame/', { unfollow: '1' }],
     ['ignored', true, 'recommended/ignorerecommendation/', { remove: '0' }],
     ['ignored', false, 'recommended/ignorerecommendation/', { remove: '1' }],
+    [
+      'playedElsewhere',
+      true,
+      'recommended/ignorerecommendation/',
+      { remove: '0', ignore_reason: '2' },
+    ],
+    [
+      'playedElsewhere',
+      false,
+      'recommended/ignorerecommendation/',
+      { remove: '1' },
+    ],
   ] as const)(
     'posts %s=%s like the store page does',
     async (interest, on, path, fields) => {
@@ -81,9 +93,30 @@ describe('getGameInterest', () => {
       wishlisted: true,
       following: false,
       ignored: false,
+      playedElsewhere: false,
     });
     expect(calls).toEqual([
       ['Store.GetUserGameInterestState#1', { appid: 620 }],
     ]);
+  });
+
+  it('tells ignoring as played on another platform from not being interested', async () => {
+    const cm = (state: { ignored_reason: number }) =>
+      ({
+        call: async () => ({ ignored: true, ...state }),
+      }) as unknown as SteamCM;
+
+    expect(await getGameInterest(cm({ ignored_reason: 2 }), 620)).toMatchObject(
+      {
+        ignored: true,
+        playedElsewhere: true,
+      },
+    );
+    expect(await getGameInterest(cm({ ignored_reason: 0 }), 620)).toMatchObject(
+      {
+        ignored: true,
+        playedElsewhere: false,
+      },
+    );
   });
 });

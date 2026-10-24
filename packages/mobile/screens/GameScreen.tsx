@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -68,6 +69,22 @@ const ACTIONS = [
   { interest: 'following', off: 'Follow', on: 'Following' },
   { interest: 'ignored', off: 'Ignore', on: 'Ignored' },
 ] as const;
+
+/** Which ignore the user picked, like the store's menu, or null to keep the game. */
+function askIgnore() {
+  return new Promise<'ignored' | 'playedElsewhere' | null>((resolve) =>
+    Alert.alert(
+      'Ignore this game?',
+      'The store stops recommending it. Played elsewhere still counts it for your recommendations.',
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'Played elsewhere', onPress: () => resolve('playedElsewhere') },
+        { text: 'Not interested', onPress: () => resolve('ignored') },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    ),
+  );
+}
 
 function Fact({ label, value }: { label: string; value: string }) {
   if (value === '') return null;
@@ -182,10 +199,14 @@ function Actions({
   }, [feeds, appid]);
   if (!interest) return null;
 
-  const change = (kind: (typeof ACTIONS)[number]['interest']) => {
+  const change = async (kind: (typeof ACTIONS)[number]['interest']) => {
+    // ignoring asks why, undoing it doesn't
+    const asked =
+      kind === 'ignored' && !interest.ignored ? await askIgnore() : kind;
+    if (!asked) return;
     setChanging(true);
     feeds
-      .setGameInterest(appid, kind, !interest[kind])
+      .setGameInterest(appid, asked, !interest[kind])
       .then((changed) => {
         setInterest(changed);
         // only when it changed, marking it reloads the Wishlist tab
@@ -219,7 +240,9 @@ function Actions({
             <Text
               style={[styles.actionText, interest[kind] && styles.actionTextOn]}
             >
-              {interest[kind] ? `✓ ${on}` : off}
+              {interest[kind]
+                ? `✓ ${kind === 'ignored' && interest.playedElsewhere ? 'Played elsewhere' : on}`
+                : off}
             </Text>
           </Pressable>
         ),

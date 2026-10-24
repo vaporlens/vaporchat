@@ -94,7 +94,7 @@ await feeds.getSimilarGames(appid); // the store page's "More like this"
 await feeds.getGameReviews(appid); // its reviews, most helpful first; pages like news
 await feeds.getGameNews(appid); // its news, updates and events, newest first; pages like news
 await feeds.getGameInterest(appid); // whether the user owns, wishlisted, follows or ignored it
-await feeds.setGameInterest(appid, 'wishlisted', true); // or 'following', 'ignored'; false takes it back, gives the new state
+await feeds.setGameInterest(appid, 'wishlisted', true); // or 'following', 'ignored', 'playedElsewhere'; false takes it back, gives the new state
 await feeds.getStoreItems(bundle.includedAppids); // a bundle's games
 await feeds.getSalePage(event.id); // a sale event's sections: texts and their games
 const news = await feeds.getNews(); // the News Hub's "Your News", newest first; featured ones signed out

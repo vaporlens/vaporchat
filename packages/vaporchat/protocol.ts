@@ -421,8 +421,10 @@ export interface GameInterest {
   owned: boolean;
   wishlisted: boolean;
   following: boolean;
-  /** "not interested", the store stops recommending it */
+  /** the store stops recommending it, "not interested" or played elsewhere */
   ignored: boolean;
+  /** ignored as played on another platform */
+  playedElsewhere: boolean;
 }
 
 /** A sale, update or announcement posted on Steam by a game or group. Times are milliseconds. */

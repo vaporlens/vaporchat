@@ -158,8 +158,9 @@ this.
 - more like this: `StoreQuery.MoreLikeThis` (anonymous, returns priced items);
 - **wishlist, follow, ignore** and undoing each: the store page's forms
   (`store/api/addtowishlist`, `explore/followgame/`, `recommended/ignorerecommendation/`), state
-  from `Store.GetUserGameInterestState` over the CM. A change reloads the Wishlist tab. An owned
-  game has a green "In library" in place of the wishlist button.
+  from `Store.GetUserGameInterestState` over the CM. Ignore asks for "not interested" or "played
+  elsewhere" like the store does (`ignore_reason` 2, read back as `ignored_reason`). A change
+  reloads the Wishlist tab. An owned game has a green "In library" in place of the wishlist button.
 
 **Lists:** Store (discounted, top sellers, Wishlist, My games, Browse), Releases and name search.
 **My games** cards show total playtime in the picture's badge and recent playtime or last played

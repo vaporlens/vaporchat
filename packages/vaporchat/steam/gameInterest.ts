@@ -17,6 +17,11 @@ const FORMS = {
     path: 'recommended/ignorerecommendation/',
     fields: { remove: on ? 0 : 1 },
   }),
+  // the store's ERecommendationIgnoreReason "played on another platform"
+  playedElsewhere: (on: boolean) => ({
+    path: 'recommended/ignorerecommendation/',
+    fields: on ? { remove: 0, ignore_reason: 2 } : { remove: 1 },
+  }),
 };
 
 /** Whether the user owns, wishlisted, follows or ignored a game. */
@@ -29,16 +34,21 @@ export async function getGameInterest(
     wishlist?: boolean;
     following?: boolean;
     ignored?: boolean;
+    ignored_reason?: number;
   }>('Store.GetUserGameInterestState#1', { appid });
   return {
     owned: state.owned ?? false,
     wishlisted: state.wishlist ?? false,
     following: state.following ?? false,
     ignored: state.ignored ?? false,
+    playedElsewhere: (state.ignored ?? false) && state.ignored_reason === 2,
   };
 }
 
-/** Wishlists, follows or ignores a game (`on`), or takes that back, like its store page's buttons. */
+/**
+ * Wishlists, follows or ignores a game (`on`), or takes that back, like its store page's buttons.
+ * Ignoring it as played elsewhere is ignoring it too.
+ */
 export async function setGameInterest(
   { sessionid, cookie }: WebSession,
   appid: number,
