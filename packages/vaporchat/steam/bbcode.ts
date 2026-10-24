@@ -17,7 +17,7 @@ const EMOTICON = /\[emoticon\]([^[\]]*)\[\/emoticon\]/g;
 // an escaped bracket or a tag, inside a link's text
 const ESCAPE_OR_TAG = /\\\[|\[\/?[a-z]+[^\]]*\]/g;
 // links typed without BBCode, not counting the punctuation that ends a sentence
-const BARE_URL = /https?:\/\/[^\s[\]<>]*[^\s[\]<>.,;:!?'")]/g;
+export const BARE_URL = /https?:\/\/[^\s[\]<>]*[^\s[\]<>.,;:!?'")]/g;
 // `name=value` or `name="value with spaces"`
 const ATTRIBUTE = /(\w+)=(?:"([^"]*)"|([^\s"]*))/g;
 

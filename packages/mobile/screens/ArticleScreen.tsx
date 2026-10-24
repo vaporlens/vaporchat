@@ -15,6 +15,7 @@ import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { fullDate } from '../format';
 import { colors } from '../theme';
+import { LinkPreview } from './LinkPreviews';
 import { PagedList } from './PagedList';
 
 /** The game a post is about, opening its page. Nothing until it's loaded, or for group posts. */
@@ -238,7 +239,13 @@ export function ArticleScreen({
         )}
         <MuteSource feeds={feeds} event={event} onError={onError} />
       </View>
-      <RichText blocks={event.body} onOpenImage={onOpenImage} />
+      <RichText
+        blocks={event.body}
+        onOpenImage={onOpenImage}
+        renderStoreLink={(block) => (
+          <LinkPreview feeds={feeds} part={block} onOpenGame={onOpenGame} />
+        )}
+      />
       {/* posts cached before comments were loaded have no thread */}
       {event.commentThread && (
         <Comments

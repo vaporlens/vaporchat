@@ -1,5 +1,5 @@
 import type { RichBlock, RichSpan, RichVideo } from '../protocol.ts';
-import { attributes, size } from './bbcode.ts';
+import { attributes, BARE_URL, size } from './bbcode.ts';
 import { ASSETS_URL, CLAN_IMAGES_URL } from './web.ts';
 
 // `[b]`, `[/b]`, `[url=https://…]`, `[img src="…" width="600"]`, `[*]`
@@ -21,6 +21,10 @@ const CONTENT_TAGS = new Set([
   'dynamiclink',
   'code',
 ]);
+// a video's id in the ways YouTube links to one
+const YOUTUBE_VIDEO =
+  /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|shorts\/|embed\/)|youtu\.be\/)([\w-]+)/i;
+const STORE_APP = /^https?:\/\/store\.steampowered\.com\/app\/(\d+)/i;
 // containers that only matter to the website's layout
 const IGNORED = new Set(['carousel', 'table']);
 const BLOCKS = new Set(['p', 'h1', 'h2', 'h3', 'quote']);
@@ -69,6 +73,16 @@ function youtube(value: string): RichBlock {
     url: `https://www.youtube.com/watch?v=${id}`,
     thumbnailUrl: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
   };
+}
+
+/** A link on its own line, like Steam shows it: a video, a store page's game, or the link. */
+function linkBlock(url: string): RichBlock {
+  const videoId = url.match(YOUTUBE_VIDEO)?.[1];
+  if (videoId) return youtube(videoId);
+  const appid = url.match(STORE_APP)?.[1];
+  return appid
+    ? { kind: 'storeLink', appid: Number(appid), url }
+    : { kind: 'link', url };
 }
 
 /** Drops the whitespace around a block's text, null when there is no text left. */
@@ -128,16 +142,27 @@ export function parseRichText(
     if (link) span.link = link;
     current.spans.push(span);
   };
+  // urls typed into the text link to themselves, unless they're in a link already
+  const appendLinked = (text: string) => {
+    if (links.length > 0) return append(text);
+    let index = 0;
+    for (const match of text.matchAll(BARE_URL)) {
+      append(text.slice(index, match.index));
+      append(match[0], match[0]);
+      index = match.index + match[0].length;
+    }
+    append(text.slice(index));
+  };
   const addText = (text: string) => {
     if (cells !== null) {
       // a table row is one line, the layout whitespace between its cells is dropped
-      if (text.trim() !== '') append(text.replace(/\s*\n\s*/g, ' '));
+      if (text.trim() !== '') appendLinked(text.replace(/\s*\n\s*/g, ' '));
       return;
     }
     // a line break ends the paragraph
     text.split('\n').forEach((line, index) => {
       if (index > 0) flush();
-      append(line);
+      appendLinked(line);
     });
   };
 
@@ -183,7 +208,7 @@ export function parseRichText(
       } else if (name === 'previewyoutube' && attrs.value) {
         block = youtube(attrs.value);
       } else if (name === 'dynamiclink' && attrs.href) {
-        block = { kind: 'link', url: attrs.href };
+        block = linkBlock(attrs.href);
       }
       if (block) {
         flush();

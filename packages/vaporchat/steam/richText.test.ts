@@ -96,8 +96,61 @@ describe('parseRichText', () => {
         height: null,
         video: null,
       },
-      { kind: 'link', url: 'https://store.steampowered.com/app/10' },
+      {
+        kind: 'storeLink',
+        appid: 10,
+        url: 'https://store.steampowered.com/app/10',
+      },
       { kind: 'rule' },
+    ]);
+  });
+
+  it('shows a linked video as the video, other links as links', () => {
+    const linked = (href: string) =>
+      parseRichText(`[dynamiclink href="${href}"][/dynamiclink]`)[0];
+    const video = (id: string) => ({
+      kind: 'youtube',
+      url: `https://www.youtube.com/watch?v=${id}`,
+      thumbnailUrl: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+    });
+
+    expect(linked('https://www.youtube.com/watch?v=a-1_b&t=30')).toEqual(
+      video('a-1_b'),
+    );
+    expect(linked('https://youtu.be/c2?si=x')).toEqual(video('c2'));
+    expect(linked('https://youtube.com/live/d3')).toEqual(video('d3'));
+    expect(linked('https://www.youtube.com/somechannel')).toEqual({
+      kind: 'link',
+      url: 'https://www.youtube.com/somechannel',
+    });
+    expect(
+      linked('https://store.steampowered.com/app/20/Some_Game/?snr=1'),
+    ).toEqual({
+      kind: 'storeLink',
+      appid: 20,
+      url: 'https://store.steampowered.com/app/20/Some_Game/?snr=1',
+    });
+    expect(linked('https://store.steampowered.com/bundle/30')).toEqual({
+      kind: 'link',
+      url: 'https://store.steampowered.com/bundle/30',
+    });
+  });
+
+  it('links urls typed into the text, not the sentence ending them', () => {
+    expect(
+      parseRichText(
+        '[p]See https://example.com/a. Or [url=https://example.com/b]https://example.com/c[/url][/p]',
+      ),
+    ).toEqual([
+      {
+        kind: 'paragraph',
+        spans: [
+          { text: 'See ' },
+          { text: 'https://example.com/a', link: 'https://example.com/a' },
+          { text: '. Or ' },
+          { text: 'https://example.com/c', link: 'https://example.com/b' },
+        ],
+      },
     ]);
   });
 

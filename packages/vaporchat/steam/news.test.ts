@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { yourDocuments } from './news.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getYourNews, yourDocuments } from './news.ts';
 
 describe('yourDocuments', () => {
   it("keeps the news of the user's games and groups, not featured or recommended news", () => {
@@ -26,5 +26,34 @@ describe('yourDocuments', () => {
         ],
       }).map(({ unique_id }) => unique_id),
     ).toEqual(['owned', 'wishlisted', 'followed group']);
+  });
+});
+
+describe('getYourNews', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks the timeline for the user's sources like the News Hub, followed games among them, signed in only", async () => {
+    const urls: URL[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      urls.push(new URL(url));
+      return Response.json({ documents: [], backwardComplete: true });
+    });
+    const session = {
+      sessionid: 'abc',
+      cookie: 'steamLoginSecure=x',
+      accessToken: 'x',
+    };
+
+    const appTypes = async (signedIn: boolean) => {
+      urls.length = 0;
+      await getYourNews(signedIn ? session : null, 'US', null);
+      return urls
+        .find((url) => url.pathname.endsWith('/ajaxgetusereventcalendarrange/'))
+        ?.searchParams.get('appTypes');
+    };
+
+    expect(await appTypes(true)).toBe('library,wishlist,following,steam');
+    // signed out, the timeline's featured news
+    expect(await appTypes(false)).toBeNull();
   });
 });

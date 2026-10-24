@@ -560,7 +560,9 @@ export type RichBlock =
       video: RichVideo | null;
     }
   | { kind: 'youtube'; url: string; thumbnailUrl: string }
-  /** a link shown on its own, like a store page Steam previews */
+  /** a store page's game, shown as its card */
+  | { kind: 'storeLink'; appid: number; url: string }
+  /** a link shown on its own */
   | { kind: 'link'; url: string }
   | { kind: 'rule' };
 

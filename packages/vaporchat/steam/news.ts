@@ -10,6 +10,8 @@ const CALENDAR_URL = `${STORE_URL}events/ajaxgetusereventcalendarrange/`;
 // the News Hub's default kinds: news, updates, events, streams, releases, sales
 const EVENT_TYPES =
   '28,9,27,22,23,24,35,25,26,11,12,13,14,10,29,16,15,32,20,21,31,34';
+// the sources "Your News" shows, asked for by name like the News Hub always does
+const YOUR_SOURCES = 'library,wishlist,following,steam';
 const PAGE_SIZE = 250;
 // most of the timeline is featured news for everyone, a page may have none of the user's
 const MAX_REQUESTS = 4;
@@ -87,7 +89,8 @@ export async function getYourNews(
     // the posts' texts are fetched for the user's posts only, most of a page is someone else's
     const calendar = await getJson<Calendar>(
       `${CALENDAR_URL}?minTime=0&maxTime=${next}&ascending=false&maxResults=${PAGE_SIZE}` +
-        `&populateEvents=0&eventTypes=${EVENT_TYPES}&l=english`,
+        `&populateEvents=0&eventTypes=${EVENT_TYPES}&l=english` +
+        (session ? `&appTypes=${YOUR_SOURCES}` : ''),
       session?.cookie,
     );
     documents.push(...yourDocuments(calendar).filter((doc) => !isMuted(doc)));

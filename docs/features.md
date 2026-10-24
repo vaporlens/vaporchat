@@ -190,10 +190,13 @@ newest first, read only (`ICommunityService/GetCommentThread`, POST only, anonym
 7 for the event's `ForumTopic` `gidfeature`/`gidfeature2`; `vaporchat/steam/comments.ts`).
 Comments only carry a steamid, so names and avatars come from each author's
 `steamcommunity.com/miniprofile/{accountid}/json`.
+A `[dynamiclink]` to a YouTube video shows its frame like chat's previews, in an article one to a
+store page shows the game's card; other links stay links. Links typed into the text are tappable.
 
 ## Feed
 
-News ("Your News" sources, featured when signed out), friends' Activity (10 kinds; the first
+News ("Your News" sources, asked for by `appTypes=library,wishlist,following,steam`; featured
+when signed out), friends' Activity (10 kinds; the first
 three achievements unlocked named and described, the rest as icons), live sale Events.
 
 **Muting a game's or group's news** from its article page, beside the game's link: the post's

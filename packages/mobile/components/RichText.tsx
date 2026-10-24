@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { useCallback, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -133,12 +133,30 @@ function RichImage({
   );
 }
 
+type StoreLink = Extract<RichBlock, { kind: 'storeLink' }>;
+
+function LinkRow({ url }: { url: string }) {
+  return (
+    <Pressable
+      onPress={() => openLink(url)}
+      style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+    >
+      <Ionicons name="link" size={18} color={colors.accent} />
+      <Text style={styles.linkText} numberOfLines={1}>
+        {url.replace(/^https?:\/\//, '')}
+      </Text>
+    </Pressable>
+  );
+}
+
 function Block({
   block,
   onOpenImage,
+  renderStoreLink,
 }: {
   block: RichBlock;
   onOpenImage: (url: string) => void;
+  renderStoreLink?: (block: StoreLink) => ReactNode;
 }) {
   switch (block.kind) {
     case 'heading':
@@ -191,37 +209,39 @@ function Block({
           </View>
         </Pressable>
       );
+    case 'storeLink':
+      return renderStoreLink?.(block) ?? <LinkRow url={block.url} />;
     case 'link':
-      return (
-        <Pressable
-          onPress={() => openLink(block.url)}
-          style={({ pressed }) => [styles.link, pressed && styles.pressed]}
-        >
-          <Ionicons name="link" size={18} color={colors.accent} />
-          <Text style={styles.linkText} numberOfLines={1}>
-            {block.url.replace(/^https?:\/\//, '')}
-          </Text>
-        </Pressable>
-      );
+      return <LinkRow url={block.url} />;
     case 'rule':
       return <View style={styles.rule} />;
   }
 }
 
-/** A store page or news post, as Steam formats it. */
+/**
+ * A store page or news post, as Steam formats it. A store page's game shows as a link without
+ * `renderStoreLink`.
+ */
 export function RichText({
   blocks,
   onOpenImage,
+  renderStoreLink,
 }: {
   blocks: RichBlock[];
   onOpenImage: (url: string) => void;
+  renderStoreLink?: (block: StoreLink) => ReactNode;
 }) {
   return (
     <View style={styles.blocks}>
       {blocks.map((block, index) => (
-        // blocks never move, their position is their identity
-        // biome-ignore lint/suspicious/noArrayIndexKey: see above
-        <Block key={index} block={block} onOpenImage={onOpenImage} />
+        <Block
+          // blocks never move, their position is their identity
+          // biome-ignore lint/suspicious/noArrayIndexKey: see above
+          key={index}
+          block={block}
+          onOpenImage={onOpenImage}
+          renderStoreLink={renderStoreLink}
+        />
       ))}
     </View>
   );

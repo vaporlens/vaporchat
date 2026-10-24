@@ -31,7 +31,7 @@ function StoreLinkPreview({
   feeds: SteamFeeds;
   part: Extract<PreviewPart, { kind: 'storeLink' }>;
   onOpenGame: (item: StoreItem) => void;
-  onLongPress: () => void;
+  onLongPress?: () => void;
 }) {
   const load = useCallback(
     () => feeds.getStoreItems([part.appid]),
@@ -71,7 +71,8 @@ function StoreLinkPreview({
 
 /**
  * A link Steam previews under a message: a store page's game, a web page's title, text and picture,
- * a YouTube video's frame. Held down, it reacts to the message like the rest of the bubble.
+ * a YouTube video's frame. Held down, it reacts to the message like the rest of the bubble. News
+ * posts show their store pages' games with it too.
  */
 export function LinkPreview({
   feeds,
@@ -82,7 +83,7 @@ export function LinkPreview({
   feeds: SteamFeeds;
   part: PreviewPart;
   onOpenGame: (item: StoreItem) => void;
-  onLongPress: () => void;
+  onLongPress?: () => void;
 }) {
   if (part.kind === 'storeLink') {
     return (
