@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -65,9 +66,27 @@ type Tab =
 
 // the store page's buttons, off and on
 const ACTIONS = [
-  { interest: 'wishlisted', off: 'Wishlist', on: 'On wishlist' },
-  { interest: 'following', off: 'Follow', on: 'Following' },
-  { interest: 'ignored', off: 'Ignore', on: 'Ignored' },
+  {
+    interest: 'wishlisted',
+    off: 'Wishlist',
+    on: 'On wishlist',
+    icon: 'heart-outline',
+    iconOn: 'heart',
+  },
+  {
+    interest: 'following',
+    off: 'Follow',
+    on: 'Following',
+    icon: 'notifications-outline',
+    iconOn: 'notifications',
+  },
+  {
+    interest: 'ignored',
+    off: 'Ignore',
+    on: 'Ignored',
+    icon: 'eye-off-outline',
+    iconOn: 'eye-off',
+  },
 ] as const;
 
 /** Which ignore the user picked, like the store's menu, or null to keep the game. */
@@ -218,12 +237,17 @@ function Actions({
   };
   return (
     <View style={styles.actions}>
-      {ACTIONS.map(({ interest: kind, off, on }) =>
+      {ACTIONS.map(({ interest: kind, off, on, icon, iconOn }) =>
         // an owned game can't be wishlisted, its button says it's owned
         kind === 'wishlisted' && interest.owned ? (
           <View key={kind} style={[styles.action, styles.actionOwned]}>
-            <Text style={[styles.actionText, styles.actionTextOwned]}>
-              ✓ In library
+            <Ionicons name="checkmark-circle" size={18} color={colors.accept} />
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={[styles.actionText, styles.actionTextOwned]}
+            >
+              In library
             </Text>
           </View>
         ) : (
@@ -237,12 +261,21 @@ function Actions({
               (pressed || changing) && styles.pressed,
             ]}
           >
+            <Ionicons
+              name={interest[kind] ? iconOn : icon}
+              size={18}
+              color={interest[kind] ? colors.accent : colors.text}
+            />
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={[styles.actionText, interest[kind] && styles.actionTextOn]}
             >
-              {interest[kind]
-                ? `✓ ${kind === 'ignored' && interest.playedElsewhere ? 'Played elsewhere' : on}`
-                : off}
+              {!interest[kind]
+                ? off
+                : kind === 'ignored' && interest.playedElsewhere
+                  ? 'Played elsewhere'
+                  : on}
             </Text>
           </Pressable>
         ),
@@ -512,18 +545,33 @@ const styles = StyleSheet.create({
   tab: { gap: 14 },
   section: { gap: 8 },
   muted: { color: colors.muted, fontSize: 13 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // outlined and sharp-cornered, unlike the pill tabs under them
+  actions: { flexDirection: 'row', gap: 8 },
   action: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceRaised,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  actionOn: { backgroundColor: colors.accentBackground },
-  actionText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  actionOn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentBackground,
+  },
+  actionText: {
+    flexShrink: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   actionTextOn: { color: colors.accent },
-  actionOwned: { backgroundColor: colors.accept },
-  actionTextOwned: { color: colors.bright },
+  actionOwned: { borderColor: colors.accept },
+  actionTextOwned: { color: colors.accept },
   pressed: { opacity: 0.7 },
   loading: { marginTop: 24 },
   reviews: { color: colors.muted, fontSize: 14 },
