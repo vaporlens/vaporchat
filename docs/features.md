@@ -134,6 +134,9 @@ Overview (Early Access notice, description, facts, tags, features, links, VaporL
 (Early Access answers, description, system requirements), DLC & editions, Reviews, News, More like
 this.
 
+- **reviews:** English ones, most helpful first like the store page, paged by cursor
+  (`IUserReviewsService/GetAppReviews`, keyless; it replaced `appreviews`, switched off on 22 Oct
+  2026); authors' names and pictures from their mini profiles, like comments;
 - **reviews over time** above the reviews: recommended up, not recommended down, a bar per month
   since release (per week for young games) or per day for the last 30 days, grouped to fit; tap a
   bar for its counts (`store.steampowered.com/appreviewhistogram/{appid}`, `rollups` and

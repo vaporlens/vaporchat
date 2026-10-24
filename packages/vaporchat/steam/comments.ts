@@ -21,10 +21,10 @@ interface MiniProfile {
 }
 
 /**
- * Who wrote a comment, from their mini profile: the comments only have their steamid. Nameless
- * when it can't be loaded, the comment still shows.
+ * Who wrote a comment or review, from their mini profile: those only have their steamid.
+ * Nameless when it can't be loaded, what they wrote still shows.
  */
-async function getAuthor(steamid: string) {
+export async function getAuthor(steamid: string) {
   const accountId = accountIdFromSteamId(steamid);
   const { persona_name = '', avatar_url = null } = await getJson<MiniProfile>(
     `${COMMUNITY_URL}miniprofile/${accountId}/json`,

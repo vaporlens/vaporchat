@@ -4,40 +4,26 @@ import type {
   ReviewCounts,
   ReviewHistogram,
 } from '../protocol.ts';
-import { avatarUrl } from './friends.ts';
+import { getAuthor } from './comments.ts';
 import { parseRichText } from './richText.ts';
+import { callApi } from './store.ts';
 import { getJson, STORE_URL } from './web.ts';
 
 const PAGE_SIZE = 20;
+// GetAppReviews' EUserReviewsAppReviewsFilter and EUserReviewsPurchaseType
+const MOST_HELPFUL = 0;
+const ANY_PURCHASE = 1;
 
-/** A review as the store's appreviews endpoint has it, only what we use. */
-export interface ApiReview {
+/** A review as GetAppReviews has it, only what we use. */
+interface ApiReview {
   recommendationid: string;
-  author: {
-    personaname?: string;
-    avatar?: string;
-    playtime_at_review?: number;
-  };
+  author: { steamid: string; playtime_at_review?: number };
   /** BBCode */
   review: string;
   /** seconds since the epoch */
   timestamp_created: number;
   voted_up: boolean;
   votes_up: number;
-}
-
-export function toGameReview(review: ApiReview): GameReview {
-  return {
-    id: review.recommendationid,
-    author: review.author.personaname ?? '',
-    avatarUrl: avatarUrl(review.author.avatar ?? ''),
-    recommended: review.voted_up,
-    // minutes
-    hoursPlayed: (review.author.playtime_at_review ?? 0) / 60,
-    createdAt: review.timestamp_created * 1000,
-    helpful: review.votes_up,
-    body: parseRichText(review.review, null),
-  };
 }
 
 /**
@@ -48,15 +34,36 @@ export async function getGameReviews(
   appid: number,
   cursor: string | null,
 ): Promise<FeedPage<GameReview, string>> {
-  const { reviews = [], cursor: next } = await getJson<{
+  const { reviews = [], cursor: next } = await callApi<{
     reviews?: ApiReview[];
     cursor?: string;
-  }>(
-    `${STORE_URL}appreviews/${appid}?json=1&filter=all&language=english&purchase_type=all` +
-      `&num_per_page=${PAGE_SIZE}&cursor=${encodeURIComponent(cursor ?? '*')}`,
+  }>('IUserReviewsService/GetAppReviews', {
+    appid,
+    filter: MOST_HELPFUL,
+    languages: ['english'],
+    purchase_type: ANY_PURCHASE,
+    num_per_page: PAGE_SIZE,
+    cursor: cursor ?? '*',
+  });
+  // the reviews only have their authors' steamids
+  const steamids = [...new Set(reviews.map(({ author }) => author.steamid))];
+  const authors = new Map(
+    await Promise.all(
+      steamids.map(async (id) => [id, await getAuthor(id)] as const),
+    ),
   );
   return {
-    items: reviews.map(toGameReview),
+    items: reviews.map((review) => ({
+      id: review.recommendationid,
+      author: authors.get(review.author.steamid)?.name ?? '',
+      avatarUrl: authors.get(review.author.steamid)?.avatarUrl ?? null,
+      recommended: review.voted_up,
+      // minutes
+      hoursPlayed: (review.author.playtime_at_review ?? 0) / 60,
+      createdAt: review.timestamp_created * 1000,
+      helpful: review.votes_up,
+      body: parseRichText(review.review, null),
+    })),
     next: reviews.length > 0 && next ? next : null,
   };
 }

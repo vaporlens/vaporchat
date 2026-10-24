@@ -635,7 +635,7 @@ export interface ReviewHistogram {
 export interface GameReview {
   id: string;
   author: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
   recommended: boolean;
   /** how long they had played when they wrote it */
   hoursPlayed: number;
