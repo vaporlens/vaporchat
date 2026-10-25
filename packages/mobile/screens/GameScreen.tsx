@@ -315,6 +315,7 @@ function Details({
   appid,
   game,
   report,
+  refreshes,
   onOpenImage,
   onOpenGame,
   onOpenPage,
@@ -324,6 +325,8 @@ function Details({
   appid: number;
   game: GameDetails;
   report: Report | null;
+  /** times the page was pulled to refresh, reviews and news load again each time */
+  refreshes: number;
   onOpenImage: (url: string) => void;
   onOpenGame: (item: StoreItem) => void;
   onOpenPage: (page: Page) => void;
@@ -439,6 +442,7 @@ function Details({
             )}
             {name === 'reviews' && (
               <GameReviews
+                key={refreshes}
                 feeds={feeds}
                 appid={appid}
                 onOpenImage={onOpenImage}
@@ -447,6 +451,7 @@ function Details({
             )}
             {name === 'news' && (
               <GameNews
+                key={refreshes}
                 feeds={feeds}
                 appid={appid}
                 onOpenEvent={openEvent}
@@ -493,16 +498,28 @@ export function GameScreen({
     () => feeds.getGame(item.appid),
     [feeds, item.appid],
   );
-  const { data: game, error } = useCached(`game-${item.appid}`, loadGame);
+  const {
+    data: game,
+    error,
+    reload: reloadGame,
+  } = useCached(`game-${item.appid}`, loadGame);
   // the page works without it, failing to get it just leaves it out
   const loadReport = useCallback(
     () => getVaporlensReport(item.appid),
     [item.appid],
   );
-  const { data: report } = useCached<Report | null>(
+  const { data: report, reload: reloadReport } = useCached<Report | null>(
     `vaporlens-${item.appid}`,
     loadReport,
   );
+  const [refreshes, setRefreshes] = useState(0);
+  const refresh = async () => {
+    setRefreshes((n) => n + 1);
+    await Promise.all([
+      reloadGame().catch(onError),
+      reloadReport().catch(() => {}),
+    ]);
+  };
 
   // the list's item until the page has loaded, its prices are the same
   const shown = game ?? item;
@@ -515,6 +532,7 @@ export function GameScreen({
       imageUrl={shown.imageUrl}
       imageRatio={460 / 215}
       titleInContent
+      onRefresh={refresh}
     >
       <BuyHeader item={shown} />
       <Actions feeds={feeds} appid={item.appid} onError={onError} />
@@ -524,6 +542,7 @@ export function GameScreen({
           appid={item.appid}
           game={game}
           report={report}
+          refreshes={refreshes}
           onOpenImage={onOpenImage}
           onOpenGame={onOpenGame}
           onOpenPage={onOpenPage}

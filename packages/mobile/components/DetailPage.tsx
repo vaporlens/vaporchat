@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -21,6 +22,7 @@ export function DetailPage({
   imageUrl,
   imageRatio,
   titleInContent = false,
+  onRefresh,
   children,
 }: {
   title: string;
@@ -34,12 +36,15 @@ export function DetailPage({
   imageRatio: number;
   /** the content starts with the title under the picture, the header shows it past that */
   titleInContent?: boolean;
+  /** pulling down calls it, the spinner shows until it settles */
+  onRefresh?: () => Promise<void>;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scroll = useScrollWatch();
   const pastImage = useScrolledPast(imageUrl ? width / imageRatio : 0);
+  const [refreshing, setRefreshing] = useState(false);
   return (
     <View style={styles.screen}>
       <DetailHeader
@@ -60,6 +65,18 @@ export function DetailPage({
           pastImage.onScroll(event);
         }}
         scrollEventThrottle={100}
+        refreshControl={
+          onRefresh && (
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor={colors.muted}
+              onRefresh={() => {
+                setRefreshing(true);
+                void onRefresh().finally(() => setRefreshing(false));
+              }}
+            />
+          )
+        }
       >
         <scroll.Provider value={scroll.watch}>
           {imageUrl && (
