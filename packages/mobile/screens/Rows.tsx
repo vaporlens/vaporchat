@@ -12,19 +12,40 @@ export function SectionHeader({
   title,
   count,
   action,
+  onPress,
 }: {
   title: string;
   count?: number;
   action?: ReactNode;
+  /** the title opens what it names, like a game's page */
+  onPress?: () => void;
 }) {
+  const text = (
+    <Text style={styles.sectionTitle}>
+      {title}
+      {count !== undefined && (
+        <Text style={styles.sectionCount}> ({count})</Text>
+      )}
+    </Text>
+  );
   return (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>
-        {title}
-        {count !== undefined && (
-          <Text style={styles.sectionCount}> ({count})</Text>
-        )}
-      </Text>
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="link"
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.sectionLink,
+            pressed && styles.pressed,
+          ]}
+        >
+          {text}
+          <Ionicons name="chevron-forward" size={14} color={colors.muted} />
+        </Pressable>
+      ) : (
+        text
+      )}
       {action}
     </View>
   );
@@ -227,6 +248,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   sectionCount: { color: colors.offline, fontWeight: '500' },
+  sectionLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

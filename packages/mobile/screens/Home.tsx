@@ -76,6 +76,8 @@ interface Section {
   title: string;
   count?: number;
   data: Row[];
+  /** a game section's game, its title opens its page */
+  appid?: number;
 }
 
 function sessionTitle(
@@ -257,12 +259,16 @@ export function Home({
     const groupRows = allGroupRows.filter((row) => !isUnread(row));
     const rest = shown.filter((f) => !unread.friends.has(f.steamid));
     // friends in a game under it, like Steam groups them: games most friends play first
-    const playing = new Map<`game-${string}`, { title: string; rows: Row[] }>();
+    const playing = new Map<
+      `game-${string}`,
+      { title: string; appid: number | null; rows: Row[] }
+    >();
     for (const f of rest) {
       if (!f.online || !f.game) continue;
       const key = `game-${f.game.appid ?? f.game.name}` as const;
       const game = playing.get(key) ?? {
         title: (f.game.name ?? 'In game').toUpperCase(),
+        appid: f.game.appid,
         rows: [],
       };
       game.rows.push(friendRow(f));
@@ -279,6 +285,7 @@ export function Home({
           title: game.title,
           count: game.rows.length,
           data: game.rows,
+          appid: game.appid ?? undefined,
         }),
       );
     const online = rest.filter((f) => f.online && !f.game).map(friendRow);
@@ -331,6 +338,15 @@ export function Home({
     [navigation],
   );
   useAlerts(voice, groups, muted, openChat);
+  // a played game's page needs its store item
+  const openPlayed = useCallback(
+    (appid: number) =>
+      void voice.connection.feeds
+        .getStoreItems([appid])
+        .then(([item]) => item && openGame(item))
+        .catch(showError),
+    [voice, openGame, showError],
+  );
   const callFriend = useCallback(
     (friend: Friend) =>
       void startVoice((mic) => voice.callFriend(friend.steamid, mic)).catch(
@@ -490,10 +506,13 @@ export function Home({
               </Appear>
             ) : null
           }
-          renderSectionHeader={({ section }) => (
+          renderSectionHeader={({ section: { appid, ...section } }) => (
             <SectionHeader
               title={section.title}
               count={section.count}
+              onPress={
+                appid === undefined ? undefined : () => openPlayed(appid)
+              }
               action={
                 section.key === 'groups' ? (
                   <Pressable

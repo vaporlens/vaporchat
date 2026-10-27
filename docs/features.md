@@ -12,10 +12,11 @@ chat at all.
 
 ## Friends and presence
 
-Friend rows with avatar, name, online/offline, an unread badge and a call button; friends in a
-game grouped under it like Steam's "group friends by game", games most friends play first; groups
-and friends with unread messages in an Unread section on top; offline friends collapsed; search by
-name (`mobile/screens/Rows.tsx`, `mobile/screens/Home.tsx`).
+Friend rows with avatar, name, online/offline, an unread badge and a call button; friends in a game
+grouped under it like Steam's "group friends by game", games most friends play first, a Steam
+game's header opening its game page; groups and friends with unread messages in an Unread section
+on top; offline friends collapsed; search by name (`mobile/screens/Rows.tsx`,
+`mobile/screens/Home.tsx`).
 
 - **"Playing X"** in Steam's in-game green: `CMsgClientPersonaState.Friend` `game_played_app_id`
   and `gameid`. `game_name` comes only for non-Steam games, so Steam games are named via the store.
