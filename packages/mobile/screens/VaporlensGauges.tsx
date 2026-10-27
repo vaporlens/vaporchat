@@ -2,6 +2,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gauge } from '../components/Gauge';
 import { InfoDetails } from '../components/InfoDetails';
 import type { Info } from '../components/InfoSheet';
+import { capitalize } from '../format';
 import { colors } from '../theme';
 import type { GameFit, VaporlensReport as Report } from '../vaporlens';
 
@@ -55,10 +56,6 @@ function fitText(fit: GameFit | null) {
   if (fit.fit === null)
     return 'A fit score is not available for this game yet.';
   return `This is ${Math.round(fit.fit)}% similar to what you play.`;
-}
-
-function capitalize(text: string) {
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
 
 function list(items: string[]) {

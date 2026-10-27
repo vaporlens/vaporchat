@@ -149,6 +149,10 @@ this.
   analysis", which adds the game to its queue or votes for it (`/api/mobile/fit`, `/api/mobile/queue`);
   on reports a week old or more, "Request update", confirmed first like on vaporlens.app, queues a
   new analysis (`PUT /api/mobile/queue`);
+- **ProtonDB**, off until turned on in Settings ("Show ProtonDB rating", kept on the device): a
+  fact row with the tier, the trending tier when it differs, and the report count, opening the game
+  on protondb.com (`www.protondb.com/api/v1/reports/summaries/{appid}.json`, undocumented, keyless;
+  404 for games without reports; its CORS allows only protondb.com, so web would need a proxy);
 - **More like this:** the games VaporLens reads alike (the report's `similar`, turned into store
   items with `GetItems`) above Steam's suggestions, which leave those out;
 - editions and bundles that include it, above the DLC, each priced and opening as a bundle:
@@ -216,7 +220,8 @@ post stays in the feed until it reloads.
 
 ## Account and app shell
 
-Settings: status picker, "Stay connected" (Android), games hidden in the store, VaporLens imports,
+Settings: status picker, "Stay connected" (Android), games hidden in the store, ProtonDB on game
+pages, VaporLens imports,
 accounts and sign-out. Region and currency follow Steam's geolocation; VaporLens prices are
 always USD.
 

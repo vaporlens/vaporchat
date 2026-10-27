@@ -4,6 +4,11 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/** `Fun immediately` */
+export function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+}
+
 /** `Oct 5` */
 export function date(time: number) {
   return new Date(time).toLocaleDateString(undefined, {

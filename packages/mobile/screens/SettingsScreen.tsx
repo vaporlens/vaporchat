@@ -14,6 +14,7 @@ import type { MyStatus } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
 import { SectionTitle } from '../components/SectionTitle';
+import { useShowProtonDb } from '../protondb';
 import { colors } from '../theme';
 import { type SavedAccount, savedAccounts } from '../tokenStore';
 import { useHiddenInStore } from '../userApps';
@@ -42,6 +43,32 @@ const HIDDEN_OPTIONS = [
   { kind: 'wishlisted', label: 'Hide wishlisted games' },
 ] as const;
 
+function SwitchRow({
+  label,
+  detail,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  detail: string;
+  value: boolean;
+  onValueChange: (on: boolean) => void;
+}) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.grow}>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.detail}>{detail}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ true: colors.accent }}
+      />
+    </View>
+  );
+}
+
 /** Leaving the user's games out of the store's lists, searches still find them. */
 function HiddenInStore() {
   const { hidden, setHidden } = useHiddenInStore();
@@ -50,20 +77,32 @@ function HiddenInStore() {
       <SectionTitle title="Store" />
       <View style={styles.group}>
         {HIDDEN_OPTIONS.map(({ kind, label }) => (
-          <View key={kind} style={styles.row}>
-            <View style={styles.grow}>
-              <Text style={styles.label}>{label}</Text>
-              <Text style={styles.detail}>
-                In the store's lists, searches still show them
-              </Text>
-            </View>
-            <Switch
-              value={hidden[kind]}
-              onValueChange={(on) => setHidden({ ...hidden, [kind]: on })}
-              trackColor={{ true: colors.accent }}
-            />
-          </View>
+          <SwitchRow
+            key={kind}
+            label={label}
+            detail="In the store's lists, searches still show them"
+            value={hidden[kind]}
+            onValueChange={(on) => setHidden({ ...hidden, [kind]: on })}
+          />
         ))}
+      </View>
+    </>
+  );
+}
+
+/** Showing ProtonDB's verdict on game pages, off until turned on. */
+function GamePages() {
+  const { on, change } = useShowProtonDb();
+  return (
+    <>
+      <SectionTitle title="Game pages" />
+      <View style={styles.group}>
+        <SwitchRow
+          label="Show ProtonDB rating"
+          detail="How well games run on Linux, from protondb.com's player reports"
+          value={on}
+          onValueChange={change}
+        />
       </View>
     </>
   );
@@ -130,8 +169,8 @@ function VaporlensImport() {
 }
 
 /**
- * What friends see of you, alerts in the background, games hidden in the store, VaporLens
- * imports, and accounts.
+ * What friends see of you, alerts in the background, games hidden in the store, ProtonDB on
+ * game pages, VaporLens imports, and accounts.
  */
 export function SettingsScreen({
   status,
@@ -195,24 +234,17 @@ export function SettingsScreen({
           <>
             <SectionTitle title="Notifications" />
             <View style={styles.group}>
-              <View style={styles.row}>
-                <View style={styles.grow}>
-                  <Text style={styles.label}>Stay connected</Text>
-                  <Text style={styles.detail}>
-                    Alerts for messages and calls while Vaporlens is in the
-                    background. Uses more battery
-                  </Text>
-                </View>
-                <Switch
-                  value={stayConnected}
-                  onValueChange={onChangeStayConnected}
-                  trackColor={{ true: colors.accent }}
-                />
-              </View>
+              <SwitchRow
+                label="Stay connected"
+                detail="Alerts for messages and calls while Vaporlens is in the background. Uses more battery"
+                value={stayConnected}
+                onValueChange={onChangeStayConnected}
+              />
             </View>
           </>
         )}
         <HiddenInStore />
+        <GamePages />
         <VaporlensImport />
         <SectionTitle title="Account" />
         <View style={styles.group}>

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,8 +24,14 @@ import { type MediaItem, MediaTile, mediaCount } from '../components/MediaTile';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { SubTabs } from '../components/SubTabs';
-import { releaseDate } from '../format';
+import { capitalize, releaseDate } from '../format';
 import { openLink } from '../links';
+import {
+  getProtonDbSummary,
+  type ProtonDbTier,
+  protonDbUrl,
+  useShowProtonDb,
+} from '../protondb';
 import { colors, gridGutter } from '../theme';
 import { useMarkWishlisted } from '../userApps';
 import {
@@ -54,6 +60,16 @@ const DECK = {
   verified: 'Steam Deck Verified',
   playable: 'Steam Deck Playable',
   unsupported: 'Unsupported on Steam Deck',
+};
+
+// protondb.com's colors for its tiers
+const PROTONDB_COLORS: Record<ProtonDbTier, string> = {
+  platinum: '#b4c7dc',
+  gold: '#cfb53b',
+  silver: '#a6a6a6',
+  bronze: '#cd7f32',
+  borked: '#ff0000',
+  pending: colors.muted,
 };
 
 type Tab =
@@ -106,13 +122,59 @@ function askIgnore() {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: ReactNode;
+  onPress?: () => void;
+}) {
   if (value === '') return null;
-  return (
-    <View style={styles.fact}>
+  const content = (
+    <>
       <Text style={styles.factLabel}>{label}</Text>
       <Text style={styles.factValue}>{value}</Text>
-    </View>
+    </>
+  );
+  // only tappable facts are buttons to screen readers
+  if (!onPress) return <View style={styles.fact}>{content}</View>;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.fact, pressed && styles.pressed]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+/** ProtonDB's verdict among the facts, opening its page; left out without reports. */
+function ProtonDbFact({ appid }: { appid: number }) {
+  const load = useCallback(() => getProtonDbSummary(appid), [appid]);
+  // the page works without it, failing to get it just leaves it out
+  const { data } = useCached(`protondb-${appid}`, load);
+  if (!data) return null;
+  const trending =
+    data.trendingTier !== data.tier
+      ? ` · trending ${capitalize(data.trendingTier)}`
+      : '';
+  return (
+    <Fact
+      label="ProtonDB"
+      onPress={() => openLink(protonDbUrl(appid))}
+      value={
+        <>
+          <Text
+            style={{ color: PROTONDB_COLORS[data.tier], fontWeight: '700' }}
+          >
+            {capitalize(data.tier)}
+          </Text>
+          {`${trending} · ${data.total.toLocaleString()} report${data.total === 1 ? '' : 's'}`}
+        </>
+      }
+    />
   );
 }
 
@@ -130,6 +192,7 @@ function Overview({
   onOpenPage: (page: Page) => void;
 }) {
   const fit = useGameFit(appid);
+  const showProtonDb = useShowProtonDb().on;
   // pages cached before these were loaded have none
   const links = game.links ?? [];
   return (
@@ -153,6 +216,7 @@ function Overview({
             .filter(Boolean)
             .join(' · ')}
         />
+        {showProtonDb && <ProtonDbFact appid={appid} />}
       </View>
       {game.tags.length > 0 && (
         <View style={styles.tags}>
