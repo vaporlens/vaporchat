@@ -14,11 +14,11 @@ import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
 import {
   date,
-  fullDate,
   pastDate,
   playtime,
   releaseDate,
   timeAgo,
+  upcomingDate,
 } from '../format';
 import { openLink } from '../links';
 import { colors, gradients, gridGutter, imageFadeMs } from '../theme';
@@ -146,7 +146,7 @@ export const StoreItemCard = memo(function StoreItemCard({
     : show === 'released'
       ? item.releasedAt &&
         (item.releasedAt > Date.now()
-          ? `Releases ${fullDate(item.releasedAt)}`
+          ? `Releases ${upcomingDate(item.releasedAt)}`
           : `Released ${date(item.releasedAt)}`)
       : item.discountEndsAt && `Offer ends ${date(item.discountEndsAt)}`;
   const ownership = useOwnership(item.appid);

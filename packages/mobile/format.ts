@@ -45,9 +45,34 @@ export function playtime(minutes: number) {
   return `${hours.toLocaleString(undefined, { maximumFractionDigits: hours < 10 ? 1 : 0 })} h`;
 }
 
-/** `Oct 5, 2026`, or as precise as Steam knows a coming game's: `December 2026`, `Q2 2027`, `2027`. */
+/** `today`, `tomorrow`, `in 12 days` up to 99 days ahead, otherwise null. */
+function daysUntil(time: number) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const then = new Date(time);
+  then.setHours(0, 0, 0, 0);
+  // rounded, a DST change makes a day an hour shorter or longer
+  const days = Math.round((then.getTime() - today.getTime()) / DAY);
+  if (days < 0 || days > 99) return null;
+  if (days === 0) return 'today';
+  return days === 1 ? 'tomorrow' : `in ${days} days`;
+}
+
+/** `Oct 5 · in 9 days` up to 99 days ahead, the year goes without saying then; `Oct 5, 2027` after. */
+export function upcomingDate(time: number) {
+  const soon = daysUntil(time);
+  return soon ? `${date(time)} · ${soon}` : fullDate(time);
+}
+
+/**
+ * `Oct 5, 2026 · in 9 days`, or as precise as Steam knows a coming game's: `December 2026`,
+ * `Q2 2027`, `2027`.
+ */
 export function releaseDate({ releasedAt, releaseWindow }: StoreItem) {
-  if (releasedAt) return fullDate(releasedAt);
+  if (releasedAt) {
+    const soon = releasedAt > Date.now() && daysUntil(releasedAt);
+    return soon ? `${fullDate(releasedAt)} · ${soon}` : fullDate(releasedAt);
+  }
   // pages cached before windows were loaded have none
   if (!releaseWindow) return null;
   const day = new Date(releaseWindow.at);
