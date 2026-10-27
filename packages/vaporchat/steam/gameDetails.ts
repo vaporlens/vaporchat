@@ -14,7 +14,7 @@ import {
   toReviewSummary,
   toStoreItem,
 } from './store.ts';
-import { ASSETS_URL, VIDEO_URL } from './web.ts';
+import { API_URL, ASSETS_URL, VIDEO_URL } from './web.ts';
 
 const SHOWN_TAGS = 12;
 const SIMILAR_GAMES = 12;
@@ -387,4 +387,23 @@ export async function getSimilarGames(appid: number, country: string) {
   return store_items
     .filter((item) => item.success === 1 && item.visible !== false)
     .map(toStoreItem);
+}
+
+/** How many play a game now, or null for games Steam has no count for (unreleased ones). */
+export async function getCurrentPlayers(appid: number) {
+  // an older WebAPI, it takes no `input_json`
+  const response = await fetch(
+    `${API_URL}ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${appid}`,
+  );
+  // with EResult 42 (no match) for games without a count
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(
+      `Steam answered HTTP ${response.status} for GetNumberOfCurrentPlayers`,
+    );
+  }
+  const { response: players } = (await response.json()) as {
+    response?: { player_count?: number };
+  };
+  return players?.player_count ?? null;
 }

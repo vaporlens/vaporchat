@@ -9,7 +9,11 @@ import type { SteamCM } from '../steam/cm.ts';
 import { getComments } from '../steam/comments.ts';
 import { getGameNews, getLiveSaleEvents } from '../steam/events.ts';
 import { getFriendsActivity } from '../steam/friendsActivity.ts';
-import { getGameDetails, getSimilarGames } from '../steam/gameDetails.ts';
+import {
+  getCurrentPlayers,
+  getGameDetails,
+  getSimilarGames,
+} from '../steam/gameDetails.ts';
 import { getGameInterest, setGameInterest } from '../steam/gameInterest.ts';
 import { steamLanguage } from '../steam/language.ts';
 import { getLibrary, getUserApps } from '../steam/library.ts';
@@ -201,6 +205,11 @@ export class SteamFeeds {
   /** A game's store page: descriptions, screenshots, reviews, tags, features, editions, requirements. */
   async getGame(appid: number) {
     return getGameDetails(appid, await this.#country());
+  }
+
+  /** How many play a game now, null for games Steam has no count for. */
+  getCurrentPlayers(appid: number) {
+    return getCurrentPlayers(appid);
   }
 
   /** Games like this one, the store page's "More like this". */

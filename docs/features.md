@@ -130,6 +130,7 @@ its latest message, gone once the chat is read here or elsewhere; tapping one op
 ## Store pages and lists
 
 **Game page:** price/discount header, "Open in Steam", sharing its store link, review summary,
+players now (`ISteamUserStats/GetNumberOfCurrentPlayers`, keyless; 404 for games without a count),
 Overview (Early Access notice, description, facts, tags, features, links, VaporLens), Media, About
 (Early Access answers, description, system requirements), DLC & editions, Reviews, News, More like
 this.

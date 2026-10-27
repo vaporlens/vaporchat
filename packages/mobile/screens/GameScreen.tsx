@@ -13,6 +13,7 @@ import type { SteamFeeds } from 'vaporchat/client/feeds';
 import type {
   GameDetails,
   GameInterest,
+  ReviewSummary,
   SteamEvent,
   StoreItem,
 } from 'vaporchat/protocol';
@@ -284,6 +285,50 @@ function Actions({
   );
 }
 
+/** The review summary and how many play the game now, loaded each time since a stale count misleads; left out without either. */
+function ReviewsLine({
+  feeds,
+  appid,
+  reviews,
+}: {
+  feeds: SteamFeeds;
+  appid: number;
+  reviews: ReviewSummary | null;
+}) {
+  const [players, setPlayers] = useState<number | null>(null);
+  useEffect(() => {
+    let shown = true;
+    feeds
+      .getCurrentPlayers(appid)
+      .then((count) => shown && setPlayers(count))
+      // the page works without it
+      .catch(() => {});
+    return () => {
+      shown = false;
+    };
+  }, [feeds, appid]);
+  if (!reviews && players === null) return null;
+  return (
+    <Text style={styles.reviews}>
+      {reviews && (
+        <>
+          <Text
+            style={{
+              color: reviewColor(reviews.percentPositive),
+              fontWeight: '700',
+            }}
+          >
+            {reviews.label}
+          </Text>
+          {` · ${reviews.percentPositive}% of ${reviews.count.toLocaleString()} reviews`}
+        </>
+      )}
+      {players !== null &&
+        `${reviews ? ' · ' : ''}${players.toLocaleString()} playing`}
+    </Text>
+  );
+}
+
 /** All trailers and screenshots, two to a row. */
 function Media({
   media,
@@ -367,19 +412,12 @@ function Details({
   ).filter((item) => item.shown);
   return (
     <>
-      {game.reviews && (
-        <Text style={styles.reviews}>
-          <Text
-            style={{
-              color: reviewColor(game.reviews.percentPositive),
-              fontWeight: '700',
-            }}
-          >
-            {game.reviews.label}
-          </Text>
-          {` · ${game.reviews.percentPositive}% of ${game.reviews.count.toLocaleString()} reviews`}
-        </Text>
-      )}
+      <ReviewsLine
+        key={refreshes}
+        feeds={feeds}
+        appid={appid}
+        reviews={game.reviews}
+      />
       <View style={styles.bleed}>
         <SubTabs tabs={tabs} tab={tab} onChange={setTab} />
       </View>

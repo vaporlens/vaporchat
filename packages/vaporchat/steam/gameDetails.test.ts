@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getGameDetails, toGameDetails } from './gameDetails.ts';
+import {
+  getCurrentPlayers,
+  getGameDetails,
+  toGameDetails,
+} from './gameDetails.ts';
 
 // biome-ignore lint/suspicious/noTemplateCurlyInString: steam's placeholder
 const TRAILER_URL_FORMAT = 'steam/apps/${FILENAME}?t=7';
@@ -296,5 +300,19 @@ describe('getGameDetails', () => {
       name: 'Game',
       dlc: [],
     });
+  });
+});
+
+describe('getCurrentPlayers', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("counts a game's players, none for games Steam has no count for", async () => {
+    vi.stubGlobal('fetch', async (url: string) =>
+      new URL(url).searchParams.get('appid') === '10'
+        ? Response.json({ response: { player_count: 1234, result: 1 } })
+        : Response.json({ response: { result: 42 } }, { status: 404 }),
+    );
+    expect(await getCurrentPlayers(10)).toBe(1234);
+    expect(await getCurrentPlayers(20)).toBeNull();
   });
 });
