@@ -69,6 +69,15 @@
           "imageWidth": 288,
           "backgroundColor": "#171d25"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
       ]
     ],
     "backgroundColor": "#171d25"
