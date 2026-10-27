@@ -145,6 +145,11 @@ function loadSession() {
   return session;
 }
 
+/** Whether the account has a vaporlens.app session, read from SecureStore without a request. */
+export async function hasVaporlensSession() {
+  return (await loadSession()) !== null;
+}
+
 /** Forgets the vaporlens.app session, on signing out of Steam or switching accounts. */
 export function clearVaporlensSession() {
   session = Promise.resolve(null);
@@ -249,6 +254,13 @@ function answerOf(
 export function requestAnalysis(appid: number) {
   return answerOf(
     vaporlensFetch(`/api/mobile/queue/${appid}`, { method: 'POST' }),
+  );
+}
+
+/** Asks VaporLens to analyze an analyzed game again, with its latest reviews. */
+export function requestUpdate(appid: number) {
+  return answerOf(
+    vaporlensFetch(`/api/mobile/queue/${appid}`, { method: 'PUT' }),
   );
 }
 

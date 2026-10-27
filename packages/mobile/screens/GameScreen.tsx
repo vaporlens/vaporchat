@@ -183,6 +183,7 @@ function Overview({
       <RequestAnalysis appid={appid} />
       {report && (
         <VaporlensReport
+          appid={appid}
           report={report}
           fit={fit}
           originalPrice={game.originalPrice ?? game.price}

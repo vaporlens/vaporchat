@@ -14,6 +14,7 @@ import type {
 } from '../vaporlens';
 import { HardwareCohorts, OUTCOMES } from './HardwareCohorts';
 import { VaporlensGauges } from './VaporlensGauges';
+import { RequestUpdate } from './VaporlensUser';
 
 type PointKey =
   | 'positives'
@@ -108,11 +109,13 @@ function Chips({ label, children }: { label: string; children: ReactNode }) {
 
 /** VaporLens's take on a game's Steam reviews as part of its page, the explanations in a sheet when tapped. */
 export function VaporlensReport({
+  appid,
   report,
   fit,
   originalPrice,
   onOpenFull,
 }: {
+  appid: number;
   report: Report;
   /** null while signed out of vaporlens.app or loading */
   fit: GameFit | null;
@@ -269,6 +272,9 @@ export function VaporlensReport({
           </View>
         );
       })}
+      {report.lastUpdated && (
+        <RequestUpdate appid={appid} lastUpdated={report.lastUpdated} />
+      )}
       <InfoSheet info={info} onClose={() => setInfo(null)} />
     </View>
   );

@@ -147,6 +147,8 @@ this.
   fit": on the scans' scale, tapping it says "N% similar to what you play", or asks to log in and
   import the library; on games VaporLens hasn't analyzed, "Request
   analysis", which adds the game to its queue or votes for it (`/api/mobile/fit`, `/api/mobile/queue`);
+  on reports a week old or more, "Request update", confirmed first like on vaporlens.app, queues a
+  new analysis (`PUT /api/mobile/queue`);
 - **More like this:** the games VaporLens reads alike (the report's `similar`, turned into store
   items with `GetItems`) above Steam's suggestions, which leave those out;
 - editions and bundles that include it, above the DLC, each priced and opening as a bundle:
