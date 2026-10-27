@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { InfoDetails } from '../components/InfoDetails';
 import { type Info, InfoSheet } from '../components/InfoSheet';
 import { emotionColor } from '../emotionColors';
+import { pastDate } from '../format';
 import { colors } from '../theme';
 import type {
   GameFit,
@@ -136,7 +137,11 @@ export function VaporlensReport({
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}
       >
         <FontAwesome6 name="microscope" size={13} color={colors.muted} />
-        <Text style={styles.brand}>VaporLens</Text>
+        <Text style={styles.brand}>
+          VaporLens
+          {report.lastUpdated &&
+            ` · updated ${pastDate(Date.parse(report.lastUpdated))}`}
+        </Text>
         <Text style={styles.full}>Full report</Text>
         <Ionicons name="chevron-forward" size={13} color={colors.accent} />
       </Pressable>

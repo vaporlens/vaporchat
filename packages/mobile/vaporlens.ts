@@ -67,6 +67,8 @@ interface PlayerArchetype {
 
 /** What VaporLens found in a game's reviews, only what the app shows. */
 export interface VaporlensReport {
+  /** ISO date of the last analysis */
+  lastUpdated?: string;
   /** a few short takeaways */
   summary?: string[];
   positives?: ReviewPoint[];
