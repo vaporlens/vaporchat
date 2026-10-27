@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11 (2026-10-27)
+
+- Show how many people are playing a game right now on its page.
+- Pull down on a game page to refresh it.
+- Show how many days are left before a game comes out, if it's due within 99 days.
+- Show when VaporLens last analyzed a game, and request a new analysis once that's a week old.
+- Show a game's ProtonDB rating on its page. Turn it on in Settings.
+- Open search in lists and chat from a button in the top bar instead of pulling down.
+- Tap a game heading in the chat list to open its page.
+- Show the nicknames you've set for friends in chat, and find friends by nickname in search.
+- Make it clear that signing in takes your Steam account name and password.
+
 ## 0.10 (2026-10-24)
 
 - Show a splash screen while the app starts.
