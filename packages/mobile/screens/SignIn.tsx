@@ -168,7 +168,7 @@ export function SignIn({
             <Logo />
             <View style={styles.fields}>
               <Text style={[styles.label, { color: colors.accent }]}>
-                SIGN IN WITH ACCOUNT NAME
+                STEAM ACCOUNT NAME
               </Text>
               <Field
                 value={accountName}
@@ -181,7 +181,7 @@ export function SignIn({
                 onSubmitEditing={() => passwordRef.current?.focus()}
                 submitBehavior="submit"
               />
-              <Text style={styles.label}>PASSWORD</Text>
+              <Text style={styles.label}>STEAM PASSWORD</Text>
               <Field
                 ref={passwordRef}
                 value={password}
@@ -200,7 +200,7 @@ export function SignIn({
               </View>
             )}
             <GradientButton
-              title="Sign in"
+              title="Sign in with Steam"
               busy={busy}
               disabled={!ready}
               onPress={signIn}

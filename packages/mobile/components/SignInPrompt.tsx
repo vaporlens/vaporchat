@@ -15,7 +15,7 @@ export function SignInPrompt({
     <View style={styles.prompt}>
       <Ionicons name="lock-closed-outline" size={48} color={colors.muted} />
       <Text style={styles.message}>{message}</Text>
-      <GradientButton title="Sign in" onPress={onSignIn} />
+      <GradientButton title="Sign in with Steam" onPress={onSignIn} />
     </View>
   );
 }

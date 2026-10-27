@@ -43,7 +43,7 @@ export function GuestHome({
           hitSlop={8}
           style={({ pressed }) => [styles.signIn, pressed && styles.pressed]}
         >
-          <Ionicons name="log-in-outline" size={20} color={colors.accent} />
+          <Ionicons name="logo-steam" size={20} color={colors.accent} />
           <Text style={styles.signInText}>Sign in</Text>
         </Pressable>
       </View>
