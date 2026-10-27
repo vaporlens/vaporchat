@@ -3,7 +3,7 @@ import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ChatGroup, ChatTarget, Friend } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
-import { friendStatus } from '../format';
+import { friendName, friendStatus } from '../format';
 import { colors } from '../theme';
 
 const SHOWN_IN_VOICE = 4;
@@ -187,7 +187,7 @@ export const FriendRow = memo(function FriendRow({
     <Pressable
       onPress={() => onOpen({ kind: 'friend', steamid: friend.steamid })}
       accessibilityLabel={[
-        friend.name,
+        friendName(friend),
         inCall ? 'In call' : friendStatus(friend),
         unread > 0 && `${unread} unread`,
       ]
@@ -208,6 +208,9 @@ export const FriendRow = memo(function FriendRow({
       <View style={styles.grow}>
         <Text style={[styles.name, { color: status }]} numberOfLines={1}>
           {friend.name}
+          {friend.nickname && (
+            <Text style={styles.nickname}> ({friend.nickname})</Text>
+          )}
         </Text>
         <Text
           style={[styles.sub, inCall && { color: colors.speaking }]}
@@ -271,6 +274,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
   },
+  nickname: { color: colors.muted, fontWeight: '400' },
   sub: { flexShrink: 1, color: colors.muted, fontSize: 13, marginLeft: 2 },
   pill: {
     paddingHorizontal: 14,

@@ -15,12 +15,15 @@ chat at all.
 Friend rows with avatar, name, online/offline, an unread badge and a call button; friends in a game
 grouped under it like Steam's "group friends by game", games most friends play first, a Steam
 game's header opening its game page; groups and friends with unread messages in an Unread section
-on top; offline friends collapsed; search by name (`mobile/screens/Rows.tsx`,
+on top; offline friends collapsed; search by name or nickname (`mobile/screens/Rows.tsx`,
 `mobile/screens/Home.tsx`).
 
 - **"Playing X"** in Steam's in-game green: `CMsgClientPersonaState.Friend` `game_played_app_id`
   and `gameid`. `game_name` comes only for non-Steam games, so Steam games are named via the store.
 - **Away / Snooze:** `persona_state` 3 and 4.
+- **Nicknames** the user gave friends, after their name in friend rows and the chat title:
+  `CMsgClientPlayerNicknameList` (EMsg 5587) after logon, `PlayerClient.NotifyFriendNicknameChanged`
+  when changed elsewhere.
 - **Own status** (Online, Away, Invisible): `ClientChangeStatus` (1, 3, 7) on every connect and
   when picked in Settings, kept on the device until sign-out. Status is account-wide, so it
   overrides one set elsewhere.

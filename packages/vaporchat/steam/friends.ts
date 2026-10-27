@@ -24,6 +24,14 @@ interface FriendsListMessage {
   friends?: { ulfriendid: string; efriendrelationship?: number }[];
 }
 
+interface NicknameListMessage {
+  /** the listed nicknames were taken off */
+  removal?: boolean;
+  /** only changes, otherwise all of them */
+  incremental?: boolean;
+  nicknames?: { steamid: string; nickname?: string }[];
+}
+
 interface PersonaStateMessage {
   status_flags?: number;
   friends?: {
@@ -99,6 +107,8 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
   /** from `restore`, fills in what steam hasn't sent (again) yet */
   #restored = new Map<string, Friend>();
   #requested = new Set<string>();
+  /** by steamid, the user's own names for people */
+  #nicknames = new Map<string, string>();
   /** what `get` gave out last, the same object until something it shows changes */
   #shown = new Map<string, Friend>();
   #started = false;
@@ -114,6 +124,24 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     );
     cm.onMessage(EMsg.ClientPersonaState, (_header, body) =>
       this.#receivePersonas(decodeProto('CMsgClientPersonaState', body)),
+    );
+    // all of them right after logon
+    cm.onMessage(EMsg.ClientPlayerNicknameList, (_header, body) =>
+      this.#receiveNicknames(decodeProto('CMsgClientPlayerNicknameList', body)),
+    );
+    // set or cleared in another session since
+    cm.onMessage(
+      'PlayerClient.NotifyFriendNicknameChanged#1',
+      (_header, body) => {
+        const { accountid, nickname } = decodeProto<{
+          accountid: number;
+          nickname?: string;
+        }>('CPlayer_FriendNicknameChanged_Notification', body);
+        this.#receiveNicknames({
+          incremental: true,
+          nicknames: [{ steamid: steamIdFromAccountId(accountid), nickname }],
+        });
+      },
     );
   }
 
@@ -137,6 +165,7 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     // an old status is stale, steam pushes who is online now
     for (const user of users) {
       this.#restored.set(user.steamid, { ...user, online: false });
+      if (user.nickname) this.#nicknames.set(user.steamid, user.nickname);
     }
   }
 
@@ -180,6 +209,7 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     const friend: Friend = {
       steamid,
       name: persona?.name ?? restored?.name ?? steamid,
+      nickname: this.#nicknames.get(steamid) ?? null,
       avatarUrl: persona?.avatarHash
         ? avatarUrl(persona.avatarHash)
         : (restored?.avatarUrl ?? null),
@@ -196,6 +226,7 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     const shown = this.#shown.get(steamid);
     if (
       shown?.name === friend.name &&
+      shown.nickname === friend.nickname &&
       shown.avatarUrl === friend.avatarUrl &&
       shown.online === friend.online &&
       shown.away === friend.away &&
@@ -223,6 +254,16 @@ export class FriendsList extends Emitter<{ changed: Record<string, never> }> {
     }
     // before logon the session isn't set up, start() asks for everyone then
     if (this.#started) this.#requestPersonas(added);
+    this.emit('changed', {});
+  }
+
+  #receiveNicknames({ removal, incremental, nicknames }: NicknameListMessage) {
+    if (!incremental && !removal) this.#nicknames.clear();
+    for (const { steamid, nickname } of nicknames ?? []) {
+      // an empty one is cleared too
+      if (nickname && !removal) this.#nicknames.set(steamid, nickname);
+      else this.#nicknames.delete(steamid);
+    }
     this.emit('changed', {});
   }
 

@@ -18,6 +18,7 @@ export const EMsg = {
   ClientFriendsList: 767,
   ClientRequestFriendData: 815,
   ClientLogon: 5514,
+  ClientPlayerNicknameList: 5587,
   ClientGetEmoticonList: 9330,
   ClientEmoticonList: 9331,
   ServiceMethodCallFromClientNonAuthed: 9804,

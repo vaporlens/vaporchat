@@ -92,6 +92,11 @@ export function releaseDate({ releasedAt, releaseWindow }: StoreItem) {
     : String(day.getFullYear());
 }
 
+/** A friend's Steam name, then the user's nickname for them: `Name (Nickname)`. */
+export function friendName({ name, nickname }: Friend) {
+  return nickname ? `${name} (${nickname})` : name;
+}
+
 /** What a friend is up to: `Playing Some Game`, `Away`, `Online`, `Offline`… */
 export function friendStatus({ online, away, game }: Friend) {
   if (!online) return 'Offline';

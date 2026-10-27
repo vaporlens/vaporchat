@@ -135,6 +135,8 @@ export interface SteamServerNotifications {
 export interface Friend {
   steamid: string;
   name: string;
+  /** what the user calls them on Steam, null without one */
+  nickname: string | null;
   avatarUrl: string | null;
   online: boolean;
   /** while online: Away after a while idle, Snooze after longer */

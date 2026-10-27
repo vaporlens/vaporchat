@@ -242,7 +242,9 @@ export function Home({
       row.kind === 'group'
         ? groupUnread(row.group, unread)
         : unread.friends.has(row.friend.steamid);
-    const matching = friends.filter((f) => matches(query, f.name));
+    const matching = friends.filter((f) =>
+      matches(query, f.name, f.nickname ?? ''),
+    );
     // by name within online and offline already, not knowing who is online makes it one list
     const shown = live
       ? matching

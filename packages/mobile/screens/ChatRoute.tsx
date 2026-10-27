@@ -5,7 +5,7 @@ import type { SteamVoice } from 'vaporchat/client/steamVoice';
 import type { VoiceTarget } from 'vaporchat/client/voiceSession';
 import type { ChatGroup, ChatTarget, StoreItem } from 'vaporchat/protocol';
 import { chatKey } from 'vaporchat/steam/messages';
-import { friendStatus } from '../format';
+import { friendName, friendStatus } from '../format';
 import { colors } from '../theme';
 import { Chat } from './Chat';
 import { AlertsButton, GroupAlertsButton } from './ChatAlerts';
@@ -28,7 +28,7 @@ function chatHeader(
   if (chat.kind === 'friend') {
     const friend = voice.connection.user(chat.steamid);
     return {
-      title: friend.name,
+      title: friendName(friend),
       subtitle: live ? friendStatus(friend) : 'Offline',
       avatarUrl: friend.avatarUrl,
     };

@@ -16,6 +16,7 @@ const SOURCES = [
   'steammessages_friendmessages.steamclient',
   'steammessages_store.steamclient',
   'steammessages_notifications.steamclient',
+  'steammessages_player.steamclient',
   'friends_mobile',
 ];
 
@@ -64,6 +65,8 @@ const MESSAGES = [
   'CMsgClientChangeStatus',
   'CMsgClientPersonaState',
   'CMsgClientFriendsList',
+  'CMsgClientPlayerNicknameList',
+  'CPlayer_FriendNicknameChanged_Notification',
   'CMsgClientRequestFriendData',
   'CMsgClientGetEmoticonList',
   'CMsgClientEmoticonList',

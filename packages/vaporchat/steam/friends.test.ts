@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMsg, type SteamCM } from './cm.ts';
-import { FriendsList } from './friends.ts';
+import { accountIdFromSteamId, FriendsList } from './friends.ts';
 import { encodeProto } from './protos.ts';
 
 const ME = '76561197960265729';
@@ -42,7 +42,7 @@ function fakeSteam() {
       flags.push(body.persona_state_requested);
     },
   };
-  const deliver = (emsg: number, typeName: string, body: object) =>
+  const deliver = (emsg: number | string, typeName: string, body: object) =>
     handlers.get(emsg)?.({}, encodeProto(typeName, body));
   return {
     cm: cm as unknown as SteamCM,
@@ -56,6 +56,23 @@ function fakeSteam() {
           efriendrelationship,
         })),
       }),
+    nicknames: (
+      message: { removal?: boolean; incremental?: boolean },
+      nicknames: [string, string][],
+    ) =>
+      deliver(EMsg.ClientPlayerNicknameList, 'CMsgClientPlayerNicknameList', {
+        ...message,
+        nicknames: nicknames.map(([steamid, nickname]) => ({
+          steamid,
+          nickname,
+        })),
+      }),
+    nicknameChanged: (accountid: number, nickname: string) =>
+      deliver(
+        'PlayerClient.NotifyFriendNicknameChanged#1',
+        'CPlayer_FriendNicknameChanged_Notification',
+        { accountid, nickname },
+      ),
     personas: (status_flags: number, friends: object[]) =>
       deliver(EMsg.ClientPersonaState, 'CMsgClientPersonaState', {
         status_flags,
@@ -94,6 +111,7 @@ describe('FriendsList', () => {
       {
         steamid: BOB,
         name: 'Bob',
+        nickname: null,
         // no avatar set, steam's default picture
         avatarUrl:
           'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
@@ -104,6 +122,7 @@ describe('FriendsList', () => {
       {
         steamid: ALICE,
         name: 'Alice',
+        nickname: null,
         avatarUrl: null,
         online: false,
         away: null,
@@ -311,10 +330,12 @@ describe('FriendsList', () => {
       { friendid: ALICE, persona_state: 1, player_name: 'Alice' },
       { friendid: BOB, player_name: 'Bob' },
     ]);
+    before.nicknames({}, [[ALICE, 'Ally']]);
 
     const list = new FriendsList();
     list.restore(last.snapshot());
     expect(list.get(ME).name).toBe('Me');
+    expect(list.get(ALICE).nickname).toBe('Ally');
     // a status from last time may be long over
     expect(list.friends.map((f) => [f.name, f.online])).toEqual([
       ['Alice', false],
@@ -326,6 +347,9 @@ describe('FriendsList', () => {
     list.attach(steam.cm);
     steam.friendsList(false, [[ALICE, FRIEND]]);
     expect(list.friends.map((f) => f.name)).toEqual(['Alice']);
+    // and her nickname was taken off
+    steam.nicknames({}, []);
+    expect(list.get(ALICE).nickname).toBeNull();
 
     // steam pushes that she is online before her name comes
     list.start(ME);
@@ -337,6 +361,33 @@ describe('FriendsList', () => {
     steam.personas(NAME, [{ friendid: ALICE, player_name: 'Alicia' }]);
     expect(list.friends).toEqual([
       expect.objectContaining({ name: 'Alicia', online: true }),
+    ]);
+  });
+
+  it('shows the nicknames Steam sends and follows changes to them', () => {
+    const steam = fakeSteam();
+    const list = new FriendsList();
+    list.attach(steam.cm);
+    steam.friendsList(false, [
+      [ALICE, FRIEND],
+      [BOB, FRIEND],
+    ]);
+    steam.nicknames({}, [[ALICE, 'Ally']]);
+    expect(list.get(ALICE).nickname).toBe('Ally');
+    expect(list.get(BOB).nickname).toBeNull();
+
+    // set in another session, by account id
+    steam.nicknameChanged(accountIdFromSteamId(BOB), 'Bobby');
+    expect(list.get(BOB).nickname).toBe('Bobby');
+    // an empty one clears it
+    steam.nicknameChanged(accountIdFromSteamId(BOB), '');
+    expect(list.get(BOB).nickname).toBeNull();
+
+    steam.nicknames({ incremental: true }, [[BOB, 'Robert']]);
+    steam.nicknames({ incremental: true, removal: true }, [[ALICE, 'Ally']]);
+    expect(list.friends.map((f) => [f.name, f.nickname])).toEqual([
+      [ALICE, null],
+      [BOB, 'Robert'],
     ]);
   });
 
