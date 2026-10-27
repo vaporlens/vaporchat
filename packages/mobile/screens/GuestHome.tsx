@@ -3,10 +3,11 @@ import {
   NavigationContainer,
   useNavigationContainerRef,
 } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SteamFeeds } from 'vaporchat/client/feeds';
+import { SearchButton } from '../components/SearchButton';
 import { SignInPrompt } from '../components/SignInPrompt';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
@@ -29,6 +30,14 @@ export function GuestHome({
   const insets = useSafeAreaInsets();
   const navigation = useNavigationContainerRef<Routes>();
   const [tab, setTab] = useState<Tab>('store');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  // tells the search button whether the list shown has a search bar
+  const searchButton = useRef<(searchable: boolean) => void>(null);
+  const setSearchable = useCallback(
+    (searchable: boolean) => searchButton.current?.(searchable),
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const showError = useCallback((err: Error) => setError(err.message), []);
   const dismissError = useCallback(() => setError(null), []);
@@ -38,6 +47,13 @@ export function GuestHome({
     <View style={styles.grow}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={[styles.grow, styles.name]}>Vaporlens</Text>
+        <SearchButton
+          ref={searchButton}
+          // chat is a sign-in prompt
+          shown={tab === 'chat' ? false : undefined}
+          open={searchOpen}
+          onPress={() => setSearchOpen(!searchOpen)}
+        />
         <Pressable
           onPress={onSignIn}
           hitSlop={8}
@@ -55,6 +71,9 @@ export function GuestHome({
         onOpenGame={openGame}
         onOpenPage={push}
         onError={showError}
+        searchOpen={searchOpen}
+        onCloseSearch={closeSearch}
+        onSearchable={setSearchable}
       />
       {tab === 'chat' && (
         <SignInPrompt
@@ -62,7 +81,15 @@ export function GuestHome({
           onSignIn={onSignIn}
         />
       )}
-      <TabBar tab={tab} onChange={setTab} bottomInset={insets.bottom} />
+      <TabBar
+        tab={tab}
+        onChange={(picked) => {
+          setTab(picked);
+          // tapping the tab shown keeps it open
+          if (picked !== tab) setSearchOpen(false);
+        }}
+        bottomInset={insets.bottom}
+      />
     </View>
   );
 

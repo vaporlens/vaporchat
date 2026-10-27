@@ -21,6 +21,7 @@ import { useCached } from '../cache';
 import { DetailHeader } from '../components/DetailHeader';
 import { SearchField } from '../components/Field';
 import type { IconName } from '../components/RoundButton';
+import { SearchButton } from '../components/SearchButton';
 import { SectionTitle } from '../components/SectionTitle';
 import { matches } from '../search';
 import { colors } from '../theme';
@@ -84,7 +85,16 @@ export function BrowseTab({
   const loadTags = useCallback(() => feeds.getPopularTags(), [feeds]);
   const { data: tags, error } = useCached('popular-tags', loadTags);
   const [query, setQuery] = useState('');
-  const found = tags?.filter((tag) => matches(query, tag.name));
+  // the hundreds of chips render only as they change, not each time the store's lists switch
+  const chips = useMemo(
+    () =>
+      tags
+        ?.filter((tag) => matches(query, tag.name))
+        .map((tag) => (
+          <TagChip key={tag.tagid} tag={tag} onOpenPage={onOpenPage} />
+        )),
+    [tags, query, onOpenPage],
+  );
   return (
     <ScrollView
       contentContainerStyle={styles.tab}
@@ -114,13 +124,9 @@ export function BrowseTab({
           onChangeText={setQuery}
           placeholder="Search tags"
         />
-        {found ? (
-          found.length > 0 ? (
-            <View style={styles.chips}>
-              {found.map((tag) => (
-                <TagChip key={tag.tagid} tag={tag} onOpenPage={onOpenPage} />
-              ))}
-            </View>
+        {chips ? (
+          chips.length > 0 ? (
+            <View style={styles.chips}>{chips}</View>
           ) : (
             <Text style={styles.muted}>No tags match.</Text>
           )
@@ -149,6 +155,8 @@ export function BrowseScreen({
   onError: (err: Error) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
   const load = useCallback(
     (next: number | null) => feeds.browseGames(browse, next),
     [feeds, browse],
@@ -174,12 +182,22 @@ export function BrowseScreen({
         title={browseTitle(browse)}
         steamUrl={browseUrl(browse)}
         onBack={onBack}
+        action={
+          <SearchButton
+            shown
+            open={searchOpen}
+            onPress={() => setSearchOpen(!searchOpen)}
+            style={styles.headerButton}
+          />
+        }
       />
       <Feed
         cacheKey={`browse-${id}`}
         load={load}
         keyOf={storeItemKey}
         search={search}
+        searchOpen={searchOpen}
+        onCloseSearch={closeSearch}
         hide={hide}
         columns={2}
         renderItem={renderItem}
@@ -193,6 +211,7 @@ export function BrowseScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   tab: { paddingBottom: 16 },
+  headerButton: { padding: 4 },
   section: { gap: 14, paddingHorizontal: 16 },
   hubs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   hub: {

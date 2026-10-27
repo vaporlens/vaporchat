@@ -4,7 +4,7 @@ import {
   NavigationContainer,
   useNavigationContainerRef,
 } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -32,7 +32,8 @@ import { useCached } from '../cache';
 import { useUnread } from '../chats';
 import { Appear } from '../components/Appear';
 import { Avatar } from '../components/Avatar';
-import { SearchField } from '../components/Field';
+import { SearchBar } from '../components/Field';
+import { SearchButton } from '../components/SearchButton';
 import { type Tab, TabBar } from '../components/TabBar';
 import { Toast } from '../components/Toast';
 import { matches } from '../search';
@@ -127,6 +128,18 @@ export function Home({
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>('store');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  // closed, chat shows all friends and groups again
+  useEffect(() => {
+    if (!searchOpen) setQuery('');
+  }, [searchOpen]);
+  // tells the search button whether the list shown has a search bar
+  const searchButton = useRef<(searchable: boolean) => void>(null);
+  const setSearchable = useCallback(
+    (searchable: boolean) => searchButton.current?.(searchable),
+    [],
+  );
   const [status, setStatus] = useState(voice.connection.status);
   const { session, incomingCalls, outputs, output, setOutput } =
     useVoice(voice);
@@ -386,6 +399,14 @@ export function Home({
             <Ionicons name="refresh" size={22} color={colors.muted} />
           </Pressable>
         )}
+        <SearchButton
+          ref={searchButton}
+          // chat's own bar
+          shown={tab === 'chat' || undefined}
+          open={searchOpen}
+          onPress={() => setSearchOpen(!searchOpen)}
+          style={styles.headerButton}
+        />
         <Pressable
           onPress={() => navigation.navigate('notifications')}
           accessibilityLabel={`Notifications, ${unreadNotices} unread`}
@@ -425,9 +446,20 @@ export function Home({
         onOpenGame={openGame}
         onOpenPage={push}
         onError={showError}
+        searchOpen={searchOpen}
+        onCloseSearch={closeSearch}
+        onSearchable={setSearchable}
       />
       {/* hidden by a View, Android wraps a list that can refresh in a view it doesn't hide */}
       <View style={[styles.grow, tab !== 'chat' && styles.hidden]}>
+        {tab === 'chat' && searchOpen && (
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search friends and groups"
+            onClose={closeSearch}
+          />
+        )}
         <SectionList<Row, Section>
           sections={sections}
           keyExtractor={(row) => row.key}
@@ -445,27 +477,18 @@ export function Home({
             />
           }
           ListHeaderComponent={
-            <>
-              <View style={styles.search}>
-                <SearchField
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder="Search friends and groups"
+            joining ? (
+              <Appear>
+                <JoinGroup
+                  voice={voice}
+                  onJoined={() => {
+                    setJoining(false);
+                    void refreshGroups();
+                  }}
+                  onError={showError}
                 />
-              </View>
-              {joining && (
-                <Appear>
-                  <JoinGroup
-                    voice={voice}
-                    onJoined={() => {
-                      setJoining(false);
-                      void refreshGroups();
-                    }}
-                    onError={showError}
-                  />
-                </Appear>
-              )}
-            </>
+              </Appear>
+            ) : null
           }
           renderSectionHeader={({ section }) => (
             <SectionHeader
@@ -561,7 +584,11 @@ export function Home({
       </View>
       <TabBar
         tab={tab}
-        onChange={setTab}
+        onChange={(picked) => {
+          setTab(picked);
+          // tapping the tab shown keeps it open
+          if (picked !== tab) setSearchOpen(false);
+        }}
         bottomInset={session ? 0 : insets.bottom}
         chatUnread={unread.friends.size > 0 || unread.rooms.size > 0}
       />
@@ -693,7 +720,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  search: { paddingHorizontal: 12, paddingTop: 12 },
   sectionAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sectionActionText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   empty: {

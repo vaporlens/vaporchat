@@ -36,6 +36,11 @@ type Props = {
   onOpenGame: (item: StoreItem) => void;
   onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
+  /** the search bar of the list shown */
+  searchOpen: boolean;
+  onCloseSearch: () => void;
+  /** a stable function, told whether the list shown has a search bar */
+  onSearchable?: (searchable: boolean) => void;
 } & (
   | { voice: SteamVoice; onSignIn?: undefined }
   /** signed out, the user's own lists offer to sign in instead */
@@ -127,21 +132,44 @@ const RELEASE_LISTS: List<StoreItem>[] = [
 
 /**
  * A tab's lists, switched between by the pills over them. With `onSignIn` (signed out), the
- * user's own ask to sign in instead.
+ * user's own ask to sign in instead. `render` is told whether its list is the one shown,
+ * switching closes the search. `onSearchable` is told whether that one has a search bar.
  */
 function Lists<
   L extends { tab: string; title: string; signInMessage?: string },
 >({
   lists,
   onSignIn,
+  onCloseSearch,
+  onSearchable,
+  searchable = () => false,
   render,
 }: {
   lists: L[];
   onSignIn: (() => void) | undefined;
-  render: (list: L, header: ReactElement) => ReactNode;
+  onCloseSearch: () => void;
+  onSearchable: ((searchable: boolean) => void) | undefined;
+  /** whether a list has a search bar, signed in */
+  searchable?: (list: L) => boolean;
+  render: (list: L, header: ReactElement, shown: boolean) => ReactNode;
 }) {
   const [tab, setTab] = useState(lists[0].tab);
-  const header = <SubTabs tabs={lists} tab={tab} onChange={setTab} />;
+  const shownList = lists.find((list) => list.tab === tab)!;
+  const searches =
+    searchable(shownList) && !(onSignIn && shownList.signInMessage);
+  useEffect(() => {
+    onSearchable?.(searches);
+  }, [onSearchable, searches]);
+  const header = (
+    <SubTabs
+      tabs={lists}
+      tab={tab}
+      onChange={(picked) => {
+        setTab(picked);
+        if (picked !== tab) onCloseSearch();
+      }}
+    />
+  );
   return (
     <KeepOpened
       tab={tab}
@@ -153,7 +181,7 @@ function Lists<
             <SignInPrompt message={list.signInMessage} onSignIn={onSignIn} />
           </>
         ) : (
-          render(list, header)
+          render(list, header, name === tab)
         );
       }}
     />
@@ -168,6 +196,8 @@ function StoreItems({
   cacheKey = `feed-${list.tab}`,
   onOpenGame,
   onError,
+  searchOpen,
+  onCloseSearch,
 }: Props & {
   list: List<StoreItem>;
   show: 'released' | 'discountEnds';
@@ -205,6 +235,8 @@ function StoreItems({
       load={load}
       keyOf={storeItemKey}
       search={search}
+      searchOpen={searchOpen}
+      onCloseSearch={onCloseSearch}
       // the user's own lists show all of theirs
       hide={list.filterPlaceholder ? undefined : hide}
       columns={2}
@@ -241,7 +273,11 @@ function Wishlist(
           feeds={props.feeds}
           header={props.header}
           categoryId={categoryId}
-          onCategory={setCategoryId}
+          onCategory={(picked) => {
+            setCategoryId(picked);
+            // like switching lists
+            if (picked !== categoryId) props.onCloseSearch();
+          }}
         />
       }
     />
@@ -253,12 +289,21 @@ const Store = memo(function Store(props: Props) {
     <Lists
       lists={STORE_TABS}
       onSignIn={props.onSignIn}
-      render={(list, header) =>
+      searchable={(list) => 'load' in list}
+      onCloseSearch={props.onCloseSearch}
+      onSearchable={props.onSearchable}
+      render={(list, header, shown) =>
         list.tab === 'wishlist' && 'load' in list ? (
-          <Wishlist {...props} list={list} header={header} />
+          <Wishlist
+            {...props}
+            searchOpen={props.searchOpen && shown}
+            list={list}
+            header={header}
+          />
         ) : 'load' in list ? (
           <StoreItems
             {...props}
+            searchOpen={props.searchOpen && shown}
             list={list}
             show="discountEnds"
             header={header}
@@ -280,8 +325,17 @@ const Releases = memo(function Releases(props: Props) {
     <Lists
       lists={RELEASE_LISTS}
       onSignIn={props.onSignIn}
-      render={(list, header) => (
-        <StoreItems {...props} list={list} show="released" header={header} />
+      searchable={() => true}
+      onCloseSearch={props.onCloseSearch}
+      onSearchable={props.onSearchable}
+      render={(list, header, shown) => (
+        <StoreItems
+          {...props}
+          searchOpen={props.searchOpen && shown}
+          list={list}
+          show="released"
+          header={header}
+        />
       )}
     />
   );
@@ -391,6 +445,8 @@ const SteamFeed = memo(function SteamFeed(props: Props) {
     <Lists
       lists={FEED_LISTS}
       onSignIn={props.onSignIn}
+      onCloseSearch={props.onCloseSearch}
+      onSearchable={props.onSearchable}
       render={(list, header) =>
         list.page ? (
           <Events {...props} list={list} header={header} />
@@ -421,7 +477,14 @@ export const FeedTabs = memo(function FeedTabs({
       tab={tab === 'chat' ? null : tab}
       render={(name) => {
         const Screen = SCREENS[name];
-        return <Screen {...props} />;
+        return (
+          <Screen
+            {...props}
+            searchOpen={props.searchOpen && name === tab}
+            // only the tab shown tells about its list
+            onSearchable={name === tab ? props.onSearchable : undefined}
+          />
+        );
       }}
     />
   );

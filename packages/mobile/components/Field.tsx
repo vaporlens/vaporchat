@@ -61,6 +61,28 @@ export function SearchField(props: TextInputProps & { ref?: Ref<TextInput> }) {
   );
 }
 
+/** A search field opened on demand: focused as it shows, with a button closing it. */
+export function SearchBar({
+  onClose,
+  ...props
+}: TextInputProps & { onClose?: () => void }) {
+  return (
+    <View style={styles.bar}>
+      <View style={styles.grow}>
+        <SearchField autoFocus {...props} />
+      </View>
+      <Pressable
+        onPress={onClose}
+        accessibilityLabel="Close search"
+        hitSlop={8}
+        style={({ pressed }) => pressed && styles.pressed}
+      >
+        <Ionicons name="close" size={24} color={colors.muted} />
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   field: {
     flexDirection: 'row',
@@ -71,4 +93,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.field,
   },
   input: { flex: 1, height: 48, color: colors.bright, fontSize: 16 },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  grow: { flex: 1 },
+  pressed: { opacity: 0.7 },
 });

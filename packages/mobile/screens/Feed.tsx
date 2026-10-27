@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -15,10 +16,9 @@ import {
   View,
 } from 'react-native';
 import type { FeedPage } from 'vaporchat/protocol';
-import { SearchField } from '../components/Field';
+import { SearchBar } from '../components/Field';
 import { matches } from '../search';
 import { colors, gridGutter } from '../theme';
-import { useHidingBar } from './useHidingBar';
 import { type Load, usePaging } from './usePaging';
 
 /** What a feed's search bar looks for. */
@@ -33,16 +33,13 @@ export type Search<T> = { placeholder: string } & (
     }
 );
 
-// the bar's height, the list keeps scrolled past it when it's not used
-const SEARCH_HEIGHT = 60;
 // steam is asked once typing stops for a while, not for every letter
 const TYPING_MS = 3500;
 
 /**
  * A list loaded from Steam: last time's first page while it loads, pull to refresh, more as it
  * scrolls to the end (when `load` pages), errors in place of an empty list. With `search`, a
- * search bar over it that pulling down shows first, pulling further refreshes. Unused, a scroll
- * or a tap elsewhere hides it again.
+ * search bar under the header while `searchOpen`, closing it shows the whole list again.
  */
 export function Feed<T>({
   cacheKey,
@@ -53,6 +50,8 @@ export function Feed<T>({
   empty,
   header,
   search,
+  searchOpen = false,
+  onCloseSearch,
   hide,
   extraData,
   onError,
@@ -70,6 +69,10 @@ export function Feed<T>({
   /** over the rows, shown while they load too */
   header?: ReactElement;
   search?: Search<T>;
+  /** shows the search bar, scrolled to the top */
+  searchOpen?: boolean;
+  /** the bar's close button */
+  onCloseSearch?: () => void;
   /** items the list leaves out, Steam's search results keep them */
   hide?: (item: T) => boolean;
   /** rows render again when it changes */
@@ -114,7 +117,14 @@ export function Feed<T>({
     if (filtering || allHidden) void list.loadMore();
   }, [filtering, allHidden, list.next]);
 
-  const bar = useHidingBar<T>(SEARCH_HEIGHT, searching);
+  const ref = useRef<FlatList<T>>(null);
+  useEffect(() => {
+    if (searchOpen) ref.current?.scrollToOffset({ offset: 0, animated: true });
+    else {
+      setQuery('');
+      setSentQuery('');
+    }
+  }, [searchOpen]);
   // stable, rows don't render again on every letter typed
   const renderRow = useCallback(
     ({ item }: { item: T }) => renderItem(item),
@@ -122,9 +132,9 @@ export function Feed<T>({
   );
 
   return (
-    <View style={styles.frame} {...(search && bar.frame)}>
+    <View style={styles.frame}>
       <FlatList
-        ref={bar.ref}
+        ref={ref}
         data={items ?? []}
         keyExtractor={keyOf}
         numColumns={columns}
@@ -133,12 +143,7 @@ export function Feed<T>({
         columnWrapperStyle={columns > 1 ? styles.row : undefined}
         renderItem={renderRow}
         extraData={extraData}
-        contentContainerStyle={[
-          styles.content,
-          // tall enough to scroll the bar away when there are few rows
-          search && { minHeight: bar.minHeight },
-        ]}
-        {...(search && bar.list)}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         onEndReached={() => void shown.loadMore()}
@@ -152,18 +157,16 @@ export function Feed<T>({
         }
         ListHeaderComponent={
           <>
-            {search && (
-              <View style={styles.search} {...bar.barView}>
-                <SearchField
-                  ref={bar.input}
-                  value={query}
-                  onChangeText={setQuery}
-                  onSubmitEditing={() => setSentQuery(query.trim())}
-                  placeholder={search.placeholder}
-                />
-              </View>
-            )}
             {header}
+            {search && searchOpen && (
+              <SearchBar
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={() => setSentQuery(query.trim())}
+                placeholder={search.placeholder}
+                onClose={onCloseSearch}
+              />
+            )}
           </>
         }
         ListEmptyComponent={
@@ -219,11 +222,6 @@ const styles = StyleSheet.create({
   // grows so the loading state centers in the space left
   // the header's pills have their own space over them
   content: { flexGrow: 1, paddingBottom: 12 },
-  search: {
-    height: SEARCH_HEIGHT,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-  },
   row: { paddingHorizontal: gridGutter },
   message: {
     color: colors.muted,
