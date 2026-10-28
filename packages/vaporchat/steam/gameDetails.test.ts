@@ -20,13 +20,6 @@ describe('toGameDetails', () => {
           developers: [{ name: 'Dev' }],
           publishers: [{ name: 'Pub' }, {}],
         },
-        reviews: {
-          summary_filtered: {
-            review_count: 120,
-            percent_positive: 91,
-            review_score_label: 'Very Positive',
-          },
-        },
         tags: [{ tagid: 2 }, { tagid: 99 }, { tagid: 1 }],
         categories: {
           supported_player_categoryids: [2],
@@ -89,7 +82,6 @@ describe('toGameDetails', () => {
       shortDescription: 'Short',
       developers: ['Dev'],
       publishers: ['Pub'],
-      reviews: { label: 'Very Positive', percentPositive: 91, count: 120 },
       tags: [
         { tagid: 2, name: 'Indie' },
         { tagid: 1, name: 'Puzzle' },
@@ -129,39 +121,14 @@ describe('toGameDetails', () => {
     });
   });
 
-  it('has no reviews, features or Steam Deck rating when Steam has none', () => {
+  it('has no features or Steam Deck rating when Steam has none', () => {
     expect(
-      toGameDetails(
-        { success: 1, appid: 10, reviews: {} },
-        new Map(),
-        new Map(),
-      ),
+      toGameDetails({ success: 1, appid: 10 }, new Map(), new Map()),
     ).toMatchObject({
-      reviews: null,
       features: [],
       steamDeck: null,
       platforms: [],
     });
-  });
-
-  it('has no reviews for a game without any, though Steam labels them', () => {
-    expect(
-      toGameDetails(
-        {
-          success: 1,
-          appid: 10,
-          reviews: {
-            summary_filtered: {
-              review_count: 0,
-              percent_positive: 0,
-              review_score_label: 'No user reviews',
-            },
-          },
-        },
-        new Map(),
-        new Map(),
-      ).reviews,
-    ).toBeNull();
   });
 
   it('lists editions, links and requirements like the store page', () => {
@@ -285,9 +252,9 @@ describe('toGameDetails', () => {
 describe('getGameDetails', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('shows the page without DLC when looking the DLC up fails', async () => {
+  it('shows the page without DLC or reviews when looking them up fails', async () => {
     vi.stubGlobal('fetch', async (url: string) => {
-      if (url.includes('GetDLCForAppsSolr'))
+      if (url.includes('GetDLCForAppsSolr') || url.includes('GetAppReviews'))
         return new Response('', { status: 500 });
       if (url.includes('GetItems'))
         return Response.json({
@@ -299,6 +266,7 @@ describe('getGameDetails', () => {
     expect(await getGameDetails(10, 'DE')).toMatchObject({
       name: 'Game',
       dlc: [],
+      reviews: null,
     });
   });
 });

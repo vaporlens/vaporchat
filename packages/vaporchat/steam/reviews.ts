@@ -3,6 +3,7 @@ import type {
   GameReview,
   ReviewCounts,
   ReviewHistogram,
+  ReviewSummary,
 } from '../protocol.ts';
 import { getAuthor } from './comments.ts';
 import { parseRichText } from './richText.ts';
@@ -65,6 +66,44 @@ export async function getGameReviews(
       body: parseRichText(review.review, null),
     })),
     next: reviews.length > 0 && next ? next : null,
+  };
+}
+
+/**
+ * A game's reviews in short, from all languages and purchases, off-topic ones too. The store's
+ * summary counts only Steam purchasers for paid games, leaving out key activations.
+ */
+export async function getReviewSummary(appid: number): Promise<ReviewSummary> {
+  const { query_summary: summary } = await callApi<{
+    query_summary?: {
+      /** 0 with too few reviews to rate */
+      review_score?: number;
+      review_score_desc?: string;
+      total_positive?: number;
+      total_reviews?: number;
+    };
+  }>('IUserReviewsService/GetAppReviews', {
+    appid,
+    filter: MOST_HELPFUL,
+    languages: ['all'],
+    purchase_type: ANY_PURCHASE,
+    // 0 gives the default 20
+    num_per_page: 1,
+    cursor: '*',
+    return_query_summary: true,
+    // off-topic review bombs count too
+    filter_offtopic_activity: 0,
+  });
+  // Steam answers an error with an empty response
+  if (!summary) throw new Error('Steam gave no review summary');
+  const count = summary.total_reviews ?? 0;
+  return {
+    label: summary.review_score ? (summary.review_score_desc ?? null) : null,
+    percentPositive: count
+      ? // the store rounds down
+        Math.floor(((summary.total_positive ?? 0) / count) * 100)
+      : 0,
+    count,
   };
 }
 

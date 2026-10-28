@@ -360,8 +360,8 @@ export interface StoreItem {
 
 /** A game's reviews in short, like the store shows them. */
 export interface ReviewSummary {
-  /** like `Very Positive` */
-  label: string;
+  /** like `Very Positive`, null with too few reviews for Steam to rate */
+  label: string | null;
   percentPositive: number;
   count: number;
 }
@@ -573,7 +573,7 @@ export interface GameDetails extends StoreItem {
   shortDescription: string;
   developers: string[];
   publishers: string[];
-  /** null without enough reviews */
+  /** null when they didn't load */
   reviews: ReviewSummary | null;
   tags: StoreTag[];
   features: GameFeature[];

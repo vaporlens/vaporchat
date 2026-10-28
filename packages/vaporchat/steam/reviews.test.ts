@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getGameReviews } from './reviews.ts';
+import { getGameReviews, getReviewSummary } from './reviews.ts';
 
 const AUTHOR = '76561197960265729';
 const REVIEW = {
@@ -91,5 +91,75 @@ describe('getGameReviews', () => {
       items: [],
       next: null,
     });
+  });
+});
+
+describe('getReviewSummary', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Answers GetAppReviews with `summary`, records the requests. */
+  function stubSummary(summary: object) {
+    const asked: URL[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      asked.push(new URL(url));
+      return Response.json({
+        response: { query_summary: summary, reviews: [] },
+      });
+    });
+    return asked;
+  }
+
+  it('counts reviews in all languages, from all purchases and off-topic ones, with the rating rounded down like the store', async () => {
+    const asked = stubSummary({
+      review_score: 8,
+      review_score_desc: 'Very Positive',
+      total_positive: 1085,
+      total_negative: 75,
+      total_reviews: 1160,
+    });
+    expect(await getReviewSummary(10)).toEqual({
+      label: 'Very Positive',
+      percentPositive: 93,
+      count: 1160,
+    });
+    expect(JSON.parse(asked[0]!.searchParams.get('input_json')!)).toMatchObject(
+      {
+        appid: 10,
+        languages: ['all'],
+        purchase_type: 1,
+        return_query_summary: true,
+        filter_offtopic_activity: 0,
+      },
+    );
+  });
+
+  it('has no label for a game with too few reviews to rate, or none', async () => {
+    stubSummary({
+      review_score: 0,
+      review_score_desc: '3 user reviews',
+      total_positive: 2,
+      total_reviews: 3,
+    });
+    expect(await getReviewSummary(10)).toEqual({
+      label: null,
+      percentPositive: 66,
+      count: 3,
+    });
+    stubSummary({
+      review_score: 0,
+      review_score_desc: 'No user reviews',
+      total_positive: 0,
+      total_reviews: 0,
+    });
+    expect(await getReviewSummary(10)).toEqual({
+      label: null,
+      percentPositive: 0,
+      count: 0,
+    });
+  });
+
+  it('fails when Steam answers without a summary', async () => {
+    vi.stubGlobal('fetch', async () => Response.json({ response: {} }));
+    await expect(getReviewSummary(10)).rejects.toThrow();
   });
 });

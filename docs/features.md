@@ -133,8 +133,11 @@ its latest message, gone once the chat is read here or elsewhere; tapping one op
 
 ## Store pages and lists
 
-**Game page:** price/discount header, "Open in Steam", sharing its store link, review summary,
-players now (`ISteamUserStats/GetNumberOfCurrentPlayers`, keyless; 404 for games without a count),
+**Game page:** price/discount header, "Open in Steam", sharing its store link, review summary
+of all languages and purchases, off-topic ones too (`IUserReviewsService/GetAppReviews`
+`return_query_summary`, `filter_offtopic_activity: 0`; `GetItems` counts only Steam purchasers
+for paid games), "No reviews" or a bare count when too few to rate, players now
+(`ISteamUserStats/GetNumberOfCurrentPlayers`, keyless; 404 for games without a count),
 Overview (Early Access notice, description, facts, tags, features, links, VaporLens), Media, About
 (Early Access answers, description, system requirements), DLC & editions, Reviews, News, More like
 this.

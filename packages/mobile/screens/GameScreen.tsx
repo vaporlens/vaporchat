@@ -375,7 +375,7 @@ function ReviewsLine({
   if (!reviews && players === null) return null;
   return (
     <Text style={styles.reviews}>
-      {reviews && (
+      {reviews?.label ? (
         <>
           <Text
             style={{
@@ -387,6 +387,11 @@ function ReviewsLine({
           </Text>
           {` · ${reviews.percentPositive}% of ${reviews.count.toLocaleString()} reviews`}
         </>
+      ) : (
+        reviews &&
+        (reviews.count === 0
+          ? 'No reviews'
+          : `${reviews.count} review${reviews.count === 1 ? '' : 's'}`)
       )}
       {players !== null &&
         `${reviews ? ' · ' : ''}${players.toLocaleString()} playing`}

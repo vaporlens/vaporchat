@@ -5,13 +5,13 @@ import type {
   StoreRef,
   SystemRequirements,
 } from '../protocol.ts';
+import { getReviewSummary } from './reviews.ts';
 import { parseRichText } from './richText.ts';
 import {
   type ApiStoreItem,
   callApi,
   context,
   DATA_REQUEST,
-  toReviewSummary,
   toStoreItem,
 } from './store.ts';
 import { API_URL, ASSETS_URL, VIDEO_URL } from './web.ts';
@@ -221,7 +221,7 @@ export function toGameDetails(
   features: Map<number, GameFeature>,
   /** in the store's order */
   dlc: number[] = [],
-): GameDetails {
+): Omit<GameDetails, 'reviews'> {
   const categories = item.categories ?? {};
   // like the store page lists them: players, then controllers, then the rest
   const listed = [
@@ -240,7 +240,6 @@ export function toGameDetails(
     shortDescription: item.basic_info?.short_description ?? '',
     developers: names(item.basic_info?.developers),
     publishers: names(item.basic_info?.publishers),
-    reviews: toReviewSummary(item),
     tags: (item.tags ?? [])
       .flatMap(({ tagid }) => {
         const name = tagNames.get(tagid);
@@ -336,8 +335,11 @@ export function toGameDetails(
 }
 
 /** A game's store page: descriptions, screenshots, trailers, reviews, tags, features, editions, DLC. */
-export async function getGameDetails(appid: number, country: string) {
-  const [{ store_items = [] }, tags, features, { dlc_lists = [] }] =
+export async function getGameDetails(
+  appid: number,
+  country: string,
+): Promise<GameDetails> {
+  const [{ store_items = [] }, tags, features, { dlc_lists = [] }, reviews] =
     await Promise.all([
       callApi<{ store_items?: ApiGameDetails[] }>(
         'IStoreBrowseService/GetItems',
@@ -350,7 +352,6 @@ export async function getGameDetails(appid: number, country: string) {
             include_platforms: true,
             include_screenshots: true,
             include_trailers: true,
-            include_reviews: true,
             include_tag_count: SHOWN_TAGS,
             include_basic_info: true,
             include_full_description: true,
@@ -367,10 +368,15 @@ export async function getGameDetails(appid: number, country: string) {
         { appids: [appid], context: context(country), count: ALL_DLC },
         // the page works without it, failing just shows no DLC
       ).catch(() => ({ dlc_lists: [] })),
+      // the page works without it too
+      getReviewSummary(appid).catch(() => null),
     ]);
   const item = store_items[0];
   if (item?.success !== 1) throw new Error('This game is not in the store');
-  return toGameDetails(item, tags, features, dlc_lists[0]?.dlc_appids);
+  return {
+    ...toGameDetails(item, tags, features, dlc_lists[0]?.dlc_appids),
+    reviews,
+  };
 }
 
 /** Games like this one, as the store page's "More like this" picks them. */
