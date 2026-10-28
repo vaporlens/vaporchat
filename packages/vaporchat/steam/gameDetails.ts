@@ -86,6 +86,8 @@ interface ApiRequirements {
 
 /** What GetItems says about a game's page, besides the store item itself. */
 interface ApiGameDetails extends ApiStoreItem {
+  /** EStoreAppType: 0 game, 4 DLC… */
+  type?: number;
   release?: ApiStoreItem['release'] & { is_early_access?: boolean };
   purchase_options?: { packageid?: number; bundleid?: number }[];
   links?: { url?: string }[];
@@ -300,6 +302,7 @@ export function toGameDetails(
       )
       .flatMap(toEdition),
     dlc,
+    isDlc: item.type === 4,
     earlyAccess: item.release?.is_early_access
       ? EARLY_ACCESS_QUESTIONS.flatMap(([field, question]) => {
           const answer = parseRichText(

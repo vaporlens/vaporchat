@@ -131,6 +131,17 @@ describe('toGameDetails', () => {
     });
   });
 
+  it('tells DLC from games', () => {
+    expect(
+      toGameDetails({ success: 1, appid: 10, type: 4 }, new Map(), new Map())
+        .isDlc,
+    ).toBe(true);
+    expect(
+      toGameDetails({ success: 1, appid: 10, type: 0 }, new Map(), new Map())
+        .isDlc,
+    ).toBe(false);
+  });
+
   it('lists editions, links and requirements like the store page', () => {
     const game = toGameDetails(
       {

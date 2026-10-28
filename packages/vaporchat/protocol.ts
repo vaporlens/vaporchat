@@ -588,6 +588,8 @@ export interface GameDetails extends StoreItem {
   editions: StoreRef[];
   /** its DLC's appids, in the store's order */
   dlc: number[];
+  /** a DLC itself, Steam counts no players for those */
+  isDlc: boolean;
   /** what its developers say about Early Access, null when it isn't in Early Access */
   earlyAccess: { question: string; answer: RichBlock[] }[] | null;
   /** its website first, then its pages elsewhere (Discord, YouTube…) */

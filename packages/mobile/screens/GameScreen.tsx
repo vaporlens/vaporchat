@@ -355,13 +355,21 @@ function ReviewsLine({
   feeds,
   appid,
   reviews,
+  isDlc,
 }: {
   feeds: SteamFeeds;
   appid: number;
   reviews: ReviewSummary | null;
+  /** Steam counts no players for DLC */
+  isDlc: boolean;
 }) {
   const [players, setPlayers] = useState<number | null>(null);
   useEffect(() => {
+    if (isDlc) {
+      // details cached before `isDlc` existed may have loaded one already
+      setPlayers(null);
+      return;
+    }
     let shown = true;
     feeds
       .getCurrentPlayers(appid)
@@ -371,7 +379,7 @@ function ReviewsLine({
     return () => {
       shown = false;
     };
-  }, [feeds, appid]);
+  }, [feeds, appid, isDlc]);
   if (!reviews && players === null) return null;
   return (
     <Text style={styles.reviews}>
@@ -487,6 +495,7 @@ function Details({
         feeds={feeds}
         appid={appid}
         reviews={game.reviews}
+        isDlc={game.isDlc}
       />
       <View style={styles.bleed}>
         <SubTabs tabs={tabs} tab={tab} onChange={setTab} />
