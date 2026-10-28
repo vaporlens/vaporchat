@@ -394,6 +394,18 @@ export type StoreBrowse =
   | { kind: 'hub'; hub: StoreHub }
   | { kind: 'tag'; tag: StoreTag };
 
+/** How the Discounted list orders its deals. */
+export type SpecialsSort = 'topSellers' | 'reviews' | 'trending';
+
+/** Which deals the Discounted list shows, and in what order. */
+export interface SpecialsFilter {
+  /** percent off at least, 0 for any discount */
+  minDiscount: number;
+  /** EUserReviewScore at least, 0 for any: 7 positive, 8 very positive, 9 overwhelmingly */
+  minReviewScore: number;
+  sort: SpecialsSort;
+}
+
 /** A game the user owns, with how much they played it. */
 export interface LibraryGame extends StoreItem {
   /** all time, in minutes */

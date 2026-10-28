@@ -2,6 +2,8 @@ import type {
   FeedPage,
   ReleaseWindow,
   ReviewSummary,
+  SpecialsFilter,
+  SpecialsSort,
   StoreBrowse,
   StoreHub,
   StoreItem,
@@ -213,30 +215,61 @@ export async function getStoreItems(
   return items.map(toStoreItem);
 }
 
+// IStoreQueryService/Query's sort orders, no enum names them: worked out from what each gives
+const SPECIALS_SORTS: Record<SpecialsSort, number> = {
+  // the store's own Top Grossing menu
+  topSellers: 10,
+  // highest percent positive first
+  reviews: 21,
+  // popular releases of the last weeks
+  trending: 20,
+};
+
+export const ALL_SPECIALS: SpecialsFilter = {
+  minDiscount: 0,
+  minReviewScore: 0,
+  sort: 'topSellers',
+};
+
 /**
- * A page of the store's top discounts right now, like the Discounts & Events page. `start` is
- * the `next` of the previous page.
+ * A page of the games and DLC discounted right now, like the store's Specials page, only those
+ * `filter` lets through. `start` is the `next` of the previous page.
  */
 export async function getSpecials(
   country: string,
   start: number | null,
+  filter = ALL_SPECIALS,
 ): Promise<FeedPage<StoreItem>> {
-  // it has no offset, a page is the end of a longer list, up to about a thousand. Its order
-  // shifts a little with the length asked, so pages can repeat or skip an item
   const from = start ?? 0;
   const to = from + PAGE_SIZE;
-  const { specials = [] } = await callApi<{
-    specials?: { item?: ApiStoreItem }[];
-  }>('IStoreMarketingService/GetItemsToFeature', {
+  const minDiscount = Math.max(1, filter.minDiscount);
+  const { store_items = [], metadata } = await callApi<{
+    store_items?: ApiStoreItem[];
+    metadata?: { total_matching_records?: number };
+  }>('IStoreQueryService/Query', {
+    query: {
+      start: from,
+      count: PAGE_SIZE,
+      sort: SPECIALS_SORTS[filter.sort],
+      filters: {
+        // it gives no bundles or packages whatever is asked
+        type_filters: { include_games: true, include_dlc: true },
+        price_filters: { min_discount_percent: minDiscount },
+        ...(filter.minReviewScore && {
+          review_score_filter: { min_score: filter.minReviewScore },
+        }),
+      },
+    },
     context: context(country),
     data_request: DATA_REQUEST,
-    include_top_specials_count: to,
   });
   return {
-    items: specials
-      .slice(from)
-      .flatMap(({ item }) => (item ? [toStoreItem(item)] : [])),
-    next: specials.length >= to ? to : null,
+    items: store_items
+      .filter((item) => item.success === 1 && item.visible !== false)
+      .map(toStoreItem)
+      // it counts another edition's or a bundle's discount, the card shows the best price's
+      .filter((item) => item.discountPercent >= minDiscount),
+    next: to < (metadata?.total_matching_records ?? 0) ? to : null,
   };
 }
 

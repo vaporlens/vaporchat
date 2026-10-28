@@ -181,6 +181,16 @@ this.
   reloads the Wishlist tab. An owned game has a green "In library" in place of the wishlist button.
 
 **Lists:** Store (discounted, top sellers, Wishlist, My games, Browse), Releases and name search.
+**Discounted** shows games and DLC on sale (not bundles), filtered by three dropdowns over it
+(`mobile/screens/SpecialsHeader.tsx`): how much off (50, 75, 90% or more), how well reviewed
+(Positive or better, Very Positive or better, Overwhelmingly Positive) and the sort (best selling,
+best reviewed, new & trending). It uses `IStoreQueryService/Query`
+(`price_filters.min_discount_percent`, `review_score_filter.min_score`, `sort`;
+`vaporchat/steam/store.ts`), and each combination of filters has its own cache. The query counts
+any edition's or bundle's discount, so games whose own price is less off than asked are left out.
+Neither the method nor its `sort` values are documented: the fields come from SteamDatabase's
+protobufs, `sort` 10 from the store's own Top Grossing menu, 21 and 20 only from what they
+returned.
 **My games** cards show total playtime in the picture's badge and recent playtime or last played
 under the name (`GetOwnedGames` `playtime_forever`, `playtime_2weeks`, `rtime_last_played`).
 Games the user's Steam Family lends them follow, by name, marked "Family shared", without playtime
@@ -266,8 +276,6 @@ install (`deviceLogonId`), the library one per process.
 - Switching voice while a call rings can play the ringtone for up to a second: leaving the old
   chat reports "no voice" before the new one starts (`vaporchat/client/steamVoice.ts` `#start`).
   Fixing it also changes the audio-route reset and the service stop on every switch; undecided.
-- Discounted list paging is approximate: `GetItemsToFeature` has no offset, so pages can repeat
-  or skip (`vaporchat/steam/store.ts`).
 - Game news cards show no game name (`game: null` in `vaporchat/steam/events.ts`), fine inside a
   game page.
 - Friends' activity leaves out status changes and group announcements on purpose

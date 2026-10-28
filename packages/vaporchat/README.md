@@ -80,7 +80,7 @@ voice.connection.notices.markAllRead(); // on the account's other devices too
 // what Steam's store and client show
 const { feeds } = voice.connection;
 await feeds.getSaleEvents(); // sales running now
-await feeds.getSpecials(); // the store's top discounts; pages like news
+await feeds.getSpecials(null, { minDiscount: 50, minReviewScore: 8, sort: 'reviews' }); // games and DLC on sale, the filter optional; pages like news
 await feeds.getTopSellers(); // best selling first; pages like news
 const wishlist = await feeds.getWishlist(); // the user's, biggest discounts first; pages like news
 await feeds.getLibrary(); // the games the user owns with their playtime and last played, recently played first

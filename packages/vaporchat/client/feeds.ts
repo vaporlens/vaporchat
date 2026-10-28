@@ -2,6 +2,7 @@ import type {
   CommentThread,
   GameInterest,
   NewsSource,
+  SpecialsFilter,
   StoreBrowse,
   StoreRef,
 } from '../protocol.ts';
@@ -98,9 +99,9 @@ export class SteamFeeds {
     return getLiveSaleEvents(this.#language);
   }
 
-  /** A page of the store's top discounts. */
-  async getSpecials(start: number | null = null) {
-    return getSpecials(await this.#country(), start);
+  /** A page of the store's discounted games, only those `filter` lets through. */
+  async getSpecials(start: number | null = null, filter?: SpecialsFilter) {
+    return getSpecials(await this.#country(), start, filter);
   }
 
   /** A page of the store's top sellers, best selling first. */

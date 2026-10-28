@@ -160,6 +160,7 @@ describe('appidsFromSearch', () => {
 /**
  * Answers like the store would for a list of `total` games, appids 1 to `total` in order.
  * Search results of `bundleEvery`th place are bundles, which have no appid in their picture.
+ * Deals are 90% off, every tenth only 10% though the query matched it for a bundle's discount.
  */
 function stubStore(total: number, bundleEvery = 0) {
   const appids = Array.from({ length: total }, (_, i) => i + 1);
@@ -171,11 +172,15 @@ function stubStore(total: number, bundleEvery = 0) {
   vi.stubGlobal('fetch', async (url: string) => {
     const { searchParams } = new URL(url);
     const input = JSON.parse(searchParams.get('input_json') ?? '{}');
-    if (url.includes('GetItemsToFeature')) {
-      const count: number = input.include_top_specials_count;
+    if (url.includes('StoreQueryService/Query')) {
+      const { start, count } = input.query;
       return Response.json({
         response: {
-          specials: appids.slice(0, count).map((id) => ({ item: item(id) })),
+          metadata: { total_matching_records: total },
+          store_items: appids.slice(start, start + count).map((appid) => ({
+            ...item(appid),
+            best_purchase_option: { discount_pct: appid % 10 ? 90 : 10 },
+          })),
         },
       });
     }
@@ -214,6 +219,19 @@ describe('getSpecials', () => {
     ]);
     expect(second.items[0].appid).toBe(51);
     expect(third.next).toBeNull();
+  });
+
+  it('leaves out games less off on their own than asked, and keeps paging', async () => {
+    stubStore(120);
+    const filter = {
+      minDiscount: 50,
+      minReviewScore: 0,
+      sort: 'topSellers' as const,
+    };
+    const first = await getSpecials('US', null, filter);
+    expect(first.items).toHaveLength(45);
+    expect(first.items.every((game) => game.discountPercent >= 50)).toBe(true);
+    expect(first.next).not.toBeNull();
   });
 });
 

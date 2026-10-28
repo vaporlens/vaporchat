@@ -17,6 +17,7 @@ import type {
   SteamEvent,
   StoreItem,
 } from 'vaporchat/protocol';
+import { ALL_SPECIALS } from 'vaporchat/steam/store';
 import { KeepOpened, TopTaps } from '../components/KeepOpened';
 import { SignInPrompt } from '../components/SignInPrompt';
 import { SubTabs } from '../components/SubTabs';
@@ -27,6 +28,7 @@ import { BrowseTab } from './BrowseScreen';
 import { Feed, type Search } from './Feed';
 import { ActivityRow, EventCard, StoreItemCard } from './FeedCards';
 import type { Page } from './PageScreen';
+import { SpecialsHeader } from './SpecialsHeader';
 import { WishlistHeader } from './WishlistHeader';
 
 type FeedTab = Exclude<Tab, 'chat'>;
@@ -284,6 +286,47 @@ function Wishlist(
   );
 }
 
+/** The store's discounted games, only those the user's filters let through. */
+function Specials(
+  props: Props & { list: List<StoreItem>; header: ReactElement },
+) {
+  const [filter, setFilter] = useState(ALL_SPECIALS);
+  const list = useMemo<List<StoreItem>>(
+    () => ({
+      ...props.list,
+      // the sort only orders them
+      empty:
+        filter.minDiscount || filter.minReviewScore
+          ? 'No deals match these filters.'
+          : props.list.empty,
+      load: (feeds, next) => feeds.getSpecials(next, filter),
+    }),
+    [props.list, filter],
+  );
+  const cacheKey = `feed-discounted-${filter.minDiscount}-${filter.minReviewScore}-${filter.sort}`;
+  return (
+    <StoreItems
+      {...props}
+      // a filter shows its own cached games, not the last one's
+      key={cacheKey}
+      list={list}
+      show="discountEnds"
+      cacheKey={cacheKey}
+      header={
+        <SpecialsHeader
+          header={props.header}
+          filter={filter}
+          onFilter={(picked) => {
+            setFilter(picked);
+            // like switching lists
+            props.onCloseSearch();
+          }}
+        />
+      }
+    />
+  );
+}
+
 const Store = memo(function Store(props: Props) {
   return (
     <Lists
@@ -293,7 +336,14 @@ const Store = memo(function Store(props: Props) {
       onCloseSearch={props.onCloseSearch}
       onSearchable={props.onSearchable}
       render={(list, header, shown) =>
-        list.tab === 'wishlist' && 'load' in list ? (
+        list.tab === 'discounted' && 'load' in list ? (
+          <Specials
+            {...props}
+            searchOpen={props.searchOpen && shown}
+            list={list}
+            header={header}
+          />
+        ) : list.tab === 'wishlist' && 'load' in list ? (
           <Wishlist
             {...props}
             searchOpen={props.searchOpen && shown}
