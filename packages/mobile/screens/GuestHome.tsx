@@ -30,6 +30,7 @@ export function GuestHome({
   const insets = useSafeAreaInsets();
   const navigation = useNavigationContainerRef<Routes>();
   const [tab, setTab] = useState<Tab>('store');
+  const [topTaps, setTopTaps] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
   // tells the search button whether the list shown has a search bar
@@ -68,6 +69,7 @@ export function GuestHome({
         voice={null}
         onSignIn={onSignIn}
         tab={tab}
+        topTaps={topTaps}
         onOpenGame={openGame}
         onOpenPage={push}
         onError={showError}
@@ -85,8 +87,9 @@ export function GuestHome({
         tab={tab}
         onChange={(picked) => {
           setTab(picked);
-          // tapping the tab shown keeps it open
+          // tapping the tab shown keeps it open and scrolls its list to the top
           if (picked !== tab) setSearchOpen(false);
+          else setTopTaps(topTaps + 1);
         }}
         bottomInset={insets.bottom}
       />

@@ -17,7 +17,7 @@ import type {
   SteamEvent,
   StoreItem,
 } from 'vaporchat/protocol';
-import { KeepOpened } from '../components/KeepOpened';
+import { KeepOpened, TopTaps } from '../components/KeepOpened';
 import { SignInPrompt } from '../components/SignInPrompt';
 import { SubTabs } from '../components/SubTabs';
 import type { Tab } from '../components/TabBar';
@@ -470,23 +470,30 @@ const SCREENS: Record<FeedTab, ComponentType<Props>> = {
  */
 export const FeedTabs = memo(function FeedTabs({
   tab,
+  topTaps,
   ...props
-}: Props & { tab: Tab }) {
+}: Props & {
+  tab: Tab;
+  /** counts taps on the tab shown, its list scrolls to the top */
+  topTaps: number;
+}) {
   return (
-    <KeepOpened
-      tab={tab === 'chat' ? null : tab}
-      render={(name) => {
-        const Screen = SCREENS[name];
-        return (
-          <Screen
-            {...props}
-            searchOpen={props.searchOpen && name === tab}
-            // only the tab shown tells about its list
-            onSearchable={name === tab ? props.onSearchable : undefined}
-          />
-        );
-      }}
-    />
+    <TopTaps.Provider value={topTaps}>
+      <KeepOpened
+        tab={tab === 'chat' ? null : tab}
+        render={(name) => {
+          const Screen = SCREENS[name];
+          return (
+            <Screen
+              {...props}
+              searchOpen={props.searchOpen && name === tab}
+              // only the tab shown tells about its list
+              onSearchable={name === tab ? props.onSearchable : undefined}
+            />
+          );
+        }}
+      />
+    </TopTaps.Provider>
   );
 });
 

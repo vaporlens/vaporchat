@@ -1,5 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { type ReactElement, useCallback, useMemo, useState } from 'react';
+import {
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +26,7 @@ import { browseUrl } from 'vaporchat/steam/store';
 import { useCached } from '../cache';
 import { DetailHeader } from '../components/DetailHeader';
 import { SearchField } from '../components/Field';
+import { useScrollToTop } from '../components/KeepOpened';
 import type { IconName } from '../components/RoundButton';
 import { SearchButton } from '../components/SearchButton';
 import { SectionTitle } from '../components/SectionTitle';
@@ -95,8 +102,11 @@ export function BrowseTab({
         )),
     [tags, query, onOpenPage],
   );
+  const scroll = useRef<ScrollView>(null);
+  useScrollToTop(() => scroll.current?.scrollTo({ y: 0, animated: true }));
   return (
     <ScrollView
+      ref={scroll}
       contentContainerStyle={styles.tab}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"

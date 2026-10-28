@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import type { FeedPage } from 'vaporchat/protocol';
 import { SearchBar } from '../components/Field';
+import { useScrollToTop } from '../components/KeepOpened';
 import { matches } from '../search';
 import { colors, gridGutter } from '../theme';
 import { type Load, usePaging } from './usePaging';
@@ -125,6 +126,9 @@ export function Feed<T>({
       setSentQuery('');
     }
   }, [searchOpen]);
+  useScrollToTop(() =>
+    ref.current?.scrollToOffset({ offset: 0, animated: true }),
+  );
   // stable, rows don't render again on every letter typed
   const renderRow = useCallback(
     ({ item }: { item: T }) => renderItem(item),

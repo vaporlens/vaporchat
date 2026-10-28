@@ -130,6 +130,8 @@ export function Home({
   const [showOffline, setShowOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>('store');
+  const [topTaps, setTopTaps] = useState(0);
+  const chatList = useRef<SectionList<Row, Section>>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
   // closed, chat shows all friends and groups again
@@ -461,6 +463,7 @@ export function Home({
         feeds={voice.connection.feeds}
         voice={voice}
         tab={tab}
+        topTaps={topTaps}
         onOpenGame={openGame}
         onOpenPage={push}
         onError={showError}
@@ -479,6 +482,7 @@ export function Home({
           />
         )}
         <SectionList<Row, Section>
+          ref={chatList}
           sections={sections}
           keyExtractor={(row) => row.key}
           keyboardShouldPersistTaps="handled"
@@ -607,8 +611,13 @@ export function Home({
         tab={tab}
         onChange={(picked) => {
           setTab(picked);
-          // tapping the tab shown keeps it open
+          // tapping the tab shown keeps it open and scrolls its list to the top
           if (picked !== tab) setSearchOpen(false);
+          else if (tab === 'chat')
+            chatList.current
+              ?.getScrollResponder()
+              ?.scrollTo({ y: 0, animated: true });
+          else setTopTaps(topTaps + 1);
         }}
         bottomInset={session ? 0 : insets.bottom}
         chatUnread={unread.friends.size > 0 || unread.rooms.size > 0}
