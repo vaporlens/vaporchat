@@ -41,7 +41,7 @@ interface PersonaStateMessage {
     avatar_hash?: Uint8Array;
     /** "0" when not playing */
     gameid?: string;
-    /** 0 for non-Steam games */
+    /** 0 or a shortcut's own id for non-Steam games */
     game_played_app_id?: number;
     /** only for non-Steam games, empty for Steam's */
     game_name?: string;
@@ -83,7 +83,12 @@ function playedGame({
   game_name,
 }: NonNullable<PersonaStateMessage['friends']>[number]): PlayedGame | null {
   if (gameid === '0') return null;
-  return { appid: game_played_app_id || null, name: game_name || null };
+  // a GameID's bits 24-31 hold its type, 0 for Steam apps; shortcuts can carry an app id the store doesn't know
+  const steamApp = (BigInt(gameid ?? 0) >> 24n) % 256n === 0n;
+  return {
+    appid: (steamApp && game_played_app_id) || null,
+    name: game_name || null,
+  };
 }
 
 export function hex(bytes: Uint8Array) {

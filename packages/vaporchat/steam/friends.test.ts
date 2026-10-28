@@ -226,17 +226,19 @@ describe('FriendsList', () => {
     steam.personas(NAME, [{ friendid: ALICE, player_name: 'Alicia' }]);
     expect(list.get(ALICE).game).toEqual({ appid: 10, name: 'Some Game' });
 
-    // non-Steam games come named, without an appid
-    steam.personas(STATUS, [
-      {
-        friendid: ALICE,
-        persona_state: 1,
-        gameid: '9876543210',
-        game_played_app_id: 0,
-        game_name: 'A Shortcut',
-      },
-    ]);
-    expect(list.get(ALICE).game).toEqual({ appid: null, name: 'A Shortcut' });
+    // non-Steam games come named, any app id they carry isn't the store's
+    for (const game_played_app_id of [0, 3034873344]) {
+      steam.personas(STATUS, [
+        {
+          friendid: ALICE,
+          persona_state: 1,
+          gameid: '13034681760015712256',
+          game_played_app_id,
+          game_name: 'A Shortcut',
+        },
+      ]);
+      expect(list.get(ALICE).game).toEqual({ appid: null, name: 'A Shortcut' });
+    }
 
     steam.personas(STATUS, [
       { friendid: ALICE, persona_state: 1, gameid: '0', game_played_app_id: 0 },
