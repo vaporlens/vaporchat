@@ -407,14 +407,18 @@ function ReviewsLine({
   );
 }
 
-/** All trailers and screenshots, two to a row. */
+/** All trailers and screenshots, two to a row. An opened screenshot swipes to the others. */
 function Media({
   media,
   onOpenImage,
 }: {
   media: MediaItem[];
-  onOpenImage: (url: string) => void;
+  onOpenImage: (url: string, gallery?: string[]) => void;
 }) {
+  const screenshots = media
+    .filter((item) => !('posterUrl' in item))
+    .map((item) => item.url);
+  const openScreenshot = (url: string) => onOpenImage(url, screenshots);
   return (
     <>
       <Text style={styles.muted}>{mediaCount(media)}</Text>
@@ -424,7 +428,7 @@ function Media({
             <MediaTile
               item={item}
               style={styles.tile}
-              onOpenImage={onOpenImage}
+              onOpenImage={openScreenshot}
             />
           </View>
         ))}
@@ -450,7 +454,7 @@ function Details({
   report: Report | null;
   /** times the page was pulled to refresh, reviews and news load again each time */
   refreshes: number;
-  onOpenImage: (url: string) => void;
+  onOpenImage: (url: string, gallery?: string[]) => void;
   onOpenGame: (item: StoreItem) => void;
   onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
@@ -604,7 +608,7 @@ export function GameScreen({
   /** shown right away, the rest of the page loads */
   item: StoreItem & { appid: number };
   onBack: () => void;
-  onOpenImage: (url: string) => void;
+  onOpenImage: (url: string, gallery?: string[]) => void;
   /** a DLC, an edition or a game like it */
   onOpenGame: (item: StoreItem) => void;
   /** a news post */

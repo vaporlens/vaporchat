@@ -32,7 +32,12 @@ export const PageScreen = memo(function PageScreen({
   onOpenPage: (page: Page) => void;
   onError: (err: Error) => void;
 }) {
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<{
+    url: string;
+    gallery?: string[];
+  } | null>(null);
+  const openImage = (url: string, gallery?: string[]) =>
+    setViewing({ url, gallery });
   return (
     <>
       {page.kind === 'game' ? (
@@ -40,7 +45,7 @@ export const PageScreen = memo(function PageScreen({
           feeds={feeds}
           item={page.item}
           onBack={onBack}
-          onOpenImage={setViewing}
+          onOpenImage={openImage}
           onOpenGame={onOpenGame}
           onOpenPage={onOpenPage}
           onError={onError}
@@ -66,7 +71,7 @@ export const PageScreen = memo(function PageScreen({
           event={page.event}
           onBack={onBack}
           onOpenGame={onOpenGame}
-          onOpenImage={setViewing}
+          onOpenImage={openImage}
           onError={onError}
         />
       ) : (
@@ -75,10 +80,14 @@ export const PageScreen = memo(function PageScreen({
           event={page.event}
           onBack={onBack}
           onOpenGame={onOpenGame}
-          onOpenImage={setViewing}
+          onOpenImage={openImage}
         />
       )}
-      <ImageViewer url={viewing} onClose={() => setViewing(null)} />
+      <ImageViewer
+        url={viewing?.url ?? null}
+        gallery={viewing?.gallery}
+        onClose={() => setViewing(null)}
+      />
     </>
   );
 });
