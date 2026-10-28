@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12 (2026-10-28)
+
+- Swipe between screenshots in the viewer, and pan around a zoomed-in one.
+- Filter the Discounted list by discount and reviews, and change how it's sorted.
+- Tap the open tab again to scroll its list back to the top.
+- Count all of a game's reviews, including those from key activations, and show when a game
+  has few or no reviews.
+- Hide the player count on DLC pages, where Steam always reports zero.
+- Hide the open-game link for non-Steam games in the chat list.
+
 ## 0.11 (2026-10-27)
 
 - Show how many people are playing a game right now on its page.
