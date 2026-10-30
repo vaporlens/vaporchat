@@ -240,8 +240,9 @@ post stays in the feed until it reloads.
 
 Settings: status picker, "Stay connected" (Android), games hidden in the store, ProtonDB on game
 pages, VaporLens imports, accounts and sign-out, and a link to the source code (also under
-sign-in's password note). Region and currency follow Steam's geolocation; VaporLens prices are
-always USD.
+sign-in's password note). Signed out, Settings shows only what works without an account: the
+ProtonDB switch and the source link. Region and currency follow Steam's geolocation; VaporLens
+prices are always USD.
 
 **Signed in to vaporlens.app automatically through Steam OpenID; the Steam token never leaves for
 vaporlens.** The app signs in on Steam's OpenID page with its web session, posts the sign-in form

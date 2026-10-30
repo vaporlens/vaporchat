@@ -14,6 +14,7 @@ import { Toast } from '../components/Toast';
 import { colors } from '../theme';
 import { FeedTabs } from './FeedTabs';
 import { PageScreen } from './PageScreen';
+import { GuestSettingsScreen } from './SettingsScreen';
 import { navigationTheme, type Routes, Stack, usePages } from './stack';
 
 /**
@@ -54,7 +55,19 @@ export function GuestHome({
           shown={tab === 'chat' ? false : undefined}
           open={searchOpen}
           onPress={() => setSearchOpen(!searchOpen)}
+          style={styles.headerButton}
         />
+        <Pressable
+          onPress={() => navigation.navigate('settings')}
+          accessibilityLabel="Settings"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons name="settings-outline" size={22} color={colors.muted} />
+        </Pressable>
         <Pressable
           onPress={onSignIn}
           hitSlop={8}
@@ -116,6 +129,9 @@ export function GuestHome({
               />
             )}
           </Stack.Screen>
+          <Stack.Screen name="settings">
+            {() => <GuestSettingsScreen onBack={back} />}
+          </Stack.Screen>
         </Stack.Navigator>
       </NavigationContainer>
       <Toast message={error} onDismiss={dismissError} />
@@ -147,5 +163,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   signInText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
   pressed: { opacity: 0.6 },
 });

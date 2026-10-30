@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -169,6 +169,63 @@ function VaporlensImport() {
   );
 }
 
+/** The app's source code. */
+function About() {
+  return (
+    <>
+      <SectionTitle title="About" />
+      <View style={styles.group}>
+        <Pressable
+          onPress={() => openLink(SOURCE_URL)}
+          accessibilityRole="link"
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        >
+          <Ionicons name="logo-github" size={22} color={colors.text} />
+          <View style={styles.grow}>
+            <Text style={styles.label}>Source code</Text>
+            <Text style={styles.detail}>Vaporlens is open source</Text>
+          </View>
+          <Ionicons name="open-outline" size={18} color={colors.muted} />
+        </Pressable>
+      </View>
+    </>
+  );
+}
+
+/** Settings' header and scrolling list, around its sections. */
+function SettingsPage({
+  onBack,
+  children,
+}: {
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.screen}>
+      <DetailHeader title="Settings" onBack={onBack} />
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 16 },
+        ]}
+      >
+        {children}
+      </ScrollView>
+    </View>
+  );
+}
+
+/** Settings without an account: only what works signed out. */
+export function GuestSettingsScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <SettingsPage onBack={onBack}>
+      <GamePages />
+      <About />
+    </SettingsPage>
+  );
+}
+
 /**
  * What friends see of you, alerts in the background, games hidden in the store, ProtonDB on
  * game pages, VaporLens imports, accounts, and a link to the app's source.
@@ -192,109 +249,86 @@ export function SettingsScreen({
   onSignOut: () => void;
   onBack: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
   useEffect(() => {
     savedAccounts().then(setAccounts, () => {});
   }, []);
   return (
-    <View style={styles.screen}>
-      <DetailHeader title="Settings" onBack={onBack} />
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 16 },
-        ]}
-      >
-        <SectionTitle title="Status" />
-        <View style={styles.group}>
-          {(Object.keys(STATUSES) as MyStatus[]).map((option) => {
-            const { label, detail, color } = STATUSES[option];
-            const selected = option === status;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => onChangeStatus(option)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              >
-                <View style={[styles.dot, { backgroundColor: color }]} />
-                <View style={styles.grow}>
-                  <Text style={styles.label}>{label}</Text>
-                  <Text style={styles.detail}>{detail}</Text>
-                </View>
-                {selected && (
-                  <Ionicons name="checkmark" size={22} color={colors.accent} />
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-        {stayConnected !== null && (
-          <>
-            <SectionTitle title="Notifications" />
-            <View style={styles.group}>
-              <SwitchRow
-                label="Stay connected"
-                detail="Alerts for messages and calls while Vaporlens is in the background. Uses more battery"
-                value={stayConnected}
-                onValueChange={onChangeStayConnected}
-              />
-            </View>
-          </>
-        )}
-        <HiddenInStore />
-        <GamePages />
-        <VaporlensImport />
-        <SectionTitle title="Account" />
-        <View style={styles.group}>
-          {accounts.map((account) => (
+    <SettingsPage onBack={onBack}>
+      <SectionTitle title="Status" />
+      <View style={styles.group}>
+        {(Object.keys(STATUSES) as MyStatus[]).map((option) => {
+          const { label, detail, color } = STATUSES[option];
+          const selected = option === status;
+          return (
             <Pressable
-              key={account.steamid}
-              onPress={() => onSwitchAccount(account.steamid)}
-              accessibilityHint="Switches to this account"
+              key={option}
+              onPress={() => onChangeStatus(option)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
-              <Avatar url={account.avatarUrl} name={account.name} size={28} />
-              <Text style={[styles.label, styles.grow]} numberOfLines={1}>
-                {account.name}
-              </Text>
-              <Text style={styles.action}>Switch</Text>
+              <View style={[styles.dot, { backgroundColor: color }]} />
+              <View style={styles.grow}>
+                <Text style={styles.label}>{label}</Text>
+                <Text style={styles.detail}>{detail}</Text>
+              </View>
+              {selected && (
+                <Ionicons name="checkmark" size={22} color={colors.accent} />
+              )}
             </Pressable>
-          ))}
+          );
+        })}
+      </View>
+      {stayConnected !== null && (
+        <>
+          <SectionTitle title="Notifications" />
+          <View style={styles.group}>
+            <SwitchRow
+              label="Stay connected"
+              detail="Alerts for messages and calls while Vaporlens is in the background. Uses more battery"
+              value={stayConnected}
+              onValueChange={onChangeStayConnected}
+            />
+          </View>
+        </>
+      )}
+      <HiddenInStore />
+      <GamePages />
+      <VaporlensImport />
+      <SectionTitle title="Account" />
+      <View style={styles.group}>
+        {accounts.map((account) => (
           <Pressable
-            onPress={() => onSwitchAccount(null)}
+            key={account.steamid}
+            onPress={() => onSwitchAccount(account.steamid)}
+            accessibilityHint="Switches to this account"
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
-            <Ionicons name="person-add-outline" size={22} color={colors.text} />
-            <Text style={styles.label}>Add account</Text>
+            <Avatar url={account.avatarUrl} name={account.name} size={28} />
+            <Text style={[styles.label, styles.grow]} numberOfLines={1}>
+              {account.name}
+            </Text>
+            <Text style={styles.action}>Switch</Text>
           </Pressable>
-          <Pressable
-            onPress={onSignOut}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <Ionicons name="log-out-outline" size={22} color={colors.danger} />
-            <Text style={[styles.label, styles.danger]}>Sign out</Text>
-          </Pressable>
-        </View>
-        <SectionTitle title="About" />
-        <View style={styles.group}>
-          <Pressable
-            onPress={() => openLink(SOURCE_URL)}
-            accessibilityRole="link"
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <Ionicons name="logo-github" size={22} color={colors.text} />
-            <View style={styles.grow}>
-              <Text style={styles.label}>Source code</Text>
-              <Text style={styles.detail}>Vaporlens is open source</Text>
-            </View>
-            <Ionicons name="open-outline" size={18} color={colors.muted} />
-          </Pressable>
-        </View>
-      </ScrollView>
-    </View>
+        ))}
+        <Pressable
+          onPress={() => onSwitchAccount(null)}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        >
+          <Ionicons name="person-add-outline" size={22} color={colors.text} />
+          <Text style={styles.label}>Add account</Text>
+        </Pressable>
+        <Pressable
+          onPress={onSignOut}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        >
+          <Ionicons name="log-out-outline" size={22} color={colors.danger} />
+          <Text style={[styles.label, styles.danger]}>Sign out</Text>
+        </Pressable>
+      </View>
+      <About />
+    </SettingsPage>
   );
 }
 
