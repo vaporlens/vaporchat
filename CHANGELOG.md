@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13 (2026-10-30)
+
+- Vaporlens is open source, linked from Settings and the sign-in screen.
+- Open Settings without signing in, for the ProtonDB rating and the source link.
+
 ## 0.12 (2026-10-28)
 
 - Swipe between screenshots in the viewer, and pan around a zoomed-in one.
