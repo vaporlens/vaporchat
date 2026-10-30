@@ -9,12 +9,11 @@ separate service of ours that isn't part of this repo.
   <img src="media/captures/phone/vaporlens.png" width="200" alt="VaporLens review summary on a game page">
   <img src="media/captures/phone/voice-chat.png" width="200" alt="Chat tab during a voice call">
   <img src="media/captures/phone/game-page.png" width="200" alt="Game page">
-  <img src="media/captures/phone/releases.png" width="200" alt="New releases">
 </p>
 
 The app talks to Steam directly over the same WebSocket connection Steam's own clients use. Your
 password, messages and calls go only to Steam; see the [privacy policy](https://vaporlens.app/privacy).
-Vaporlens is not affiliated with Valve.
+Vaporlens is not affiliated with Valve. It was built with LLM assistance.
 
 ## Repository
 
@@ -22,7 +21,7 @@ npm workspaces:
 
 - [`packages/vaporchat`](packages/vaporchat/README.md): the Steam client library (login, friends,
   chat, voice over WebRTC, store APIs). Runs in React Native, browsers and Node/Bun.
-- `packages/mobile`: the Expo app.
+- [`packages/mobile`](packages/mobile): the Expo app.
 - [`packages/web`](packages/web/README.md): a browser debug harness for the library.
 
 Docs:
