@@ -58,6 +58,6 @@ The user decided against these; the notes keep the API found, in case a decision
 | Approving sign-ins or QR codes for the user | signed with the same `shared_secret` |
 | Trade and market confirmations | signed with `identity_secret`, also authenticator-only; so selling, and trades that give items away, are out too |
 | In-app checkout | no API; Steam's web checkout handles payment and 3-D Secure, and app-store rules restrict digital purchases. "Open in Steam" is the route |
-| Push and ringing while the app is closed or the screen is locked | Valve's push goes only to Valve's apps (APNs/FCM are per app). The only way is our own server holding a CM session per user with their refresh token, sending VoIP push (CallKit / ConnectionService) and our own notifications: a big security and privacy step against the "no server" decision in `docs/handoff.md` |
+| Push and ringing while the app is closed or the screen is locked | Valve's push goes only to Valve's apps (APNs/FCM are per app). The only way is our own server holding a CM session per user with their refresh token, sending VoIP push (CallKit / ConnectionService) and our own notifications: a big security and privacy step against the app's no-server design (`AGENTS.md`, Architecture) |
 | Remote Play / streaming | separate Steam Link protocol and app |
 | Game recording, overlay, performance monitor, Steam Input | PC client features |

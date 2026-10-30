@@ -1,6 +1,7 @@
 {
   "name": "vaporchat-monorepo",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "bun --hot packages/web/server.ts",

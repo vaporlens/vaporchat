@@ -1,6 +1,7 @@
 {
   "name": "vaporchat-mobile",
   "private": true,
+  "license": "MIT",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

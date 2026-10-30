@@ -2,15 +2,13 @@
 
 What to upload and fill in for Vaporlens (`org.vaporlens.Vaporlens`) on both stores, and what is
 still open. Building and uploading the binaries is in [`testflight.md`](testflight.md) and
-[`android.md`](android.md). The privacy policy both stores ask for is drafted in
-[`privacy-policy.md`](privacy-policy.md).
+[`android.md`](android.md). The privacy policy both stores ask for is at
+https://vaporlens.app/privacy.
 
 ## Open before submitting
 
-- [ ] **Privacy policy URL.** vaporlens.app has no privacy page yet (`/privacy` is a 404). Host
-      `privacy-policy.md` there and fill in its contact address.
-- [ ] **Support URL** (App Store, required) and a **contact email** (Play, required). The GitHub repo
-      is private, so it can't be either one.
+- [ ] **Support URL** (App Store, required) and a **contact email** (Play, required). The public GitHub
+      repo's issues page (https://github.com/vaporlens/vaporchat/issues) can be the support URL.
 - [ ] **Demo account for review.** Both stores need a Steam account that signs in without Steam Guard
       (reviewers can't get the code), ideally with a friend or two and a group with a voice channel.
 - [ ] **Account deletion (App Store 5.1.1(v)).** Signing in to Steam also signs the user in to
