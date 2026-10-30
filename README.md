@@ -27,8 +27,7 @@ npm workspaces:
 Docs:
 
 - [`docs/features.md`](docs/features.md): what the app does and the Steam APIs behind each feature;
-  [`features-pending.md`](docs/features-pending.md) and [`features-wont-do.md`](docs/features-wont-do.md)
-  cover the rest.
+  [`features-wont-do.md`](docs/features-wont-do.md) lists what it leaves out on purpose.
 - [`docs/ios.md`](docs/ios.md) and [`docs/android.md`](docs/android.md): building and running the
   app. Release builds: [`docs/testflight.md`](docs/testflight.md) and the end of `android.md`.
 - [`CHANGELOG.md`](CHANGELOG.md)

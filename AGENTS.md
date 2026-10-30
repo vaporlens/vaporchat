@@ -23,5 +23,5 @@ npm workspaces: `packages/vaporchat` is the Steam client library (CM connection,
 
 ## Docs
 
-- `docs/features.md`: shipped features and the Steam APIs behind each. `docs/features-pending.md` and `docs/features-wont-do.md` cover the rest.
+- `docs/features.md`: shipped features and the Steam APIs behind each. `docs/features-wont-do.md` lists gaps decided against.
 - `docs/ios.md`, `docs/android.md`: building and running the app; iOS releases in `docs/testflight.md`.

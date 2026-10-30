@@ -1,8 +1,7 @@
 # Features: won't do
 
 Gaps against Steam's own apps that stay open on purpose. Leave these out of plans and
-suggestions; reopening one is the user's call. Open gaps are in
-[`features-pending.md`](features-pending.md), what the app has in [`features.md`](features.md).
+suggestions; reopening one is the user's call. What the app has is in [`features.md`](features.md).
 
 ## Decided
 

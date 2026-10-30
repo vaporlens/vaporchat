@@ -2,8 +2,7 @@
 
 What the app does today, by area, with the Steam API behind each feature and the gotchas found
 while building it. Paths are relative to `packages/`. What is tested where lives in the
-"Verification status" table of `vaporchat/README.md`. Gaps are in
-[`features-pending.md`](features-pending.md), decided gaps in
+"Verification status" table of `vaporchat/README.md`. Gaps decided against are in
 [`features-wont-do.md`](features-wont-do.md).
 
 Vaporlens is ahead of Valve in one place: no official mobile app has voice chat. Steam Chat (last
