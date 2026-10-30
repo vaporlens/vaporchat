@@ -14,6 +14,7 @@ import type { MyStatus } from 'vaporchat/protocol';
 import { Avatar } from '../components/Avatar';
 import { DetailHeader } from '../components/DetailHeader';
 import { SectionTitle } from '../components/SectionTitle';
+import { openLink, SOURCE_URL } from '../links';
 import { useShowProtonDb } from '../protondb';
 import { colors } from '../theme';
 import { type SavedAccount, savedAccounts } from '../tokenStore';
@@ -170,7 +171,7 @@ function VaporlensImport() {
 
 /**
  * What friends see of you, alerts in the background, games hidden in the store, ProtonDB on
- * game pages, VaporLens imports, and accounts.
+ * game pages, VaporLens imports, accounts, and a link to the app's source.
  */
 export function SettingsScreen({
   status,
@@ -275,6 +276,21 @@ export function SettingsScreen({
           >
             <Ionicons name="log-out-outline" size={22} color={colors.danger} />
             <Text style={[styles.label, styles.danger]}>Sign out</Text>
+          </Pressable>
+        </View>
+        <SectionTitle title="About" />
+        <View style={styles.group}>
+          <Pressable
+            onPress={() => openLink(SOURCE_URL)}
+            accessibilityRole="link"
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <Ionicons name="logo-github" size={22} color={colors.text} />
+            <View style={styles.grow}>
+              <Text style={styles.label}>Source code</Text>
+              <Text style={styles.detail}>Vaporlens is open source</Text>
+            </View>
+            <Ionicons name="open-outline" size={18} color={colors.muted} />
           </Pressable>
         </View>
       </ScrollView>

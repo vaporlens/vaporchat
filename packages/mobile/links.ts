@@ -4,3 +4,6 @@ import { Linking } from 'react-native';
 export function openLink(url: string) {
   void Linking.openURL(url);
 }
+
+/** The app's source code on GitHub. */
+export const SOURCE_URL = 'https://github.com/vaporlens/vaporchat';

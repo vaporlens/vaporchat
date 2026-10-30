@@ -18,6 +18,7 @@ import { Field } from '../components/Field';
 import { GradientButton } from '../components/GradientButton';
 import { Logo } from '../components/Logo';
 import { useBackHandler } from '../components/useBackHandler';
+import { openLink, SOURCE_URL } from '../links';
 import { colors } from '../theme';
 
 interface GuardRequest {
@@ -207,7 +208,13 @@ export function SignIn({
             />
             <Text style={styles.footnote}>
               You sign in to Steam directly, your password goes to Steam and
-              nowhere else.
+              nowhere else.{' '}
+              <Text
+                style={styles.footnoteLink}
+                onPress={() => openLink(SOURCE_URL)}
+              >
+                Check the source code
+              </Text>
             </Text>
             {!busy && (
               <Pressable onPress={onCancel} style={styles.link}>
@@ -272,4 +279,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+  footnoteLink: { color: colors.accent },
 });
