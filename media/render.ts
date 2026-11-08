@@ -33,7 +33,7 @@ const SLIDES: Slide[] = [
   {
     name: 'voice-chat',
     capture: 'voice-chat',
-    title: ['Steam voice chat', 'on your phone'],
+    title: ['Voice chat with', 'your Steam friends'],
     subtitle: ['Join voice channels and call friends'],
     // the call controls are at the bottom
     keep: 'bottom',
@@ -47,8 +47,8 @@ const SLIDES: Slide[] = [
   {
     name: 'game-page',
     capture: 'game-page',
-    title: ['A fully native', 'Steam experience'],
-    subtitle: ['Smooth and fast, built for your phone'],
+    title: ['Game pages, built', 'for your phone'],
+    subtitle: ['Smooth, fast and native'],
   },
   {
     name: 'releases',

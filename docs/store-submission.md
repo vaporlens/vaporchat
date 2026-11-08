@@ -48,9 +48,9 @@ first.
 | # | Slide | Caption | Play alt text (max 140) |
 | --- | --- | --- | --- |
 | 1 | `vaporlens` | Game reviews at a glance | VaporLens summary of a game's Steam reviews with scores for reviews, microtransactions, mods, Linux and Steam Deck |
-| 2 | `voice-chat` | Steam voice chat on your phone | Friends list grouped by the game each friend plays, with a voice call in progress at the bottom |
+| 2 | `voice-chat` | Voice chat with your Steam friends | Friends list grouped by the game each friend plays, with a voice call in progress at the bottom |
 | 3 | `review-points` | What players love and what they don't | Lists of what players like, common complaints, gameplay and performance, summed up from reviews |
-| 4 | `game-page` | A fully native Steam experience | Steam store page for a game with its price, discount, review score, tabs and description |
+| 4 | `game-page` | Game pages, built for your phone | Steam store page for a game with its price, discount, review score, tabs and description |
 | 5 | `releases` | Find your next game | Grid of new releases on Steam with prices and discounts |
 | 6 | `events` | News and events from your games | Feed of Steam sale events with their banners and descriptions |
 
@@ -64,7 +64,7 @@ Interactive) and whatever the store lists showed on 2026-10-24.
 
 **Name** (30): `Vaporlens`
 
-**Subtitle** (30): `Native Steam companion + voice`
+**Subtitle** (30): `Game reviews & voice for Steam`
 
 **Category:** Entertainment, secondary Reference (Apple: "apps that assist the user in accessing or
 retrieving information", i.e. the review summaries and game pages).
@@ -94,7 +94,7 @@ reviews,summary,worth it,pros cons,chat,call,friends,wishlist,deals,pc gaming,li
 - Notes:
 
   ```
-  Vaporlens is an unofficial Steam companion app, not affiliated with Valve. Game review summaries come from VaporLens (vaporlens.app), our own service.
+  Vaporlens is an unofficial app for Steam, not affiliated with or endorsed by Valve. Game review summaries come from VaporLens (vaporlens.app), our own service.
 
   SIGNING IN
   Store, Releases, Feed and game pages work without signing in. Chat, voice, Wishlist and My games need a Steam account: tap "Sign in" and use the demo account above. Steam Guard is off for it, so no code is asked. The password goes only to Steam.
@@ -177,7 +177,7 @@ connected" on Android until there's push.
 
 ## Description
 
-Shared by both stores (plain text, 1761 of 4,000 characters):
+Shared by both stores (plain text, 1754 of 4,000 characters):
 
 ```
 Is this Steam game worth it? Open any game and VaporLens tells you what its Steam reviews say, in a few lines.
@@ -196,7 +196,7 @@ STEAM VOICE CHAT
 • Keep talking with the screen off, on the speaker, earpiece or a headset
 • Mute, deafen, and set each person's volume
 
-A FULLY NATIVE STEAM EXPERIENCE
+STORE, WISHLIST AND CHAT
 • Game pages with media, DLC and editions, system requirements, news and a chart of reviews over time
 • Discounts, top sellers, new releases, and browsing by hub or tag
 • Your wishlist with its categories, and your library with playtime
