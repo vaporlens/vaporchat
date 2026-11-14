@@ -87,7 +87,7 @@ await feeds.getLibrary(); // the games the user owns with their playtime and las
 await feeds.getUserApps(); // appids the user owns and wishlisted, to mark games with
 await feeds.getNewReleases(); // popular new releases, newest first; pages like news
 await feeds.getUpcoming(); // popular games coming soon; pages like news
-await feeds.searchGames('term'); // what the store finds, best matches first; pages like news
+await feeds.searchGames('term'); // names starting with it, then what the store finds; pages like news
 await feeds.getPersonalCalendar(); // releases Steam picked for the user, 3 days to a page
 await feeds.getGame(appid); // a store page: reviews, tags, features, screenshots, description, editions, Early Access, links, requirements, DLC appids
 await feeds.getSimilarGames(appid); // the store page's "More like this"
@@ -217,6 +217,7 @@ direct Steam connection; signaling is unchanged, but they haven't been re-run ov
 | Store feeds: sale events and top discounts, new releases, your news, friends' activity, paging | live (Bun) |
 | Store feeds: top sellers, upcoming, wishlist (private too), personal calendar, library, owned and wishlisted appids | live (Bun), wishlist paging not tried (bot's fits one page) |
 | Game pages; store descriptions and news posts as rich text | live (Bun) |
+| Store name search: names starting with the term, then the search page's other games, paging | live (Bun) |
 | Game pages' features and release windows, their reviews and news, paging | live (Bun) |
 | Sale event pages with their games, bundles included | live (Bun) |
 | Store feeds, game and sale pages without an account (`SteamFeeds.anonymous`) | live (Bun) |

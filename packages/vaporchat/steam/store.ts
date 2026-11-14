@@ -282,13 +282,14 @@ export function appidsFromSearch(items: { logo?: string }[]) {
 }
 
 /**
- * A page of games of a store search, `filter=topsellers` say, in the order the store gives.
- * `start` is the `next` of the previous page.
+ * A page of games of a store search, `filter=topsellers` say, in the order the store gives, but
+ * those in `skip`. `start` is the `next` of the previous page.
  */
 async function searchStore(
   query: string,
   country: string,
   start: number | null,
+  skip = new Set<number>(),
 ): Promise<FeedPage<StoreItem>> {
   const from = start ?? 0;
   const to = from + PAGE_SIZE;
@@ -297,7 +298,10 @@ async function searchStore(
       `&cc=${country}&l=english&json=1`,
   );
   return {
-    items: await getStoreItems(appidsFromSearch(items), country),
+    items: await getStoreItems(
+      appidsFromSearch(items).filter((appid) => !skip.has(appid)),
+      country,
+    ),
     next: items.length >= PAGE_SIZE ? to : null,
   };
 }
@@ -317,13 +321,61 @@ export function getTopSellers(country: string, start: number | null) {
   return searchStore('filter=topsellers', country, start);
 }
 
-/** What the store finds for `term`, best matches first, like its search page. */
-export function searchGames(
+/** The store search's first page for `query` from `start` with games left but those in `skip`. */
+async function searchPast(
+  query: string,
+  country: string,
+  start: number,
+  skip: Set<number>,
+) {
+  let found = await searchStore(query, country, start, skip);
+  // the app's paging ends at a page of nothing new
+  while (found.items.length === 0 && found.next !== null) {
+    found = await searchStore(query, country, found.next, skip);
+  }
+  return found;
+}
+
+/**
+ * The games whose names have a word starting with `term`, like the store's search box suggests,
+ * then what else its search page finds for `term`, which matches whole words only.
+ */
+export async function searchGames(
   term: string,
   country: string,
   start: number | null,
-) {
-  return searchStore(`term=${encodeURIComponent(term)}`, country, start);
+): Promise<FeedPage<StoreItem>> {
+  const from = start ?? 0;
+  const { ids = [] } = await callApi<{ ids?: StoreRef[] }>(
+    'IStoreQueryService/SearchSuggestions',
+    // it has no start, so each page asks for all names up to its end
+    {
+      search_term: term,
+      max_results: from + PAGE_SIZE,
+      context: context(country),
+    },
+  );
+  const named = ids.slice(from);
+  if (named.length === PAGE_SIZE) {
+    const items = await fetchStoreItems(named, country);
+    return { items: items.map(toStoreItem), next: from + PAGE_SIZE };
+  }
+  // short of a page, those were all the names, or the 1000 it gives at most: the search page's
+  // games follow them, but those it named already
+  const listed = ids.flatMap((ref) => ('appid' in ref ? [ref.appid] : []));
+  const [items, found] = await Promise.all([
+    fetchStoreItems(named, country),
+    searchPast(
+      `term=${encodeURIComponent(term)}`,
+      country,
+      Math.max(0, from - ids.length),
+      new Set(listed),
+    ),
+  ]);
+  return {
+    items: [...items.map(toStoreItem), ...found.items],
+    next: found.next === null ? null : ids.length + found.next,
+  };
 }
 
 // the store search's filters for each hub, games only (`category1=998`) but for demos

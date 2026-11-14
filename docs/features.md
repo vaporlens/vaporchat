@@ -180,6 +180,11 @@ this.
   reloads the Wishlist tab. An owned game has a green "In library" in place of the wishlist button.
 
 **Lists:** Store (discounted, top sellers, Wishlist, My games, Browse), Releases and name search.
+**Name search** lists the games with a word in their names starting with what was typed, like the
+store's search box suggests (`IStoreQueryService/SearchSuggestions`, at most 1000, with no start:
+each page asks for all names up to its end), then the other games the store's search page finds
+for it (`search/results/?term=`, whole words only, those names among them). Browse lists' search
+bars use the search page alone.
 **Discounted** shows games and DLC on sale (not bundles), filtered by three dropdowns over it
 (`mobile/screens/SpecialsHeader.tsx`): how much off (50, 75, 90% or more), how well reviewed
 (Positive or better, Very Positive or better, Overwhelmingly Positive) and the sort (best selling,

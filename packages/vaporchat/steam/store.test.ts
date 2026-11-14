@@ -5,6 +5,7 @@ import {
   countryFromPage,
   getSpecials,
   getTopSellers,
+  searchGames,
   toStoreItem,
 } from './store.ts';
 
@@ -176,8 +177,9 @@ describe('appidsFromSearch', () => {
  * Answers like the store would for a list of `total` games, appids 1 to `total` in order.
  * Search results of `bundleEvery`th place are bundles, which have no appid in their picture.
  * Deals are 90% off, every tenth only 10% though the query matched it for a bundle's discount.
+ * The last `named` have the searched term in their names, the search page lists those first.
  */
-function stubStore(total: number, bundleEvery = 0) {
+function stubStore(total: number, bundleEvery = 0, named = 0) {
   const appids = Array.from({ length: total }, (_, i) => i + 1);
   const item = (appid: number) => ({
     appid,
@@ -199,6 +201,16 @@ function stubStore(total: number, bundleEvery = 0) {
         },
       });
     }
+    if (url.includes('SearchSuggestions')) {
+      return Response.json({
+        response: {
+          ids: appids
+            .slice(total - named, total)
+            .slice(0, input.max_results)
+            .map((appid) => ({ appid })),
+        },
+      });
+    }
     if (url.includes('GetItems')) {
       return Response.json({
         response: {
@@ -211,12 +223,14 @@ function stubStore(total: number, bundleEvery = 0) {
     const start = Number(searchParams.get('start'));
     const count = Number(searchParams.get('count'));
     return Response.json({
-      items: appids.slice(start, start + count).map((appid) => ({
-        logo:
-          bundleEvery && appid % bundleEvery === 0
-            ? `https://example.com/steam/bundles/${appid}/capsule.jpg`
-            : `https://example.com/steam/apps/${appid}/capsule.jpg`,
-      })),
+      items: [...appids.slice(total - named), ...appids.slice(0, total - named)]
+        .slice(start, start + count)
+        .map((appid) => ({
+          logo:
+            bundleEvery && appid % bundleEvery === 0
+              ? `https://example.com/steam/bundles/${appid}/capsule.jpg`
+              : `https://example.com/steam/apps/${appid}/capsule.jpg`,
+        })),
     });
   });
 }
@@ -269,4 +283,29 @@ describe('store search lists', () => {
     expect(first.items).toHaveLength(45);
     expect(first.next).not.toBeNull();
   });
+});
+
+describe('searchGames', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  // like the app, which ends at a page of nothing new
+  async function allPages(start: number | null): Promise<number[]> {
+    const page = await searchGames('ter', 'US', start);
+    const appids = page.items.map((game) => game.appid ?? 0);
+    return page.next === null || appids.length === 0
+      ? appids
+      : [...appids, ...(await allPages(page.next))];
+  }
+
+  // names ending within a page, and on a page's end
+  it.each([30, 50])(
+    'lists %i names starting with the term, then what else the search page finds',
+    async (named) => {
+      stubStore(120, 0, named);
+      expect(await allPages(null)).toEqual([
+        ...Array.from({ length: named }, (_, i) => i + 121 - named),
+        ...Array.from({ length: 120 - named }, (_, i) => i + 1),
+      ]);
+    },
+  );
 });

@@ -163,7 +163,7 @@ export class SteamFeeds {
     return getNewReleases(await this.#country(), start);
   }
 
-  /** A page of what the store finds for `term`, best matches first. */
+  /** A page of the games named with a word starting with `term`, then what else the store finds. */
   async searchGames(term: string, start: number | null = null) {
     return searchGames(term, await this.#country(), start);
   }
