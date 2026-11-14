@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14 (2026-11-14)
+
+- Drag the handle at the edge of a long news post to jump through it, with a list of its
+  headings beside it.
+- Find games by the start of a word in their names, so a few letters are enough in search.
+- Open a game's developer, publisher or features to see their other games.
+- Select and copy text in news posts, comments, reviews and VaporLens reports.
+- Show Steam emoticons in posts and comments, and fix formatting codes showing as text in
+  some posts.
+- Show the time of each comment on news posts, and share a post's link.
+- Fix the mute button on news posts shifting the page as it appears.
+
 ## 0.13 (2026-10-30)
 
 - Vaporlens is open source, linked from Settings and the sign-in screen.
