@@ -14,6 +14,7 @@ import {
 import type { RichBlock, RichSpan, RichVideo } from 'vaporchat/protocol';
 import { openLink } from '../links';
 import { colors, imageFadeMs } from '../theme';
+import { useSection } from './FastScroll';
 import { LoopingVideo } from './LoopingVideo';
 import { useOnScreen } from './onScreen';
 
@@ -146,6 +147,28 @@ function RichImage({
   );
 }
 
+/** Labels the scroll handle over its part of the page. */
+function Heading({
+  block,
+}: {
+  block: Extract<RichBlock, { kind: 'heading' }>;
+}) {
+  const ref = useRef<Text>(null);
+  useSection(
+    ref,
+    block.spans
+      .filter((span) => !span.emoticon)
+      .map((span) => span.text)
+      .join('')
+      .trim(),
+  );
+  return (
+    <Text ref={ref} style={[styles.text, styles[`h${block.level}`]]} selectable>
+      <Spans spans={block.spans} />
+    </Text>
+  );
+}
+
 type StoreLink = Extract<RichBlock, { kind: 'storeLink' }>;
 
 function LinkRow({ url }: { url: string }) {
@@ -173,11 +196,7 @@ function Block({
 }) {
   switch (block.kind) {
     case 'heading':
-      return (
-        <Text style={[styles.text, styles[`h${block.level}`]]} selectable>
-          <Spans spans={block.spans} />
-        </Text>
-      );
+      return <Heading block={block} />;
     case 'paragraph':
       return (
         <Text style={styles.text} selectable>

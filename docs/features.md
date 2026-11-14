@@ -231,6 +231,9 @@ Emoticons typed as `:name:` or `ːnameː` show as pictures wherever Steam's rich
 comments, reviews, store and sale pages). Every tag Steam's renderer knows is read
 (`vaporchat/steam/richText.ts`); its store widgets (polls, reminders, prices, giveaways…) and media
 the app can't play are left out.
+An article over three screens tall gets a handle at its right edge in place of the scroll bar:
+dragging it moves through the article beside a list of its headings, the part it's at highlighted
+among the five before and after it (`components/FastScroll.tsx`, no Steam API).
 
 ## Feed
 

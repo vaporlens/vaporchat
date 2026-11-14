@@ -11,6 +11,7 @@ import type {
 import { useCached } from '../cache';
 import { Avatar } from '../components/Avatar';
 import { DetailPage } from '../components/DetailPage';
+import { NoSections } from '../components/FastScroll';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
 import { dateTime, fullDate } from '../format';
@@ -153,7 +154,10 @@ const Comment = memo(function Comment({
         </Text>
         <Text style={styles.muted}>{dateTime(comment.postedAt)}</Text>
       </View>
-      <RichText blocks={comment.body} onOpenImage={onOpenImage} />
+      {/* a comment's headings aren't the page's */}
+      <NoSections>
+        <RichText blocks={comment.body} onOpenImage={onOpenImage} />
+      </NoSections>
     </View>
   );
 });
@@ -234,6 +238,7 @@ export function ArticleScreen({
       onBack={onBack}
       imageUrl={event.imageUrl}
       imageRatio={16 / 9}
+      fastScroll
     >
       <Text style={styles.title}>{event.title}</Text>
       <View style={styles.links}>

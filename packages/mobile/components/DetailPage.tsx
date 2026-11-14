@@ -2,7 +2,6 @@ import { Image } from 'expo-image';
 import { type ReactNode, useState } from 'react';
 import {
   RefreshControl,
-  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -10,6 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, imageFadeMs } from '../theme';
 import { DetailHeader, useScrolledPast } from './DetailHeader';
+import { FastScrollView } from './FastScroll';
 import { useScrollWatch } from './onScreen';
 
 /** A pushed screen that scrolls: the header bar, a picture as wide as the screen, its content. */
@@ -23,6 +23,7 @@ export function DetailPage({
   imageRatio,
   titleInContent = false,
   onRefresh,
+  fastScroll,
   children,
 }: {
   title: string;
@@ -38,6 +39,8 @@ export function DetailPage({
   titleInContent?: boolean;
   /** pulling down calls it, the spinner shows until it settles */
   onRefresh?: () => Promise<void>;
+  /** long content gets a handle to drag through it, labelled with its headings */
+  fastScroll?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -55,7 +58,8 @@ export function DetailPage({
         titleShown={!titleInContent || pastImage.past}
         onBack={onBack}
       />
-      <ScrollView
+      <FastScrollView
+        fastScroll={fastScroll}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 24 },
@@ -89,7 +93,7 @@ export function DetailPage({
           )}
           {children}
         </scroll.Provider>
-      </ScrollView>
+      </FastScrollView>
     </View>
   );
 }
