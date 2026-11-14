@@ -548,7 +548,11 @@ export interface RichSpan {
   strike?: boolean;
   /** hidden until tapped */
   spoiler?: boolean;
+  /** monospaced, inline */
+  code?: boolean;
   link?: string;
+  /** an emoticon's picture shown in place of `text`, its `:name:` */
+  emoticon?: string;
 }
 
 /** A video in the formats Steam has it in, at least one: mp4 is HEVC, webm VP9. */

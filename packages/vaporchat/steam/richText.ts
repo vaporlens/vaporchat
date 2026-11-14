@@ -1,18 +1,41 @@
 import type { RichBlock, RichSpan, RichVideo } from '../protocol.ts';
-import { attributes, BARE_URL, size } from './bbcode.ts';
+import { attributes, BARE_URL, emoticonUrl, size } from './bbcode.ts';
 import { ASSETS_URL, CLAN_IMAGES_URL } from './web.ts';
 
 // `[b]`, `[/b]`, `[url=https://…]`, `[img src="…" width="600"]`, `[*]`
 const TAG = /\[(\/?)([a-zA-Z0-9*]+)((?:=|\s)[^\]]*)?\]/g;
 
-type Style = 'bold' | 'italic' | 'underline' | 'strike' | 'spoiler';
+type Style = 'bold' | 'italic' | 'underline' | 'strike' | 'spoiler' | 'code';
 const STYLES: Record<string, Style> = {
   b: 'bold',
   i: 'italic',
   u: 'underline',
   strike: 'strike',
   spoiler: 'spoiler',
+  c: 'code',
 };
+// Steam's widgets and media the app can't show, dropped with their content
+const DROPPED = [
+  'actiondialog',
+  'calendarevent',
+  'claimitem',
+  'docimg',
+  'giveawayeligible',
+  'looping_media',
+  'meetsteamscheduleview',
+  'meetsteamsessiongroup',
+  'packagepurchaseable',
+  'price',
+  'pricesavings',
+  'remindme',
+  'roomeffect',
+  'sticker',
+  'trailer',
+  'uploadfilebutton',
+  'userpolls',
+  'vod',
+  'youtubeorvideo',
+];
 // tags whose content is their value, not text
 const CONTENT_TAGS = new Set([
   'img',
@@ -20,20 +43,45 @@ const CONTENT_TAGS = new Set([
   'video',
   'dynamiclink',
   'code',
+  'noparse',
+  ...DROPPED,
 ]);
+// `:name:` or `ːnameː` in the text, like Steam's own renderer reads emoticons; names have a
+// letter, the `:30:` of a time isn't one
+const EMOTICON = /[ː:]([a-zA-Z0-9_]*[a-zA-Z][a-zA-Z0-9_]*)[ː:]/g;
+const PARTNER_URL = 'https://partner.steamgames.com/';
 // a video's id in the ways YouTube links to one
 const YOUTUBE_VIDEO =
   /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|shorts\/|embed\/)|youtu\.be\/)([\w-]+)/i;
 const STORE_APP = /^https?:\/\/store\.steampowered\.com\/app\/(\d+)/i;
-// containers that only matter to the website's layout
-const IGNORED = new Set(['carousel', 'table']);
-const BLOCKS = new Set(['p', 'h1', 'h2', 'h3', 'quote']);
+// containers that only matter to the website's layout or colors, their content shows
+const IGNORED = new Set([
+  'carousel',
+  'table',
+  'center',
+  'color',
+  'bgcolor',
+  'expand',
+  'speaker',
+]);
+const BLOCKS = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'smalltext',
+  'quote',
+  'pullquote',
+]);
 const KNOWN = new Set([
   ...Object.keys(STYLES),
   ...CONTENT_TAGS,
   ...IGNORED,
   ...BLOCKS,
   'url',
+  'doclink',
   'list',
   'olist',
   '*',
@@ -75,14 +123,25 @@ function youtube(value: string): RichBlock {
   };
 }
 
+/** The Steam client's way to open a page in the browser, a phone opens web links there itself. */
+function webUrl(url: string) {
+  return url.replace(/^steam:\/\/openurl_external\//, '');
+}
+
 /** A link on its own line, like Steam shows it: a video, a store page's game, or the link. */
-function linkBlock(url: string): RichBlock {
+function linkBlock(steamUrl: string): RichBlock {
+  const url = webUrl(steamUrl);
   const videoId = url.match(YOUTUBE_VIDEO)?.[1];
   if (videoId) return youtube(videoId);
   const appid = url.match(STORE_APP)?.[1];
   return appid
     ? { kind: 'storeLink', appid: Number(appid), url }
     : { kind: 'link', url };
+}
+
+/** `\[` is a bracket that opens no tag, `\\` a backslash; other backslashes stay, like in paths. */
+function unescaped(text: string) {
+  return text.replace(/\\([\\[])/g, '$1');
 }
 
 /** Drops the whitespace around a block's text, null when there is no text left. */
@@ -114,6 +173,7 @@ export function parseRichText(
     underline: 0,
     strike: 0,
     spoiler: 0,
+    code: 0,
   };
   const links: string[] = [];
   const lists: { ordered: boolean; count: number }[] = [];
@@ -130,7 +190,7 @@ export function parseRichText(
     flush();
     current = block;
   };
-  const append = (text: string, link = links.at(-1)) => {
+  const append = (text: string, link = links.at(-1), emoticon?: string) => {
     if (text === '') return;
     // whitespace between blocks isn't a paragraph
     if (!current && text.trim() === '') return;
@@ -140,26 +200,38 @@ export function parseRichText(
       if (styles[style] > 0) span[style] = true;
     }
     if (link) span.link = link;
+    if (emoticon) span.emoticon = emoticon;
     current.spans.push(span);
   };
-  // urls typed into the text link to themselves, unless they're in a link already
-  const appendLinked = (text: string) => {
-    if (links.length > 0) return append(text);
+  const appendEmoticons = (text: string) => {
     let index = 0;
-    for (const match of text.matchAll(BARE_URL)) {
+    for (const match of text.matchAll(EMOTICON)) {
       append(text.slice(index, match.index));
-      append(match[0], match[0]);
+      append(`:${match[1]}:`, undefined, emoticonUrl(match[1]!));
       index = match.index + match[0].length;
     }
     append(text.slice(index));
   };
-  const addText = (text: string) => {
+  // urls typed into the text link to themselves, unless they're in a link already
+  const appendLinked = (text: string) => {
+    if (links.length > 0) return appendEmoticons(text);
+    let index = 0;
+    for (const match of text.matchAll(BARE_URL)) {
+      appendEmoticons(text.slice(index, match.index));
+      append(match[0], match[0]);
+      index = match.index + match[0].length;
+    }
+    appendEmoticons(text.slice(index));
+  };
+  const addText = (raw: string) => {
+    const text = unescaped(raw);
     if (cells !== null) {
       // a table row is one line, the layout whitespace between its cells is dropped
       if (text.trim() !== '') appendLinked(text.replace(/\s*\n\s*/g, ' '));
       return;
     }
-    // a line break ends the paragraph
+    // a quote keeps its lines, elsewhere a line break ends the paragraph
+    if (current?.kind === 'quote') return appendLinked(text);
     text.split('\n').forEach((line, index) => {
       if (index > 0) flush();
       appendLinked(line);
@@ -169,6 +241,9 @@ export function parseRichText(
   let position = 0;
   for (const match of source.matchAll(TAG)) {
     if (match.index < position) continue;
+    let slashes = 0;
+    while (source[match.index - 1 - slashes] === '\\') slashes++;
+    if (slashes % 2 === 1) continue;
     const [whole, closing, rawName, rest = ''] = match;
     const name = rawName!.toLowerCase();
     if (!KNOWN.has(name)) continue;
@@ -182,7 +257,14 @@ export function parseRichText(
       if (end !== -1) position = end + name.length + 3;
       if (name === 'code') {
         flush();
-        blocks.push({ kind: 'code', text: content.replace(/^\n|\n$/g, '') });
+        blocks.push({
+          kind: 'code',
+          text: unescaped(content).replace(/^\n|\n$/g, ''),
+        });
+        continue;
+      }
+      if (name === 'noparse') {
+        append(unescaped(content));
         continue;
       }
       let block: RichBlock | null = null;
@@ -225,25 +307,50 @@ export function parseRichText(
       toggle(style);
     } else if (name === 'url') {
       if (closing) links.pop();
-      else if (attrs.value) links.push(attrs.value);
+      else if (attrs.value) links.push(webUrl(attrs.value));
       else {
         // `[url]https://…[/url]` links to its own text
         const end = source.indexOf('[/url]', position);
-        const text = source.slice(position, end === -1 ? undefined : end);
-        append(text, text.trim());
+        const text = unescaped(
+          source.slice(position, end === -1 ? undefined : end),
+        );
+        append(text, webUrl(text.trim()));
         position = end === -1 ? source.length : end + 6;
       }
+    } else if (name === 'doclink') {
+      if (closing) links.pop();
+      else links.push(`${PARTNER_URL}doc/${attrs.value ?? ''}`);
     } else if (BLOCKS.has(name)) {
       // assigned in the closures above, which narrowing doesn't see
       const item = current as TextBlock | null;
       // a table row stays one paragraph, a list item keeps its marker for the paragraph in it
       if (cells !== null) continue;
       if (!closing && item?.kind === 'listItem' && !trimmed(item)) continue;
+      // a quote's paragraphs are lines in it, like its line breaks
+      if (item?.kind === 'quote' && (name === 'p' || name === 'smalltext')) {
+        if (!closing && !item.spans.at(-1)?.text.endsWith('\n')) append('\n');
+        continue;
+      }
       if (closing) flush();
-      else if (name === 'p') start({ kind: 'paragraph', spans: [] });
-      else if (name === 'quote') start({ kind: 'quote', spans: [] });
-      else {
-        const level = Number(name[1]) as 1 | 2 | 3;
+      else if (name === 'p' || name === 'smalltext')
+        start({ kind: 'paragraph', spans: [] });
+      else if (name === 'quote' || name === 'pullquote') {
+        start({ kind: 'quote', spans: [] });
+        // who's quoted: posts say `author=name`, comments `=name with spaces;comment id`
+        const author =
+          attrs.author ??
+          (rest.startsWith('=')
+            ? rest.slice(1).replace(/^"|"$/g, '').split(';')[0]
+            : null);
+        if (author) {
+          styles.bold++;
+          append(`Originally posted by ${author}:`);
+          styles.bold--;
+          append('\n');
+        }
+      } else {
+        // h4 and h5 are as small as h3 here
+        const level = Math.min(3, Number(name[1])) as 1 | 2 | 3;
         start({ kind: 'heading', level, spans: [] });
       }
     } else if (name === 'list' || name === 'olist') {
@@ -251,6 +358,11 @@ export function parseRichText(
       if (closing) lists.pop();
       else lists.push({ ordered: name === 'olist', count: 0 });
     } else if (name === '*') {
+      // `[/*]` ends its item, the next `[*]` starts one
+      if (closing) {
+        flush();
+        continue;
+      }
       const list = lists.at(-1);
       const marker = list?.ordered ? `${++list.count}.` : '•';
       start({

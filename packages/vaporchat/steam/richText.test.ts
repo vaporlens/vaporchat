@@ -36,7 +36,7 @@ describe('parseRichText', () => {
   it('numbers ordered lists, nests lists and keeps markers of items with paragraphs', () => {
     expect(
       parseRichText(
-        '[list]\n[*]Maps[list]\n[*]New one[/list]\n[*]Items[/list][olist][*][p]Open it[/p][*]Play[/olist]',
+        '[list]\n[*]Maps[list]\n[*]New one[/list]\n[*]Items[/list][olist][*][p]Open it[/p][/*][*]Play[/*][/olist]',
       ),
     ).toEqual([
       { kind: 'listItem', depth: 0, marker: '•', spans: [{ text: 'Maps' }] },
@@ -211,6 +211,128 @@ describe('parseRichText', () => {
         ],
       },
     ]);
+  });
+
+  it('shows emoticons in either colon, not the numbers of a time', () => {
+    const emoticon = (name: string) => ({
+      text: `:${name}:`,
+      emoticon: `https://community.fastly.steamstatic.com/economy/emoticonlarge/${name}`,
+    });
+    expect(parseRichText('Nice :smile: and ːwave_2ː at 10:30:15')).toEqual([
+      {
+        kind: 'paragraph',
+        spans: [
+          { text: 'Nice ' },
+          emoticon('smile'),
+          { text: ' and ' },
+          emoticon('wave_2'),
+          { text: ' at 10:30:15' },
+        ],
+      },
+    ]);
+  });
+
+  it("reads Steam's other tags, dropping widgets the app can't show", () => {
+    expect(
+      parseRichText(
+        '[h4]Fixes[/h4][smalltext]Fine print[/smalltext][pullquote]Said so[/pullquote]' +
+          '[remindme 7][/remindme][userpolls][/userpolls][calendarevent title="x"]' +
+          '[expand title="More"][center]Type [c]/help[/c] in [color=#f00]chat[/color][/center][/expand]' +
+          ' [noparse][b]as is[/b] :smile:[/noparse] [doclink=store/page]docs[/doclink]',
+      ),
+    ).toEqual([
+      { kind: 'heading', level: 3, spans: [{ text: 'Fixes' }] },
+      { kind: 'paragraph', spans: [{ text: 'Fine print' }] },
+      { kind: 'quote', spans: [{ text: 'Said so' }] },
+      {
+        kind: 'paragraph',
+        spans: [
+          { text: 'Type ' },
+          { text: '/help', code: true },
+          { text: ' in ' },
+          { text: 'chat' },
+          { text: ' ' },
+          { text: '[b]as is[/b] :smile:' },
+          { text: ' ' },
+          {
+            text: 'docs',
+            link: 'https://partner.steamgames.com/doc/store/page',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('reads an escaped bracket as text, not a tag', () => {
+    expect(
+      parseRichText(
+        String.raw`[p]\[b]as typed\[/b] \\[i]slanted[/i] C:\Games[/p]`,
+      ),
+    ).toEqual([
+      {
+        kind: 'paragraph',
+        spans: [
+          { text: '[b]as typed[/b] \\' },
+          { text: 'slanted', italic: true },
+          { text: String.raw` C:\Games` },
+        ],
+      },
+    ]);
+    expect(
+      parseRichText(String.raw`[code]x\[0][/code][noparse]\[b][/noparse]`),
+    ).toEqual([
+      { kind: 'code', text: 'x[0]' },
+      { kind: 'paragraph', spans: [{ text: '[b]' }] },
+    ]);
+  });
+
+  it('names who a quote is from, in either way of saying it', () => {
+    const quote = (bbcode: string) => parseRichText(bbcode)[0];
+    const from = (author: string) => ({
+      kind: 'quote',
+      spans: [
+        { text: `Originally posted by ${author}:`, bold: true },
+        { text: '\n' },
+        { text: 'Hello' },
+      ],
+    });
+    expect(quote('[quote=Some One;123]Hello[/quote]')).toEqual(
+      from('Some One'),
+    );
+    expect(quote('[quote author="Some One"]Hello[/quote]')).toEqual(
+      from('Some One'),
+    );
+  });
+
+  it('keeps every line and paragraph of a quote in it', () => {
+    expect(parseRichText('[quote]First\nsecond[/quote]After')).toEqual([
+      { kind: 'quote', spans: [{ text: 'First\nsecond' }] },
+      { kind: 'paragraph', spans: [{ text: 'After' }] },
+    ]);
+    expect(parseRichText('[quote][p]One[/p][p]Two[/p][/quote]')).toEqual([
+      {
+        kind: 'quote',
+        spans: [{ text: 'One' }, { text: '\n' }, { text: 'Two' }],
+      },
+    ]);
+  });
+
+  it('opens links the Steam client sends to the browser as plain web links', () => {
+    expect(
+      parseRichText(
+        '[url="steam://openurl_external/https://example.com/a"]site[/url]',
+      ),
+    ).toEqual([
+      {
+        kind: 'paragraph',
+        spans: [{ text: 'site', link: 'https://example.com/a' }],
+      },
+    ]);
+    expect(
+      parseRichText(
+        '[dynamiclink href="steam://openurl_external/https://example.com/b"][/dynamiclink]',
+      ),
+    ).toEqual([{ kind: 'link', url: 'https://example.com/b' }]);
   });
 });
 

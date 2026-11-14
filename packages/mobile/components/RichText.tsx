@@ -2,6 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { type ReactNode, useCallback, useRef, useState } from 'react';
 import {
+  // emoticons sit inside text, like chat's
+  Image as InlineImage,
   Platform,
   Pressable,
   StyleSheet,
@@ -27,6 +29,7 @@ function spanStyle(span: RichSpan): TextStyle {
       | TextStyle['textDecorationLine']
       | undefined,
     color: span.link ? colors.accent : undefined,
+    ...(span.code && styles.inlineCode),
   };
 }
 
@@ -48,7 +51,17 @@ function Spans({ spans }: { spans: RichSpan[] }) {
     const key = `${index}`;
     const style = spanStyle(span);
     if (span.spoiler) return <Spoiler key={key} span={span} style={style} />;
-    const { link } = span;
+    const { link, emoticon } = span;
+    if (emoticon) {
+      return (
+        <InlineImage
+          key={key}
+          source={{ uri: emoticon }}
+          accessibilityLabel={span.text}
+          style={styles.emoticon}
+        />
+      );
+    }
     return (
       <Text
         key={key}
@@ -270,6 +283,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.surface,
   },
+  inlineCode: {
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+    fontSize: 13,
+    backgroundColor: colors.surface,
+  },
+  emoticon: { width: 20, height: 20 },
   spoiler: {
     color: colors.surfaceRaised,
     backgroundColor: colors.surfaceRaised,

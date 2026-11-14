@@ -220,6 +220,10 @@ Comments only carry a steamid, so names and avatars come from each author's
 `miniprofile/{accountid}/json` answers 500 after about 16 at once, for about 45 seconds.
 A `[dynamiclink]` to a YouTube video shows its frame like chat's previews, in an article one to a
 store page shows the game's card; other links stay links. Links typed into the text are tappable.
+Emoticons typed as `:name:` or `ːnameː` show as pictures wherever Steam's rich text does (posts,
+comments, reviews, store and sale pages). Every tag Steam's renderer knows is read
+(`vaporchat/steam/richText.ts`); its store widgets (polls, reminders, prices, giveaways…) and media
+the app can't play are left out.
 
 ## Feed
 
