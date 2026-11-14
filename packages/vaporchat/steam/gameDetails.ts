@@ -165,7 +165,12 @@ const getFeatures = fetchedOnce(() =>
             // the store's own names for some aren't translated
             name.startsWith('#')
               ? []
-              : [[categoryid, { name, iconUrl: STORE_STATIC_URL + icon }]],
+              : [
+                  [
+                    categoryid,
+                    { categoryid, name, iconUrl: STORE_STATIC_URL + icon },
+                  ],
+                ],
         ),
       ),
   ),
@@ -248,10 +253,12 @@ export function toGameDetails(
         return name ? [{ tagid, name }] : [];
       })
       .slice(0, SHOWN_TAGS),
-    // a few names are there twice, for different controllers
-    features: [
-      ...new Map(listed.map((feature) => [feature.name, feature])).values(),
-    ],
+    // a few names are there twice, for different controllers: steam lists the lower id first,
+    // which lists the most games
+    features: listed.filter(
+      (feature, i) =>
+        listed.findIndex(({ name }) => name === feature.name) === i,
+    ),
     screenshots: (item.screenshots?.all_ages_screenshots ?? []).flatMap(
       ({ filename }) =>
         filename

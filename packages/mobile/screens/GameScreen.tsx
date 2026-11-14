@@ -150,6 +150,38 @@ function Fact({
   );
 }
 
+/** Who made or published the game, each name opening the store's list of their games. */
+function MakerFact({
+  label,
+  kind,
+  names,
+  onOpenPage,
+}: {
+  label: string;
+  kind: 'developer' | 'publisher';
+  names: string[];
+  onOpenPage: (page: Page) => void;
+}) {
+  if (names.length === 0) return null;
+  return (
+    <Fact
+      label={label}
+      value={names.flatMap((name, i) => [
+        i > 0 && ', ',
+        <Text
+          key={name}
+          onPress={() => onOpenPage({ kind: 'browse', browse: { kind, name } })}
+          accessibilityRole="link"
+          accessibilityHint={`Shows games by this ${kind}`}
+          style={styles.factLink}
+        >
+          {name}
+        </Text>,
+      ])}
+    />
+  );
+}
+
 /** ProtonDB's verdict among the facts, opening its page; left out without reports. */
 function ProtonDbFact({ appid }: { appid: number }) {
   const load = useCallback(() => getProtonDbSummary(appid), [appid]);
@@ -188,7 +220,7 @@ function Overview({
   game: GameDetails;
   /** null when VaporLens hasn't analyzed the game (or isn't reachable) */
   report: Report | null;
-  /** a tag's games */
+  /** a tag's, maker's or feature's games */
   onOpenPage: (page: Page) => void;
 }) {
   const fit = useGameFit(appid);
@@ -205,8 +237,18 @@ function Overview({
       )}
       <View style={styles.facts}>
         <Fact label="Release date" value={releaseDate(game) ?? ''} />
-        <Fact label="Developer" value={game.developers.join(', ')} />
-        <Fact label="Publisher" value={game.publishers.join(', ')} />
+        <MakerFact
+          label="Developer"
+          kind="developer"
+          names={game.developers}
+          onOpenPage={onOpenPage}
+        />
+        <MakerFact
+          label="Publisher"
+          kind="publisher"
+          names={game.publishers}
+          onOpenPage={onOpenPage}
+        />
         <Fact
           label="Platforms"
           value={[
@@ -232,14 +274,30 @@ function Overview({
       {(game.features ?? []).length > 0 && (
         <View style={styles.features}>
           {game.features.map((feature) => (
-            <View key={feature.name} style={styles.feature}>
+            <Pressable
+              key={feature.name}
+              // pages cached before features had ids have their names only
+              disabled={feature.categoryid === undefined}
+              onPress={() =>
+                onOpenPage({
+                  kind: 'browse',
+                  browse: { kind: 'feature', feature },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityHint="Shows games with this feature"
+              style={({ pressed }) => [
+                styles.feature,
+                pressed && styles.pressed,
+              ]}
+            >
               <Image
                 source={feature.iconUrl}
                 style={styles.featureIcon}
                 tintColor={colors.muted}
               />
               <Text style={styles.featureName}>{feature.name}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       )}
@@ -719,6 +777,7 @@ const styles = StyleSheet.create({
   fact: { flexDirection: 'row', gap: 12 },
   factLabel: { width: 90, color: colors.muted, fontSize: 13 },
   factValue: { flex: 1, color: colors.text, fontSize: 13 },
+  factLink: { color: colors.accent },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   features: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   feature: {

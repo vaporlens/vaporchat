@@ -204,7 +204,9 @@ pills once they made some (`IWishlistService/GetWishlistCategories`, then
 most used first (`IStoreService/GetMostPopularTags`, searched by name in the app),
 each opening its games, most popular first: a store search by filter (`tags`, `category1=10`
 demos, `vrsupport=402`, `deck_compatibility=3`, `category1=998` for games only;
-`vaporchat/steam/store.ts`). A game page's tags open the same lists. Each list's search bar
+`vaporchat/steam/store.ts`). A game page's tags open the same lists, and so do its developers
+and publishers (`developer=`, `publisher=` by name) and its features (`category2=` the store
+category, `IStoreBrowseService/GetStoreCategories`). Each list's search bar
 searches the store within it (the filter plus `term`).
 
 **Hiding the user's games:** Settings' "Hide games in your library" and "Hide wishlisted games"

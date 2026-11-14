@@ -389,10 +389,12 @@ export interface StoreTag {
 /** The store's hubs of one kind of game. */
 export type StoreHub = 'freeToPlay' | 'demos' | 'earlyAccess' | 'vr' | 'deck';
 
-/** Games the store lists by a hub or a tag. */
+/** Games the store lists by a hub, a tag, who made or published them, or a feature they have. */
 export type StoreBrowse =
   | { kind: 'hub'; hub: StoreHub }
-  | { kind: 'tag'; tag: StoreTag };
+  | { kind: 'tag'; tag: StoreTag }
+  | { kind: 'developer' | 'publisher'; name: string }
+  | { kind: 'feature'; feature: GameFeature };
 
 /** How the Discounted list orders its deals. */
 export type SpecialsSort = 'topSellers' | 'reviews' | 'trending';
@@ -630,6 +632,8 @@ export interface Requirements {
 
 /** What a game supports, like `Single-player` or `Steam Cloud`. */
 export interface GameFeature {
+  /** the store's category, to browse its games by */
+  categoryid: number;
   name: string;
   /** steam's white icon, 52x32 */
   iconUrl: string;

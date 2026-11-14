@@ -50,9 +50,32 @@ const HUBS: { hub: StoreHub; title: string; icon: IconName }[] = [
 ];
 
 function browseTitle(browse: StoreBrowse) {
-  return browse.kind === 'tag'
-    ? browse.tag.name
-    : HUBS.find(({ hub }) => hub === browse.hub)!.title;
+  switch (browse.kind) {
+    case 'hub':
+      return HUBS.find(({ hub }) => hub === browse.hub)!.title;
+    case 'tag':
+      return browse.tag.name;
+    case 'feature':
+      return browse.feature.name;
+    default:
+      // a game's developer and publisher lists can have the same name
+      return `${browse.name} (${browse.kind})`;
+  }
+}
+
+/** Each list's own cache. */
+function browseId(browse: StoreBrowse) {
+  switch (browse.kind) {
+    case 'hub':
+      return browse.hub;
+    case 'tag':
+      return `tag-${browse.tag.tagid}`;
+    case 'feature':
+      return `feature-${browse.feature.categoryid}`;
+    default:
+      // encoded, the cache's file names keep only letters, digits, `_` and `-`
+      return `${browse.kind}-${encodeURIComponent(browse.name)}`;
+  }
 }
 
 const storeItemKey = (item: StoreItem) => item.url;
@@ -150,7 +173,7 @@ export function BrowseTab({
   );
 }
 
-/** A hub's or tag's games, most popular first, and searching them. */
+/** A hub's, tag's, maker's or feature's games, most popular first, and searching them. */
 export function BrowseScreen({
   feeds,
   browse,
@@ -185,7 +208,6 @@ export function BrowseScreen({
     ),
     [onOpenGame],
   );
-  const id = browse.kind === 'tag' ? `tag-${browse.tag.tagid}` : browse.hub;
   return (
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
       <DetailHeader
@@ -202,7 +224,7 @@ export function BrowseScreen({
         }
       />
       <Feed
-        cacheKey={`browse-${id}`}
+        cacheKey={`browse-${browseId(browse)}`}
         load={load}
         keyOf={storeItemKey}
         search={search}

@@ -337,19 +337,26 @@ const HUB_FILTERS: Record<StoreHub, string> = {
 };
 
 function browseFilter(browse: StoreBrowse) {
-  return browse.kind === 'hub'
-    ? HUB_FILTERS[browse.hub]
-    : `tags=${browse.tag.tagid}&category1=998`;
+  switch (browse.kind) {
+    case 'hub':
+      return HUB_FILTERS[browse.hub];
+    case 'tag':
+      return `tags=${browse.tag.tagid}&category1=998`;
+    case 'feature':
+      return `category2=${browse.feature.categoryid}&category1=998`;
+    default:
+      return `${browse.kind}=${encodeURIComponent(browse.name)}&category1=998`;
+  }
 }
 
-/** The store's search page listing a hub's or tag's games. */
+/** The store's search page listing a hub's, tag's, maker's or feature's games. */
 export function browseUrl(browse: StoreBrowse) {
   return `${STORE_URL}search/?${browseFilter(browse)}`;
 }
 
 /**
- * A hub's or tag's games, most popular first, like the store's search for them. With `term`,
- * those the store finds for it, best matches first.
+ * A hub's, tag's, maker's or feature's games, most popular first, like the store's search for
+ * them. With `term`, those the store finds for it, best matches first.
  */
 export function browseGames(
   browse: StoreBrowse,

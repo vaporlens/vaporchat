@@ -72,10 +72,24 @@ describe('toGameDetails', () => {
         [2, 'Indie'],
       ]),
       new Map([
-        [2, { name: 'Single-player', iconUrl: 'player.png' }],
-        [23, { name: 'Steam Cloud', iconUrl: 'cloud.png' }],
-        [57, { name: 'DualSense Controller Support', iconUrl: 'pad.png' }],
-        [58, { name: 'DualSense Controller Support', iconUrl: 'pad.png' }],
+        [2, { categoryid: 2, name: 'Single-player', iconUrl: 'player.png' }],
+        [23, { categoryid: 23, name: 'Steam Cloud', iconUrl: 'cloud.png' }],
+        [
+          57,
+          {
+            categoryid: 57,
+            name: 'DualSense Controller Support',
+            iconUrl: 'pad.png',
+          },
+        ],
+        [
+          58,
+          {
+            categoryid: 58,
+            name: 'DualSense Controller Support',
+            iconUrl: 'pad.png',
+          },
+        ],
       ]),
     );
     expect(game).toMatchObject({
@@ -87,9 +101,13 @@ describe('toGameDetails', () => {
         { tagid: 1, name: 'Puzzle' },
       ],
       features: [
-        { name: 'Single-player', iconUrl: 'player.png' },
-        { name: 'DualSense Controller Support', iconUrl: 'pad.png' },
-        { name: 'Steam Cloud', iconUrl: 'cloud.png' },
+        { categoryid: 2, name: 'Single-player', iconUrl: 'player.png' },
+        {
+          categoryid: 57,
+          name: 'DualSense Controller Support',
+          iconUrl: 'pad.png',
+        },
+        { categoryid: 23, name: 'Steam Cloud', iconUrl: 'cloud.png' },
       ],
       screenshots: [
         {

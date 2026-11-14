@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   appidsFromSearch,
+  browseUrl,
   countryFromPage,
   getSpecials,
   getTopSellers,
@@ -24,6 +25,20 @@ describe('countryFromPage', () => {
 
   it('fails on a page without one', () => {
     expect(() => countryFromPage('<html></html>')).toThrow();
+  });
+});
+
+describe('browseUrl', () => {
+  it("searches a maker's or a feature's games", () => {
+    expect(browseUrl({ kind: 'developer', name: 'Rock & Roll, Inc.' })).toBe(
+      'https://store.steampowered.com/search/?developer=Rock%20%26%20Roll%2C%20Inc.&category1=998',
+    );
+    expect(
+      browseUrl({
+        kind: 'feature',
+        feature: { categoryid: 23, name: 'Steam Cloud', iconUrl: '' },
+      }),
+    ).toBe('https://store.steampowered.com/search/?category2=23&category1=998');
   });
 });
 
