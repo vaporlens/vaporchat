@@ -26,6 +26,17 @@ export function fullDate(time: number) {
   });
 }
 
+/** `Oct 5, 2026, 2:30 PM` in the user's locale */
+export function dateTime(time: number) {
+  return new Date(time).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 /** `Oct 5` this year, `Oct 5, 2024` before. */
 export function pastDate(time: number) {
   return new Date(time).getFullYear() === new Date().getFullYear()

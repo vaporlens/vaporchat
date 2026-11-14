@@ -84,6 +84,11 @@ export class SteamFeeds {
     return this.#located;
   }
 
+  /** false for `anonymous` feeds, whose user lists reject */
+  get signedIn() {
+    return this.#user !== null;
+  }
+
   /** for the user's own lists */
   #requireUser() {
     if (!this.#user) throw new Error('Sign in to Steam to see this');

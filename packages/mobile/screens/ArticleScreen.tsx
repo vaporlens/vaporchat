@@ -13,7 +13,7 @@ import { Avatar } from '../components/Avatar';
 import { DetailPage } from '../components/DetailPage';
 import { RichText } from '../components/RichText';
 import { SectionTitle } from '../components/SectionTitle';
-import { fullDate } from '../format';
+import { dateTime, fullDate } from '../format';
 import { colors } from '../theme';
 import { LinkPreview } from './LinkPreviews';
 import { PagedList } from './PagedList';
@@ -51,8 +51,8 @@ function GameLink({
 }
 
 /**
- * Muting the game's or group's news in the user's feed, or unmuting it. Nothing signed out, or
- * until Steam said whether it's muted.
+ * Muting the game's or group's news in the user's feed, or unmuting it. Nothing signed out or when
+ * Steam can't say whether it's muted; disabled until it said, its space kept from the start.
  */
 function MuteSource({
   feeds,
@@ -69,8 +69,10 @@ function MuteSource({
       ? { kind: 'app' as const, id: event.appid }
       : { kind: 'group' as const, id: event.clanid };
   const [muted, setMuted] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState(false);
   const [changing, setChanging] = useState(false);
   useEffect(() => {
+    if (!feeds.signedIn) return;
     let shown = true;
     feeds
       .getMutedNewsSources()
@@ -83,14 +85,14 @@ function MuteSource({
             ),
           ),
       )
-      // signed out, or steam didn't say: the post shows without
-      .catch(() => {});
+      // steam didn't say: the post shows without
+      .catch(() => shown && setFailed(true));
     return () => {
       shown = false;
     };
   }, [feeds, source.kind, source.id]);
   // posts cached before groups were kept have none
-  if (muted === null || !source.id) return null;
+  if (!feeds.signedIn || failed || !source.id) return null;
 
   const change = () => {
     setChanging(true);
@@ -103,7 +105,7 @@ function MuteSource({
   const kind = event.appid !== null ? 'game' : 'group';
   return (
     <Pressable
-      disabled={changing}
+      disabled={muted === null || changing}
       onPress={change}
       accessibilityRole="button"
       accessibilityLabel={
@@ -113,7 +115,7 @@ function MuteSource({
       }
       style={({ pressed }) => [
         styles.mute,
-        (pressed || changing) && styles.pressed,
+        (pressed || changing || muted === null) && styles.pressed,
       ]}
     >
       <Ionicons
@@ -149,7 +151,7 @@ const Comment = memo(function Comment({
         <Text style={styles.author} numberOfLines={1}>
           {author}
         </Text>
-        <Text style={styles.muted}>{fullDate(comment.postedAt)}</Text>
+        <Text style={styles.muted}>{dateTime(comment.postedAt)}</Text>
       </View>
       <RichText blocks={comment.body} onOpenImage={onOpenImage} />
     </View>
@@ -228,6 +230,7 @@ export function ArticleScreen({
       title={event.game ?? 'News'}
       subtitle={fullDate(event.startsAt)}
       steamUrl={event.url}
+      shareable
       onBack={onBack}
       imageUrl={event.imageUrl}
       imageRatio={16 / 9}
@@ -262,8 +265,8 @@ export function ArticleScreen({
 
 const styles = StyleSheet.create({
   title: { color: colors.bright, fontSize: 22, fontWeight: '800' },
-  // the game's link and muting it, side by side
-  links: { flexDirection: 'row', gap: 8 },
+  // the game's link and muting it, side by side; muting stays right while the game loads
+  links: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   game: {
     flex: 1,
     flexDirection: 'row',
