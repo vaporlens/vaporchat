@@ -57,7 +57,9 @@ export function InfoSheet({
         </View>
         <ScrollView>
           {typeof shown?.body === 'string' ? (
-            <Text style={styles.body}>{shown.body}</Text>
+            <Text style={styles.body} selectable>
+              {shown.body}
+            </Text>
           ) : (
             shown?.body
           )}

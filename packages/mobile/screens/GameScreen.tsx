@@ -233,7 +233,9 @@ function Overview({
         <EarlyAccessNotice answered={game.earlyAccess.length > 0} />
       )}
       {game.shortDescription !== '' && (
-        <Text style={styles.lead}>{game.shortDescription}</Text>
+        <Text style={styles.lead} selectable>
+          {game.shortDescription}
+        </Text>
       )}
       <View style={styles.facts}>
         <Fact label="Release date" value={releaseDate(game) ?? ''} />

@@ -19,12 +19,20 @@ export function InfoDetails({
 }) {
   return (
     <View style={styles.details}>
-      {lead ? <Text style={styles.lead}>{lead}</Text> : null}
+      {lead ? (
+        <Text style={styles.lead} selectable>
+          {lead}
+        </Text>
+      ) : null}
       {sections.map(({ label, text, tiles }, index) =>
         text?.length || tiles?.length ? (
           <View key={label ?? index} style={styles.section}>
             {label && <SectionTitle title={label} />}
-            {text ? <Text style={styles.text}>{text}</Text> : null}
+            {text ? (
+              <Text style={styles.text} selectable>
+                {text}
+              </Text>
+            ) : null}
             {tiles?.length ? (
               <View style={styles.tiles}>
                 {tiles.map((tile) => (

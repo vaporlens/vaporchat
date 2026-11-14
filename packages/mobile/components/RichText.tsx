@@ -174,13 +174,13 @@ function Block({
   switch (block.kind) {
     case 'heading':
       return (
-        <Text style={[styles.text, styles[`h${block.level}`]]}>
+        <Text style={[styles.text, styles[`h${block.level}`]]} selectable>
           <Spans spans={block.spans} />
         </Text>
       );
     case 'paragraph':
       return (
-        <Text style={styles.text}>
+        <Text style={styles.text} selectable>
           <Spans spans={block.spans} />
         </Text>
       );
@@ -188,7 +188,7 @@ function Block({
       return (
         <View style={[styles.item, { paddingLeft: block.depth * 18 }]}>
           <Text style={[styles.text, styles.marker]}>{block.marker}</Text>
-          <Text style={[styles.text, styles.grow]}>
+          <Text style={[styles.text, styles.grow]} selectable>
             <Spans spans={block.spans} />
           </Text>
         </View>
@@ -196,13 +196,17 @@ function Block({
     case 'quote':
       return (
         <View style={styles.quote}>
-          <Text style={[styles.text, styles.quoteText]}>
+          <Text style={[styles.text, styles.quoteText]} selectable>
             <Spans spans={block.spans} />
           </Text>
         </View>
       );
     case 'code':
-      return <Text style={styles.code}>{block.text}</Text>;
+      return (
+        <Text style={styles.code} selectable>
+          {block.text}
+        </Text>
+      );
     case 'image':
       return <RichImage block={block} onOpenImage={onOpenImage} />;
     case 'youtube':

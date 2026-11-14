@@ -153,7 +153,9 @@ export function VaporlensReport({
           {report.summary.map((line) => (
             <View key={line} style={styles.bullet}>
               <Text style={styles.summary}>•</Text>
-              <Text style={[styles.summary, styles.grow]}>{line}</Text>
+              <Text style={[styles.summary, styles.grow]} selectable>
+                {line}
+              </Text>
             </View>
           ))}
         </View>
